@@ -239,6 +239,101 @@ release artifacts synchronized before the final delivery window.
 
 ---
 
+## Phase 11: Handbook Formal Experiments - Final Model Evidence (Priority: P1)
+
+**Source**: `开发手册_V2.md` chapters 5, 7, 9, 12, and 15.
+
+**Goal**: Convert the current validated pipeline into formal experiment evidence that
+can support final model-selection claims in the report and defense.
+
+**Independent Test**: Confirm `artifacts/reports/model_freeze_decision.md` cites
+completed EfficientNetV2-S fold metrics, full comparison results, BUSI external
+evaluation, threshold choice, and exact commands/configs used.
+
+### Validation for Formal Experiment Work (REQUIRED)
+
+- [ ] T057 [P] [US1] Verify formal experiment prerequisites and record dataset/checkpoint availability in `artifacts/reports/formal_experiment_prerequisites.md`
+- [ ] T058 [P] [US1] Add a formal-run command checklist for 5-fold training and comparison in `artifacts/reports/formal_experiment_commands.md`
+
+### Implementation for Formal Experiment Work
+
+- [ ] T059 [US1] Run EfficientNetV2-S 5-fold training and save metrics/checkpoints under `artifacts/reports/train_cls_efficientnetv2_s_fold{fold}.json` and `artifacts/checkpoints/efficientnetv2_s_fold{fold}.pt`
+- [ ] T060 [US1] Run the full handbook comparison with `configs/classifier/comparison.yml` and update `artifacts/reports/comparison_results.json`
+- [ ] T061 [US1] Run BUSI evaluation for the frozen final classifier or ensemble and save `artifacts/reports/busi_eval_final.json`
+- [ ] T062 [US1] Write the final model and threshold freeze decision in `artifacts/reports/model_freeze_decision.md`
+
+**Checkpoint**: User Story 1 should have real long-run evidence, not only smoke
+validation, before claiming EfficientNetV2-S is the best model.
+
+---
+
+## Phase 12: Handbook Formal Visual Review - Explainability Evidence (Priority: P2)
+
+**Source**: `开发手册_V2.md` chapters 8, 10, and 15.
+
+**Goal**: Produce final visual examples and human review notes that show lesion
+localization and Grad-CAM outputs are understandable and not misleading.
+
+**Independent Test**: Confirm `artifacts/reports/visual_evidence_review.md` lists
+reviewed benign and malignant cases, expected lesion area, Grad-CAM plausibility,
+and any failure/missing-output reason.
+
+### Validation for Formal Visual Review (REQUIRED)
+
+- [ ] T063 [P] [US2] Export final benign/malignant visual examples into `artifacts/reports/visual_evidence_final/README.md`
+- [ ] T064 [P] [US2] Record segmentation and Grad-CAM plausibility review notes in `artifacts/reports/visual_evidence_review.md`
+
+### Implementation for Formal Visual Review
+
+- [ ] T065 [US2] Select final representative BUSI/BUSBRA cases and document sample IDs in `artifacts/reports/final_visual_cases.md`
+- [ ] T066 [US2] Capture report-ready original, lesion overlay, and heatmap figure index in `artifacts/reports/final_figures.md`
+
+**Checkpoint**: User Story 2 should have final visual evidence ready for report
+screenshots and defense explanation.
+
+---
+
+## Phase 13: Handbook Release Candidate Freeze (Priority: P3)
+
+**Source**: `开发手册_V2.md` chapters 11, 12, and 15.
+
+**Goal**: Freeze the runnable release candidate with final configs, final checkpoints,
+checksums, batch export, and packaged-demo validation.
+
+**Independent Test**: Launch the packaged demo from the frozen release assets and
+record the result in `artifacts/reports/final_packaged_demo.md`.
+
+### Validation for Release Candidate Freeze (REQUIRED)
+
+- [ ] T067 [P] [US3] Validate final runtime config and checkpoint references in `configs/inference/demo.yml` and `artifacts/reports/release_v1_manifest.md`
+- [ ] T068 [P] [US3] Run final batch inference export and save `artifacts/reports/batch_inference_final.csv`
+
+### Implementation for Release Candidate Freeze
+
+- [ ] T069 [US3] Export final release assets and SHA-256 manifest into `artifacts/release_v1/` and `artifacts/reports/release_v1_manifest.md`
+- [ ] T070 [US3] Run packaged demo smoke from final release assets and record evidence in `artifacts/reports/final_packaged_demo.md`
+- [ ] T071 [US3] Complete the live Chinese UI rehearsal checklist in `artifacts/reports/demo_rehearsal.md`
+
+**Checkpoint**: User Story 3 should be frozen as a repeatable demo package suitable
+for handoff, presentation, and offline recovery.
+
+---
+
+## Phase 14: Handbook Report And Defense Package
+
+**Source**: `开发手册_V2.md` chapters 9, 12, and 15.
+
+**Purpose**: Turn the final experiment outputs into report tables, presentation
+talking points, and final handoff notes.
+
+- [ ] T072 [P] Convert final comparison, BUSI, threshold, and segmentation outputs into report-ready tables in `artifacts/reports/report_tables.md`
+- [ ] T073 [P] Draft report/PPT outline and defense talking points in `artifacts/reports/defense_outline.md`
+- [ ] T074 [P] Prepare likely defense Q&A based on model choice, data leakage, metrics, Grad-CAM, and limitations in `artifacts/reports/defense_qa.md`
+- [ ] T075 Create final handoff checklist with commands, artifacts, risks, and owners in `artifacts/reports/final_handoff.md`
+- [ ] T076 Run final full validation after release freeze and update `artifacts/reports/final_validation.md` and `specs/001-breast-ultrasound-cad/tasks.md`
+
+---
+
 ## Dependencies & Execution Order
 
 ### Phase Dependencies
@@ -253,6 +348,10 @@ release artifacts synchronized before the final delivery window.
 - **Handbook Visual Evidence (Phase 8)**: Depends on Phase 7 model decisions for backbone-specific Grad-CAM checks
 - **Handbook Release Readiness (Phase 9)**: Depends on Phase 7 runtime weights and Phase 8 visual evidence behavior
 - **Final Handbook Evidence Freeze (Phase 10)**: Depends on Phases 7-9 completion
+- **Formal Model Evidence (Phase 11)**: Depends on Phase 10 and requires GPU/runtime availability for long experiments
+- **Formal Visual Review (Phase 12)**: Depends on Phase 11 frozen or candidate weights
+- **Release Candidate Freeze (Phase 13)**: Depends on Phase 11 final weights and Phase 12 final visual evidence behavior
+- **Report And Defense Package (Phase 14)**: Depends on Phases 11-13 final evidence
 
 ### User Story Dependencies
 
@@ -262,6 +361,9 @@ release artifacts synchronized before the final delivery window.
 - **Handbook follow-up US1**: Prioritize first because model-selection evidence drives report claims and final runtime weights
 - **Handbook follow-up US2**: Run after the selected classifier backbone is stable so Grad-CAM targets match the real model
 - **Handbook follow-up US3**: Run after model and visual evidence are frozen so release assets are reproducible
+- **Formal evidence US1**: Must complete before report claims about EfficientNetV2-S superiority
+- **Formal evidence US2**: Must complete before final screenshots and explainability defense
+- **Formal evidence US3**: Must complete before final packaged demo and handoff
 
 ### Within Each User Story
 
@@ -282,6 +384,10 @@ release artifacts synchronized before the final delivery window.
 - `T041` and `T042` can run in parallel before visual-evidence hardening tasks
 - `T047` and `T048` can run in parallel before release implementation tasks
 - `T054` and `T055` can run in parallel once Phases 7-9 have produced evidence
+- `T057` and `T058` can run in parallel before long formal experiments
+- `T063` and `T064` can run in parallel once final checkpoints are available
+- `T067` and `T068` can run in parallel before final release export
+- `T072`, `T073`, and `T074` can run in parallel after final metrics and visuals are frozen
 
 ---
 
@@ -319,6 +425,14 @@ Task: "Add metric and threshold-analysis validation in tests/unit/test_metrics.p
 Task: "Add Grad-CAM target-layer resolution tests in tests/unit/test_gradcam_targets.py"
 ```
 
+## Parallel Example: Formal Delivery Work
+
+```bash
+Task: "Verify formal experiment prerequisites and record dataset/checkpoint availability in artifacts/reports/formal_experiment_prerequisites.md"
+Task: "Add a formal-run command checklist for 5-fold training and comparison in artifacts/reports/formal_experiment_commands.md"
+Task: "Draft report/PPT outline and defense talking points in artifacts/reports/defense_outline.md"
+```
+
 ---
 
 ## Implementation Strategy
@@ -339,6 +453,7 @@ Task: "Add Grad-CAM target-layer resolution tests in tests/unit/test_gradcam_tar
 4. Add User Story 3 to expose the flow through the UI and packaging
 5. Finish with Phase 6 for regression coverage and final evidence capture
 6. Continue with the handbook follow-up phases: model evidence, visual evidence hardening, release readiness, and final evidence freeze
+7. Finish with formal handbook delivery phases: long-run experiments, visual review, release candidate freeze, report/defense package
 
 ### Parallel Team Strategy
 
@@ -355,4 +470,4 @@ Task: "Add Grad-CAM target-layer resolution tests in tests/unit/test_gradcam_tar
 - Validation/report tasks are included for every user story
 - User Story 1 is the recommended MVP scope
 - User Story 3 is intentionally scheduled after core model work to preserve demo stability
-- The next executable scope is Phase 7 because the initial MVP is complete and the handbook now prioritizes model-quality evidence
+- The next executable scope is Phase 11 because the implementation and smoke evidence are complete, while formal long-run evidence and defense assets remain open

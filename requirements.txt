@@ -9,7 +9,7 @@ timm
 segmentation_models_pytorch
 tqdm
 tensorboard
-pytorch-grad-cam
+grad-cam
 gradio
 PyInstaller
 pytest

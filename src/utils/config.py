@@ -21,6 +21,35 @@ def save_yaml(path: str | Path, data: Mapping[str, Any]) -> None:
         yaml.safe_dump(dict(data), handle, sort_keys=False, allow_unicode=True)
 
 
+def resolve_config_reference(config_path: str | Path, reference: str | Path) -> Path:
+    config_file = Path(config_path).resolve()
+    reference_path = Path(reference)
+    candidates = []
+    if reference_path.is_absolute():
+        candidates.append(reference_path)
+    else:
+        candidates.append((config_file.parent / reference_path).resolve())
+        candidates.append((Path(__file__).resolve().parents[2] / reference_path).resolve())
+
+    for candidate in candidates:
+        if candidate.exists():
+            return candidate
+
+    if reference_path.name == "paths.local.yml":
+        example_reference = reference_path.with_name("paths.example.yml")
+        example_candidates = []
+        if example_reference.is_absolute():
+            example_candidates.append(example_reference)
+        else:
+            example_candidates.append((config_file.parent / example_reference).resolve())
+            example_candidates.append((Path(__file__).resolve().parents[2] / example_reference).resolve())
+        for candidate in example_candidates:
+            if candidate.exists():
+                return candidate
+
+    return candidates[0]
+
+
 def deep_merge(base: dict[str, Any], override: Mapping[str, Any]) -> dict[str, Any]:
     merged = dict(base)
     for key, value in override.items():
@@ -39,7 +68,7 @@ def load_project_config(config_path: str | Path) -> tuple[dict[str, Any], Projec
     config = load_yaml(config_path)
     paths_config = config.get("paths_config")
     if paths_config:
-        paths_mapping = load_yaml(Path(config_path).resolve().parent / paths_config)
+        paths_mapping = load_yaml(resolve_config_reference(config_path, paths_config))
     else:
         paths_mapping = {}
     paths = ProjectPaths.from_mapping(paths_mapping, config_path=config_path)

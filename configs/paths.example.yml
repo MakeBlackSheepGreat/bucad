@@ -1,4 +1,4 @@
-project_root: .
+project_root: ..
 datasets:
   busbra_root: ./训练集/BUSBRA
   busi_root: ./测试集/Dataset_BUSI_with_GT

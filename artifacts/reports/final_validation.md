@@ -2,21 +2,68 @@
 
 Date: 2026-04-23
 
-## Completed Validation
+## Environment
+
+- Validation executed in Conda environment `BUCAD`
+- Python `3.11.15`
+- OS `Windows 10`
+- CUDA available: `True`
+- GPU: `NVIDIA GeForce RTX 5060 Laptop GPU`
+
+Note: the plan and quickstart were originally written for Python 3.10, but this final validation was completed on Python 3.11.15 per the current local environment decision on 2026-04-23.
+
+## Quickstart Validation
+
+The following commands were executed successfully in the current environment:
 
 - `python check_env.py`
 - `python check_all.py`
-- `pytest tests/unit/test_config.py tests/unit/test_metrics.py tests/unit/test_results.py tests/smoke/test_case_split.py tests/smoke/test_single_image_inference.py tests/smoke/test_visual_evidence.py tests/integration/test_busi_eval.py tests/integration/test_visual_exports.py tests/integration/test_packaged_demo.py -q`
-- `pytest tests/smoke/test_gradio_flow.py ... -q` was executed as part of the larger suite and skipped cleanly because `gradio` is not installed in the current environment.
+- `python scripts\make_split.py --config configs\paths.local.yml`
+- `python scripts\train_cls.py --config configs\classifier\baseline.yml --fold 1 --epochs 1`
+- `python scripts\train_seg.py --config configs\segmenter\unet.yml --fold 1 --epochs 1`
+- `python scripts\eval_busi.py --config configs\inference\demo.yml`
+- Source Gradio smoke: `build_app().launch(prevent_thread_lock=True, server_name='127.0.0.1', server_port=7861, share=False)` then closed cleanly
+- `pyinstaller packaging\demo.spec --noconfirm`
+- `python scripts\export_demo_assets.py --config configs\paths.local.yml --output-dir dist\bucad-demo`
+- Packaged demo smoke: `dist\bucad-demo\bucad-demo.exe` stayed alive for 20 seconds with no stderr after exporting runtime configs and checkpoints into `dist\bucad-demo`
 
-## Current Results
+## Automated Regression Status
 
-- `15 passed, 1 skipped` in the current validation suite.
-- Core foundation, inference, visual evidence, export, and packaging scaffolds are implemented.
-- `check_all.py` passes in the current environment for required dependencies and the local smoke/unit subset.
+- Full test suite result: `18 passed in 9.39s`
 
-## Remaining Blockers For Full Quickstart Validation
+## Metrics And Outputs
 
-- `torch`, `torchvision`, `opencv-python`, `timm`, `segmentation_models_pytorch`, and `gradio` are not installed in the current Python environment.
-- Because of the missing runtime stack, the full training quickstart, end-to-end Gradio launch, and PyInstaller bundle execution could not be completed yet.
-- `T032` remains open until the `BUCAD` Conda environment is populated and the full quickstart flow is executed with real checkpoints.
+- BUSBRA split generation:
+  - samples: `1875`
+  - unique cases: `1064`
+  - folds: `5`
+  - leakage detected: `false`
+- Classifier fold 1 smoke training:
+  - checkpoint: `artifacts/checkpoints/classifier_fold1.pt`
+  - validation AUC: `0.8062`
+  - validation sensitivity: `0.4098`
+  - validation specificity: `0.9051`
+  - validation accuracy: `0.7440`
+- Segmenter fold 1 smoke training:
+  - checkpoint: `artifacts/checkpoints/segmenter_fold1.pt`
+  - validation Dice: `0.8100`
+- BUSI external evaluation:
+  - report: `artifacts/reports/busi_eval.json`
+  - sample count: `647`
+  - AUC: `0.7564`
+  - sensitivity: `0.6095`
+  - specificity: `0.8009`
+  - accuracy: `0.7388`
+- Single-image demo evidence:
+  - input: `BUSI/malignant/malignant (1).png` from the local evaluation dataset root
+  - report: `artifacts/reports/demo_single_image/diagnosis.json`
+  - generated visuals:
+    - `artifacts/reports/demo_single_image/original.png`
+    - `artifacts/reports/demo_single_image/lesion_overlay.png`
+    - `artifacts/reports/demo_single_image/explanation.png`
+
+## Observations
+
+- The end-to-end system now completes classification, lesion overlay generation, explanation overlay generation, Gradio launch, and packaged demo launch in the validated environment.
+- The real single-image demo run produced a complete response with both visualization outputs, but the sampled malignant BUSI image `malignant (1).png` was classified as benign with malignant probability `0.3769`. This is acceptable for smoke validation, but it reinforces that the prototype is not clinically reliable and must remain an auxiliary demo system only.
+- Packaging required runtime asset export into `dist\bucad-demo` so the executable could resolve `configs/inference/demo.yml` and the trained checkpoints from the packaged working directory. The quickstart and README were updated to match this validated flow.

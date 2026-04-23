@@ -136,7 +136,7 @@ across all user stories.
 
 - [X] T030 [P] Update operator documentation in `README.md` and `specs/001-breast-ultrasound-cad/quickstart.md`
 - [X] T031 [P] Add unit coverage for shared helpers in `tests/unit/test_config.py`, `tests/unit/test_metrics.py`, and `tests/unit/test_results.py`
-- [ ] T032 Run the full quickstart and final demo validation, then save evidence in `artifacts/reports/final_validation.md`
+- [X] T032 Run the full quickstart and final demo validation, then save evidence in `artifacts/reports/final_validation.md`
 
 ---
 

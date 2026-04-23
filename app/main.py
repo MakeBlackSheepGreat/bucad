@@ -1,15 +1,17 @@
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 
+if __package__ is None or __package__ == "":
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+import gradio as gr
+
 from src.engine.inference import BreastUltrasoundInferenceService
-from src.utils.runtime import optional_import
 
 from app.components.result_panels import diagnosis_markdown
 from app.components.status_panels import status_markdown, warnings_markdown
-
-
-gr = optional_import("gradio")
 
 
 def analyze_upload(
@@ -37,9 +39,6 @@ def analyze_upload(
 
 
 def build_app(config_path: str | Path = "configs/inference/demo.yml"):
-    if gr is None:
-        raise RuntimeError("Gradio is not installed. Install requirements before launching the UI.")
-
     service = BreastUltrasoundInferenceService.from_config(config_path)
     with gr.Blocks(title="BUCAD Demo") as demo:
         gr.Markdown("# BUCAD Breast Ultrasound CAD")

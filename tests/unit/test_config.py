@@ -3,7 +3,7 @@ from __future__ import annotations
 import shutil
 from pathlib import Path
 
-from src.utils.config import deep_merge, load_yaml, save_yaml
+from src.utils.config import deep_merge, load_project_config, load_yaml, save_yaml
 
 
 TEST_ROOT = Path("artifacts/test-workspace/test_unit_config")
@@ -22,3 +22,31 @@ def test_yaml_round_trip() -> None:
 def test_deep_merge_preserves_nested_values() -> None:
     merged = deep_merge({"a": 1, "nested": {"b": 2}}, {"nested": {"c": 3}})
     assert merged == {"a": 1, "nested": {"b": 2, "c": 3}}
+
+
+def test_load_project_config_resolves_paths_relative_to_paths_file() -> None:
+    shutil.rmtree(TEST_ROOT, ignore_errors=True)
+    config_root = TEST_ROOT / "demo-project"
+    (config_root / "configs" / "classifier").mkdir(parents=True, exist_ok=True)
+    (config_root / "datasets" / "BUSBRA").mkdir(parents=True, exist_ok=True)
+    (config_root / "datasets" / "BUSI").mkdir(parents=True, exist_ok=True)
+
+    paths_path = config_root / "configs" / "paths.local.yml"
+    save_yaml(
+        paths_path,
+        {
+            "project_root": "..",
+            "datasets": {
+                "busbra_root": "./datasets/BUSBRA",
+                "busi_root": "./datasets/BUSI",
+            },
+        },
+    )
+    config_path = config_root / "configs" / "classifier" / "baseline.yml"
+    save_yaml(config_path, {"paths_config": "../paths.local.yml"})
+
+    _, paths = load_project_config(config_path)
+
+    assert paths.project_root == config_root.resolve()
+    assert paths.busbra_root == (config_root / "datasets" / "BUSBRA").resolve()
+    assert paths.busi_root == (config_root / "datasets" / "BUSI").resolve()

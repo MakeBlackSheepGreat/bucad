@@ -1,13 +1,21 @@
 # -*- mode: python ; coding: utf-8 -*-
+from pathlib import Path
+from PyInstaller.utils.hooks import collect_data_files
 
 block_cipher = None
+project_root = Path(SPEC).resolve().parents[1]
+package_datas = (
+    collect_data_files('gradio', include_py_files=True)
+    + collect_data_files('safehttpx')
+    + collect_data_files('groovy')
+)
 
 a = Analysis(
-    ['app/main.py'],
-    pathex=[],
+    [str(project_root / 'app' / 'main.py')],
+    pathex=[str(project_root)],
     binaries=[],
-    datas=[('configs', 'configs')],
-    hiddenimports=[],
+    datas=[(str(project_root / 'configs'), 'configs')] + package_datas,
+    hiddenimports=['gradio'],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],

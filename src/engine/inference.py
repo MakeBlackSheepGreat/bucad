@@ -122,8 +122,24 @@ class BreastUltrasoundInferenceService:
             wrapped = UnexpectedRuntimeError(str(exc))
             return InferenceResponse(status="unexpected_runtime_error", input_filename=filename, result=None, warnings=[str(wrapped)])
 
-    def _model_identifier(self) -> str:
+    def _resolved_classifier_checkpoint(self) -> str | None:
         checkpoint = self.runtime_config.get("classifier_checkpoint")
+        if checkpoint:
+            return str(checkpoint)
+        if self.paths is not None and self.paths.default_classifier_ckpt.exists():
+            return str(self.paths.default_classifier_ckpt)
+        return None
+
+    def _resolved_segmenter_checkpoint(self) -> str | None:
+        checkpoint = self.runtime_config.get("segmenter_checkpoint")
+        if checkpoint:
+            return str(checkpoint)
+        if self.paths is not None and self.paths.default_segmenter_ckpt.exists():
+            return str(self.paths.default_segmenter_ckpt)
+        return None
+
+    def _model_identifier(self) -> str:
+        checkpoint = self._resolved_classifier_checkpoint()
         if checkpoint:
             return Path(checkpoint).name
         return str(self.runtime_config.get("classifier_model", "unknown"))
@@ -133,7 +149,7 @@ class BreastUltrasoundInferenceService:
             benign, malignant = self.classifier_predictor(image)
             return float(benign), float(malignant)
 
-        checkpoint = self.runtime_config.get("classifier_checkpoint")
+        checkpoint = self._resolved_classifier_checkpoint()
         if not checkpoint:
             raise ClassificationUnavailableError("No classifier checkpoint is configured.")
         if torch is None:
@@ -198,7 +214,7 @@ class BreastUltrasoundInferenceService:
             response.status = "partial"
 
     def _predict_segmentation(self, image: np.ndarray) -> np.ndarray:
-        checkpoint = self.runtime_config.get("segmenter_checkpoint")
+        checkpoint = self._resolved_segmenter_checkpoint()
         if not checkpoint or not self.runtime_config.get("segmentation_enabled", True):
             raise OptionalOutputUnavailableError("Segmentation weights are not available.")
         if torch is None:

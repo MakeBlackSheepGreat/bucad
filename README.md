@@ -46,6 +46,13 @@ python scripts\eval_busi.py --config configs\inference\demo.yml
 python app\main.py
 ```
 
+7. Build a distributable demo bundle:
+
+```powershell
+pyinstaller packaging\demo.spec --noconfirm
+python scripts\export_demo_assets.py --config configs\paths.local.yml --output-dir dist\bucad-demo
+```
+
 ## Repository Layout
 
 - `configs/`: YAML configuration files.

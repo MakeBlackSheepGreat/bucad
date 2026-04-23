@@ -27,7 +27,8 @@ def validate_suffix(path: str | Path) -> None:
 def _read_with_cv2(path: Path, grayscale: bool) -> np.ndarray:
     require_dependency("cv2", cv2)
     flag = cv2.IMREAD_GRAYSCALE if grayscale else cv2.IMREAD_COLOR
-    image = cv2.imread(str(path), flag)
+    buffer = np.fromfile(path, dtype=np.uint8)
+    image = cv2.imdecode(buffer, flag)
     if image is None:
         raise InvalidInputError(f"Unable to read image: {path}")
     if not grayscale:
@@ -72,7 +73,11 @@ def save_image(path: str | Path, image: np.ndarray) -> Path:
         array = image
         if image.ndim == 3:
             array = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
-        cv2.imwrite(str(output_path), array)
+        suffix = output_path.suffix or ".png"
+        ok, encoded = cv2.imencode(suffix, array)
+        if not ok:
+            raise InvalidInputError(f"Unable to encode image for saving: {output_path}")
+        encoded.tofile(output_path)
         return output_path
     if PIL_Image is not None:
         PIL_Image.fromarray(image).save(output_path)

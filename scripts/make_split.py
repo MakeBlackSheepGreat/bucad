@@ -1,6 +1,11 @@
 from __future__ import annotations
 
 import argparse
+import sys
+from pathlib import Path
+
+if __package__ is None or __package__ == "":
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from src.datasets.busbra import generate_busbra_split_assignments, load_busbra_manifest
 from src.utils.config import load_yaml

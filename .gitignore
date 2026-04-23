@@ -1,0 +1,69 @@
+# 数据（绝对不要传）
+data/
+训练集/
+测试集/
+*.png
+*.jpg
+*.dcm
+*.nii
+*.npz
+*.docx
+
+# 模型权重太大
+*.pt
+*.pth
+*.ckpt
+artifacts/checkpoints/
+
+# Python 缓存
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+
+# 本地环境
+.env
+.vscode/
+.idea/
+
+# 日志
+artifacts/logs/
+*.log
+
+# 系统
+Thumbs.db
+.DS_Store
+
+# 其他
+基于超声影像的乳腺肿瘤良恶性分类辅助诊断系统设计.txt
+Design of a Computer-Aided Diagnostic System for Classifying Benign and Malignant Breast Tumors Based on Ultrasound Imaging.txt
+code/check_all.py
+code/check_env.py
+归档文件/比赛技术文档.md
+归档文件/测试集.zip
+归档文件/竞赛选题指导.md
+归档文件/开发计划.md
+归档文件/开发手册.md
+归档文件/赛题1_基于超声影像的乳腺肿瘤良恶性诊断算法设计.pdf
+归档文件/项目文档.md
+归档文件/训练集.zip
+归档文件/医学影像技术专业本科人才培养方案.pdf
+.gitignore
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+dist/
+build/
+*.egg-info/
+.venv/
+venv/
+artifacts/test-workspace/
+artifacts/pytest-tmp/
+pytest-cache-files-*/
+configs/paths.local.yml
+artifacts/demo_assets/
+artifacts/reports/*.csv
+artifacts/reports/*.json
+artifacts/reports/demo_single_image/
+artifacts/reports/packaged_demo_*.txt

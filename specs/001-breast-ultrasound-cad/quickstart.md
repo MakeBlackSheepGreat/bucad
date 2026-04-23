@@ -93,7 +93,7 @@ Validation target:
 
 ```powershell
 pyinstaller packaging\demo.spec --noconfirm
-python scripts\export_demo_assets.py --config configs\paths.local.yml
+python scripts\export_demo_assets.py --config configs\paths.local.yml --output-dir dist\bucad-demo
 ```
 
 Validation target:

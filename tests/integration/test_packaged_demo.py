@@ -10,6 +10,12 @@ def test_demo_asset_export_creates_expected_layout() -> None:
     root = Path("artifacts/test-workspace/test_packaged_demo")
     shutil.rmtree(root, ignore_errors=True)
     root.mkdir(parents=True, exist_ok=True)
+    (root / "configs" / "inference").mkdir(parents=True, exist_ok=True)
+    (root / "configs" / "inference" / "demo.yml").write_text("paths_config: paths.local.yml\n", encoding="utf-8")
+    checkpoints_dir = root / "artifacts" / "checkpoints"
+    checkpoints_dir.mkdir(parents=True, exist_ok=True)
+    (checkpoints_dir / "classifier.pt").write_bytes(b"classifier")
+    (checkpoints_dir / "segmenter.pt").write_bytes(b"segmenter")
     config_path = root / "paths.local.yml"
     config_path.write_text(
         "\n".join(
@@ -34,4 +40,7 @@ def test_demo_asset_export_creates_expected_layout() -> None:
     output_dir = export_demo_assets(config_path, root / "bundle")
 
     assert (output_dir / "configs" / "paths.local.yml").exists()
+    assert (output_dir / "configs" / "inference" / "demo.yml").exists()
+    assert (output_dir / "artifacts" / "checkpoints" / "classifier.pt").exists()
+    assert (output_dir / "artifacts" / "checkpoints" / "segmenter.pt").exists()
     assert Path("packaging/demo.spec").exists()

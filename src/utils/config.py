@@ -68,8 +68,10 @@ def load_project_config(config_path: str | Path) -> tuple[dict[str, Any], Projec
     config = load_yaml(config_path)
     paths_config = config.get("paths_config")
     if paths_config:
-        paths_mapping = load_yaml(resolve_config_reference(config_path, paths_config))
+        resolved_paths_config = resolve_config_reference(config_path, paths_config)
+        paths_mapping = load_yaml(resolved_paths_config)
     else:
+        resolved_paths_config = config_path
         paths_mapping = {}
-    paths = ProjectPaths.from_mapping(paths_mapping, config_path=config_path)
+    paths = ProjectPaths.from_mapping(paths_mapping, config_path=resolved_paths_config)
     return config, paths

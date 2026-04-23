@@ -8,6 +8,8 @@ data/
 *.nii
 *.npz
 *.docx
+!artifacts/reports/documents/
+!artifacts/reports/documents/*.docx
 
 # 模型权重太大
 *.pt

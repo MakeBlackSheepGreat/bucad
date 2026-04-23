@@ -13,3 +13,5 @@ grad-cam
 gradio
 PyInstaller
 pytest
+python-docx
+reportlab

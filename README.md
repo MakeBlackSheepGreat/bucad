@@ -66,7 +66,18 @@ python scripts\export_visual_evidence.py --config configs\inference\demo.yml --o
 python scripts\batch_infer.py --config configs\inference\demo.yml --input-dir 测试集\Dataset_BUSI_with_GT\malignant --output artifacts\reports\batch_inference.csv
 ```
 
-8. Build a distributable demo bundle:
+8. Export readable DOCX/PDF report documents:
+
+```powershell
+python scripts\export_report_documents.py --reports-dir artifacts\reports --output-dir artifacts\reports\documents
+```
+
+The exporter summarizes the core Markdown and JSON reports into
+`artifacts\reports\documents\bucad_report_summary.docx` and
+`artifacts\reports\documents\bucad_report_summary.pdf` for review, archiving,
+and defense preparation.
+
+9. Build a distributable demo bundle:
 
 ```powershell
 pyinstaller packaging\demo.spec --noconfirm

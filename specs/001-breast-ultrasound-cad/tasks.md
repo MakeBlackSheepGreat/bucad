@@ -331,6 +331,8 @@ talking points, and final handoff notes.
 - [ ] T074 [P] Prepare likely defense Q&A based on model choice, data leakage, metrics, Grad-CAM, and limitations in `artifacts/reports/defense_qa.md`
 - [ ] T075 Create final handoff checklist with commands, artifacts, risks, and owners in `artifacts/reports/final_handoff.md`
 - [ ] T076 Run final full validation after release freeze and update `artifacts/reports/final_validation.md` and `specs/001-breast-ultrasound-cad/tasks.md`
+- [X] T077 [P] Add readable DOCX/PDF report export support in `src/utils/document_reports.py` and `scripts/export_report_documents.py`
+- [X] T078 [P] Document and validate report document export in `README.md`, `specs/001-breast-ultrasound-cad/quickstart.md`, and `tests/integration/test_report_documents.py`
 
 ---
 

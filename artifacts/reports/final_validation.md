@@ -29,7 +29,7 @@ The following commands were executed successfully in the current environment:
 
 ## Automated Regression Status
 
-- Full test suite result: `18 passed in 9.39s`
+- Full test suite result after report document export work: `32 passed in 9.11s`
 
 ## Metrics And Outputs
 
@@ -81,3 +81,14 @@ Date: 2026-04-23
   - `python scripts\eval_busi.py --config configs\inference\demo.yml`
 - BUSI threshold analysis generated `artifacts/reports/threshold_analysis.md` with best Youden threshold `0.50`.
 - Full model-selection claims still require the long comparison run with `--epochs 20` or the final agreed epoch budget before report submission.
+
+## Report Document Export Validation
+
+Date: 2026-04-23
+
+- Added readable DOCX/PDF report export through `scripts\export_report_documents.py`.
+- Generated `artifacts\reports\documents\bucad_report_summary.docx` for editable report review.
+- Generated `artifacts\reports\documents\bucad_report_summary.pdf` for direct reading, handoff, and defense preparation.
+- Rendered PDF pages with PyMuPDF for visual spot-checking because `pdftoppm` and `soffice` were not available on this Windows environment.
+- Automated validation completed with `python -m pytest tests\integration\test_report_documents.py`: `2 passed`.
+- Full regression completed with `python -m pytest tests\unit tests\smoke tests\integration`: `32 passed in 9.11s`.

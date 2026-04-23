@@ -128,7 +128,19 @@ Validation target:
 - visual examples are saved beside `artifacts\reports\visual_evidence_review.md`
 - batch CSV contains filename, probabilities, final label, status, and warnings
 
-## 10. Package the Demo
+## 10. Export Readable Report Documents
+
+```powershell
+python scripts\export_report_documents.py --reports-dir artifacts\reports --output-dir artifacts\reports\documents
+```
+
+Validation target:
+
+- `artifacts\reports\documents\bucad_report_summary.docx` is generated for editable report review
+- `artifacts\reports\documents\bucad_report_summary.pdf` is generated for direct reading and handoff
+- Markdown reports and JSON metrics are summarized with readable headings, tables, and page numbers
+
+## 11. Package the Demo
 
 ```powershell
 pyinstaller packaging\demo.spec --noconfirm
@@ -143,7 +155,7 @@ Validation target:
 - `artifacts\release_v1\release_v1.sha256` and
   `artifacts\reports\release_v1_manifest.md` are generated for handoff checks
 
-## 11. Minimum Demo Checklist
+## 12. Minimum Demo Checklist
 
 - Single-image upload works
 - Diagnosis result is understandable without terminal output

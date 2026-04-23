@@ -40,22 +40,30 @@ def analyze_upload(
 
 def build_app(config_path: str | Path = "configs/inference/demo.yml"):
     service = BreastUltrasoundInferenceService.from_config(config_path)
-    with gr.Blocks(title="BUCAD Demo") as demo:
-        gr.Markdown("# BUCAD Breast Ultrasound CAD")
+    with gr.Blocks(title="BUCAD 乳腺超声智能辅助诊断系统") as demo:
+        gr.Markdown(
+            "\n".join(
+                [
+                    "# BUCAD 乳腺超声智能辅助诊断系统",
+                    "上传一张乳腺超声图像，系统将输出良恶性概率、病灶定位叠加图和模型关注热力图。",
+                    "> 本系统仅用于辅助分析，不能替代医生诊断。",
+                ]
+            )
+        )
         with gr.Row():
-            image_input = gr.Image(type="numpy", label="Upload Breast Ultrasound Image")
+            image_input = gr.Image(type="numpy", label="上传乳腺超声图像")
             with gr.Column():
-                threshold = gr.Slider(0.1, 0.9, value=0.5, step=0.01, label="Decision threshold")
-                need_segmentation = gr.Checkbox(value=True, label="Need lesion localization")
-                need_explanation = gr.Checkbox(value=True, label="Need explanation map")
-                analyze_button = gr.Button("Analyze")
+                threshold = gr.Slider(0.1, 0.9, value=0.5, step=0.01, label="恶性判定阈值")
+                need_segmentation = gr.Checkbox(value=True, label="生成病灶定位图")
+                need_explanation = gr.Checkbox(value=True, label="生成解释热力图")
+                analyze_button = gr.Button("开始分析")
 
         status_output = gr.Markdown()
         diagnosis_output = gr.Markdown()
         with gr.Row():
-            original_output = gr.Image(label="Original", type="numpy")
-            lesion_output = gr.Image(label="Lesion Overlay", type="numpy")
-            explanation_output = gr.Image(label="Explanation", type="numpy")
+            original_output = gr.Image(label="原始图像", type="numpy")
+            lesion_output = gr.Image(label="病灶定位叠加图", type="numpy")
+            explanation_output = gr.Image(label="模型解释热力图", type="numpy")
         warning_output = gr.Markdown()
 
         analyze_button.click(

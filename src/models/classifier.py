@@ -47,6 +47,9 @@ def create_classifier(
 ):
     require_dependency("torch", torch)
     require_dependency("torch.nn", nn)
+    normalized_name = model_name.lower()
+    if normalized_name in {"basic_cnn", "tiny_cnn"}:
+        return TinyCNNClassifier(in_chans=in_chans, num_classes=num_classes)
     if timm is not None:
         return timm.create_model(
             model_name,
@@ -71,7 +74,7 @@ def load_classifier(
     )
     if checkpoint_path is not None and Path(checkpoint_path).exists():
         state = torch.load(checkpoint_path, map_location=map_location)
-        state_dict = state.get("state_dict", state)
+        state_dict = state.get("state_dict", state.get("model", state))
         model.load_state_dict(state_dict, strict=False)
     return model
 
@@ -90,8 +93,15 @@ def classifier_probabilities(model, batch, *, device: str = "cpu"):
 
 
 def resolve_gradcam_target_layer(model) -> Any | None:
-    for candidate in ("layer4", "features", "backbone"):
+    for candidate in ("layer4", "features", "blocks", "conv_head", "backbone"):
         layer = getattr(model, candidate, None)
         if layer is not None:
-            return layer[-1] if hasattr(layer, "__getitem__") else layer
+            if candidate == "backbone":
+                nested = resolve_gradcam_target_layer(layer)
+                if nested is not None:
+                    return nested
+            try:
+                return layer[-1] if hasattr(layer, "__getitem__") and len(layer) > 0 else layer
+            except TypeError:
+                return layer
     return None

@@ -67,3 +67,17 @@ The following commands were executed successfully in the current environment:
 - The end-to-end system now completes classification, lesion overlay generation, explanation overlay generation, Gradio launch, and packaged demo launch in the validated environment.
 - The real single-image demo run produced a complete response with both visualization outputs, but the sampled malignant BUSI image `malignant (1).png` was classified as benign with malignant probability `0.3769`. This is acceptable for smoke validation, but it reinforces that the prototype is not clinically reliable and must remain an auxiliary demo system only.
 - Packaging required runtime asset export into `dist\bucad-demo` so the executable could resolve `configs/inference/demo.yml` and the trained checkpoints from the packaged working directory. The quickstart and README were updated to match this validated flow.
+
+## Handbook Follow-up Validation
+
+Date: 2026-04-23
+
+- Added handbook follow-up implementation paths for EfficientNetV2-S, comparison experiments, threshold analysis, visual evidence export, release manifests, and batch inference.
+- Automated regression after handbook follow-up: `30 passed in 9.28s`.
+- Handbook smoke commands completed:
+  - `python scripts\run_comparison.py --config configs\classifier\comparison.yml --fold 1 --model-limit 1 --dry-run`
+  - `python scripts\export_demo_assets.py --config configs\paths.local.yml --output-dir artifacts\release_v1`
+  - `python scripts\export_visual_evidence.py --config configs\inference\demo.yml --output-dir artifacts\reports\visual_evidence --limit 1`
+  - `python scripts\eval_busi.py --config configs\inference\demo.yml`
+- BUSI threshold analysis generated `artifacts/reports/threshold_analysis.md` with best Youden threshold `0.50`.
+- Full model-selection claims still require the long comparison run with `--epochs 20` or the final agreed epoch budget before report submission.

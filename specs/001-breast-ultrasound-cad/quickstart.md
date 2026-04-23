@@ -74,8 +74,35 @@ Validation target:
 - BUSI is loaded as evaluation-only data
 - AUC, Sensitivity, Specificity, and confusion values are written to
   `artifacts\reports\`
+- threshold sweep evidence is written to `artifacts\reports\threshold_analysis.md`
 
-## 7. Launch the Diagnostic Demo
+## 7. Run Handbook Model Evidence
+
+Use the handbook main model config for the final candidate classifier:
+
+```powershell
+python scripts\train_cls.py --config configs\classifier\efficientnetv2_s.yml --fold 1
+```
+
+Run a fast comparison smoke check before launching long experiments:
+
+```powershell
+python scripts\run_comparison.py --config configs\classifier\comparison.yml --fold 1 --model-limit 1 --dry-run
+```
+
+For final report evidence, run the full comparison with the selected epoch budget:
+
+```powershell
+python scripts\run_comparison.py --config configs\classifier\comparison.yml --fold 1 --epochs 20
+```
+
+Validation target:
+
+- `artifacts\reports\comparison_results.json` records model names, metrics, runtime,
+  fold, config path, and BUSBRA/BUSI boundary evidence
+- EfficientNetV2-S is compared against the handbook baseline models on the same split
+
+## 8. Launch the Diagnostic Demo
 
 ```powershell
 python app\main.py
@@ -89,11 +116,23 @@ Validation target:
 - if segmentation or explanation weights are absent, the UI still returns the core
   diagnosis with a visible warning
 
-## 8. Package the Demo
+## 9. Export Visual Evidence And Batch Results
+
+```powershell
+python scripts\export_visual_evidence.py --config configs\inference\demo.yml --output-dir artifacts\reports\visual_evidence --limit 6
+python scripts\batch_infer.py --config configs\inference\demo.yml --input-dir 测试集\Dataset_BUSI_with_GT\malignant --output artifacts\reports\batch_inference.csv
+```
+
+Validation target:
+
+- visual examples are saved beside `artifacts\reports\visual_evidence_review.md`
+- batch CSV contains filename, probabilities, final label, status, and warnings
+
+## 10. Package the Demo
 
 ```powershell
 pyinstaller packaging\demo.spec --noconfirm
-python scripts\export_demo_assets.py --config configs\paths.local.yml --output-dir dist\bucad-demo
+python scripts\export_demo_assets.py --config configs\paths.local.yml --output-dir artifacts\release_v1
 ```
 
 Validation target:
@@ -101,8 +140,10 @@ Validation target:
 - packaged output is created in `dist/`
 - packaged app can access required configs and model assets from the packaged layout
 - packaged run preserves the same single-image diagnostic flow as the local script run
+- `artifacts\release_v1\release_v1.sha256` and
+  `artifacts\reports\release_v1_manifest.md` are generated for handoff checks
 
-## 9. Minimum Demo Checklist
+## 11. Minimum Demo Checklist
 
 - Single-image upload works
 - Diagnosis result is understandable without terminal output

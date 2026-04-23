@@ -22,8 +22,8 @@ from src.explain.overlay import render_heatmap_overlay, render_mask_overlay
 from src.preprocess.io import ensure_three_channels, read_image, validate_image_array
 from src.preprocess.transforms import prepare_classifier_input
 from src.utils.config import load_project_config
-from src.utils.metrics import classification_metrics
-from src.utils.reporting import write_json_report
+from src.utils.metrics import best_threshold_by_youden, classification_metrics, threshold_sweep
+from src.utils.reporting import write_json_report, write_markdown_report
 from src.utils.results import InferenceResponse, build_diagnostic_result
 from src.utils.runtime import optional_import
 
@@ -55,6 +55,7 @@ class BreastUltrasoundInferenceService:
         self.segmenter_predictor = segmenter_predictor
         self.explanation_generator = explanation_generator
         self._classifier_model = None
+        self._classifier_models = None
         self._segmenter_model = None
 
     @classmethod
@@ -123,12 +124,19 @@ class BreastUltrasoundInferenceService:
             return InferenceResponse(status="unexpected_runtime_error", input_filename=filename, result=None, warnings=[str(wrapped)])
 
     def _resolved_classifier_checkpoint(self) -> str | None:
+        checkpoints = self._resolved_classifier_checkpoints()
+        return checkpoints[0] if checkpoints else None
+
+    def _resolved_classifier_checkpoints(self) -> list[str]:
+        checkpoint_list = self.runtime_config.get("classifier_checkpoints")
+        if isinstance(checkpoint_list, list) and checkpoint_list:
+            return [str(checkpoint) for checkpoint in checkpoint_list if checkpoint]
         checkpoint = self.runtime_config.get("classifier_checkpoint")
         if checkpoint:
-            return str(checkpoint)
+            return [str(checkpoint)]
         if self.paths is not None and self.paths.default_classifier_ckpt.exists():
-            return str(self.paths.default_classifier_ckpt)
-        return None
+            return [str(self.paths.default_classifier_ckpt)]
+        return []
 
     def _resolved_segmenter_checkpoint(self) -> str | None:
         checkpoint = self.runtime_config.get("segmenter_checkpoint")
@@ -139,9 +147,11 @@ class BreastUltrasoundInferenceService:
         return None
 
     def _model_identifier(self) -> str:
-        checkpoint = self._resolved_classifier_checkpoint()
-        if checkpoint:
-            return Path(checkpoint).name
+        checkpoints = self._resolved_classifier_checkpoints()
+        if len(checkpoints) > 1:
+            return "ensemble:" + ",".join(Path(checkpoint).name for checkpoint in checkpoints)
+        if checkpoints:
+            return Path(checkpoints[0]).name
         return str(self.runtime_config.get("classifier_model", "unknown"))
 
     def _predict_classification(self, image: np.ndarray) -> tuple[float, float]:
@@ -149,32 +159,42 @@ class BreastUltrasoundInferenceService:
             benign, malignant = self.classifier_predictor(image)
             return float(benign), float(malignant)
 
-        checkpoint = self._resolved_classifier_checkpoint()
-        if not checkpoint:
+        checkpoints = self._resolved_classifier_checkpoints()
+        if not checkpoints:
             raise ClassificationUnavailableError("No classifier checkpoint is configured.")
         if torch is None:
             raise ClassificationUnavailableError("Torch is not available in the current environment.")
 
-        if self._classifier_model is None:
+        if self._classifier_models is None:
             model_config = {
                 "name": self.runtime_config.get("classifier_model", "resnet18"),
                 "pretrained": bool(self.runtime_config.get("classifier_pretrained", False)),
                 "in_chans": 3,
                 "num_classes": 2,
             }
-            self._classifier_model = load_classifier(
-                model_config,
-                checkpoint_path=checkpoint,
-                map_location="cpu",
-            )
-            self._classifier_model.eval()
+            self._classifier_models = []
+            for checkpoint in checkpoints:
+                model = load_classifier(
+                    model_config,
+                    checkpoint_path=checkpoint,
+                    map_location="cpu",
+                )
+                model.eval()
+                self._classifier_models.append(model)
+            self._classifier_model = self._classifier_models[0]
 
         input_tensor = prepare_classifier_input(
-            image, int(self.runtime_config.get("classifier_image_size", 224))
+            image,
+            int(self.runtime_config.get("classifier_image_size", 224)),
+            apply_clahe_enabled=bool(self.runtime_config.get("classifier_apply_clahe", False)),
         )
         if not hasattr(input_tensor, "unsqueeze"):
             raise ClassificationUnavailableError("Torch tensor conversion failed for classifier input.")
-        probs = classifier_probabilities(self._classifier_model, input_tensor, device="cpu")[0]
+        ensemble_probs = [
+            classifier_probabilities(model, input_tensor, device="cpu")[0]
+            for model in self._classifier_models
+        ]
+        probs = np.mean(np.asarray(ensemble_probs, dtype=np.float32), axis=0)
         return float(probs[0]), float(probs[1])
 
     def _attach_optional_visuals(
@@ -249,7 +269,9 @@ class BreastUltrasoundInferenceService:
         if self._classifier_model is None:
             raise OptionalOutputUnavailableError("Classifier model is not loaded for explanation.")
         input_tensor = prepare_classifier_input(
-            image, int(self.runtime_config.get("classifier_image_size", 224))
+            image,
+            int(self.runtime_config.get("classifier_image_size", 224)),
+            apply_clahe_enabled=bool(self.runtime_config.get("classifier_apply_clahe", False)),
         )
         if not hasattr(input_tensor, "unsqueeze"):
             raise OptionalOutputUnavailableError("Torch tensor conversion failed for explanation.")
@@ -293,11 +315,67 @@ def evaluate_busi_dataset(
         )
 
     metrics = classification_metrics(y_true, malignant_probabilities)
+    threshold_rows = threshold_sweep(y_true, malignant_probabilities)
+    best_threshold = best_threshold_by_youden(y_true, malignant_probabilities)
     report = {
         "sample_count": len(rows),
         "metrics": metrics,
+        "threshold_analysis": {
+            "best_by_youden": best_threshold,
+            "rows": threshold_rows,
+        },
         "rows": rows,
     }
     destination = Path(output_path) if output_path is not None else paths.reports_root / "busi_eval.json"
     write_json_report(destination, report)
+    write_markdown_report(
+        destination.parent / "threshold_analysis.md",
+        _threshold_analysis_markdown(metrics, best_threshold, threshold_rows),
+    )
     return report
+
+
+def _threshold_analysis_markdown(
+    default_metrics: dict[str, Any],
+    best_threshold: dict[str, Any],
+    rows: list[dict[str, Any]],
+) -> list[str]:
+    lines = [
+        "# Threshold Analysis",
+        "",
+        "This report is generated from BUSI external evaluation outputs.",
+        "",
+        "## Default Threshold",
+        "",
+        f"- Threshold: `{default_metrics.get('threshold', 0.5):.2f}`",
+        f"- AUC: `{default_metrics.get('auc')}`",
+        f"- Sensitivity: `{default_metrics.get('sensitivity', 0.0):.4f}`",
+        f"- Specificity: `{default_metrics.get('specificity', 0.0):.4f}`",
+        "",
+        "## Best Threshold By Youden J",
+        "",
+    ]
+    if best_threshold:
+        lines.extend(
+            [
+                f"- Threshold: `{best_threshold.get('threshold', 0.5):.2f}`",
+                f"- Youden J: `{best_threshold.get('youden_j', 0.0):.4f}`",
+                f"- Sensitivity: `{best_threshold.get('sensitivity', 0.0):.4f}`",
+                f"- Specificity: `{best_threshold.get('specificity', 0.0):.4f}`",
+                "",
+            ]
+        )
+    lines.extend(
+        [
+            "## Sweep",
+            "",
+            "| Threshold | Sensitivity | Specificity | Accuracy | Youden J |",
+            "| --- | ---: | ---: | ---: | ---: |",
+        ]
+    )
+    for row in rows:
+        lines.append(
+            f"| {row['threshold']:.2f} | {row['sensitivity']:.4f} | "
+            f"{row['specificity']:.4f} | {row['accuracy']:.4f} | {row['youden_j']:.4f} |"
+        )
+    return lines

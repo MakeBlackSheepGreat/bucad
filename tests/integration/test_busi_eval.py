@@ -73,3 +73,6 @@ def test_busi_evaluation_writes_metrics_report() -> None:
     assert report["sample_count"] == 4
     assert "metrics" in report
     assert "sensitivity" in report["metrics"]
+    assert "threshold_analysis" in report
+    assert "best_by_youden" in report["threshold_analysis"]
+    assert (TEST_ROOT / "artifacts" / "reports" / "threshold_analysis.md").exists()

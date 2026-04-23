@@ -9,12 +9,16 @@ package_datas = (
     + collect_data_files('safehttpx')
     + collect_data_files('groovy')
 )
+project_datas = [(str(project_root / 'configs'), 'configs')]
+release_dir = project_root / 'artifacts' / 'release_v1'
+if release_dir.exists():
+    project_datas.append((str(release_dir), 'artifacts/release_v1'))
 
 a = Analysis(
     [str(project_root / 'app' / 'main.py')],
     pathex=[str(project_root)],
     binaries=[],
-    datas=[(str(project_root / 'configs'), 'configs')] + package_datas,
+    datas=project_datas + package_datas,
     hiddenimports=['gradio'],
     hookspath=[],
     hooksconfig={},

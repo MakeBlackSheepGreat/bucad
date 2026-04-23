@@ -53,6 +53,42 @@ def classification_metrics(
     }
 
 
+def threshold_sweep(
+    y_true: list[int] | np.ndarray,
+    malignant_probabilities: list[float] | np.ndarray,
+    *,
+    thresholds: list[float] | np.ndarray | None = None,
+) -> list[dict[str, Any]]:
+    if thresholds is None:
+        thresholds = np.linspace(0.1, 0.9, 17)
+    rows: list[dict[str, Any]] = []
+    for threshold in thresholds:
+        metrics = classification_metrics(
+            y_true,
+            malignant_probabilities,
+            threshold=float(threshold),
+        )
+        rows.append(
+            {
+                **metrics,
+                "youden_j": float(metrics["sensitivity"] + metrics["specificity"] - 1.0),
+            }
+        )
+    return rows
+
+
+def best_threshold_by_youden(
+    y_true: list[int] | np.ndarray,
+    malignant_probabilities: list[float] | np.ndarray,
+    *,
+    thresholds: list[float] | np.ndarray | None = None,
+) -> dict[str, Any]:
+    rows = threshold_sweep(y_true, malignant_probabilities, thresholds=thresholds)
+    if not rows:
+        return {}
+    return max(rows, key=lambda row: (row["youden_j"], row["sensitivity"], row["specificity"]))
+
+
 def dice_score(pred_mask: np.ndarray, true_mask: np.ndarray, eps: float = 1e-6) -> float:
     pred = pred_mask.astype(np.float32) > 0.5
     true = true_mask.astype(np.float32) > 0.5

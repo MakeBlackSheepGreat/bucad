@@ -40,17 +40,37 @@ python scripts\train_cls.py --config configs\classifier\baseline.yml --fold 1 --
 python scripts\eval_busi.py --config configs\inference\demo.yml
 ```
 
+To run the handbook main classifier configuration:
+
+```powershell
+python scripts\train_cls.py --config configs\classifier\efficientnetv2_s.yml --fold 1
+```
+
+To generate model-selection evidence with a fast dry run first:
+
+```powershell
+python scripts\run_comparison.py --config configs\classifier\comparison.yml --fold 1 --model-limit 1 --dry-run
+python scripts\run_comparison.py --config configs\classifier\comparison.yml --fold 1 --epochs 20
+```
+
 6. Launch the demo:
 
 ```powershell
 python app\main.py
 ```
 
-7. Build a distributable demo bundle:
+7. Export visual evidence and batch predictions when preparing reports:
+
+```powershell
+python scripts\export_visual_evidence.py --config configs\inference\demo.yml --output-dir artifacts\reports\visual_evidence --limit 6
+python scripts\batch_infer.py --config configs\inference\demo.yml --input-dir 测试集\Dataset_BUSI_with_GT\malignant --output artifacts\reports\batch_inference.csv
+```
+
+8. Build a distributable demo bundle:
 
 ```powershell
 pyinstaller packaging\demo.spec --noconfirm
-python scripts\export_demo_assets.py --config configs\paths.local.yml --output-dir dist\bucad-demo
+python scripts\export_demo_assets.py --config configs\paths.local.yml --output-dir artifacts\release_v1
 ```
 
 ## Repository Layout

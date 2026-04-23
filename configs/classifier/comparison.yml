@@ -1,0 +1,45 @@
+paths_config: configs/paths.local.yml
+task_type: classification_comparison
+seed: 42
+device: auto
+base_config: configs/classifier/baseline.yml
+comparison:
+  output_path: ./artifacts/reports/comparison_results.json
+  models:
+    - name: basic_cnn
+      description: Basic CNN baseline without pretrained weights
+      pretrained: false
+    - name: alexnet
+      description: AlexNet baseline
+      pretrained: true
+    - name: vgg16
+      description: VGG-16 baseline
+      pretrained: true
+    - name: resnet18
+      description: ResNet-18 baseline
+      pretrained: true
+    - name: mobilenetv3_small_100
+      description: MobileNetV3-Small baseline
+      pretrained: true
+    - name: densenet121
+      description: DenseNet-121 baseline
+      pretrained: true
+    - name: tf_efficientnetv2_s
+      description: EfficientNetV2-S handbook main model
+      pretrained: true
+data:
+  image_size: 224
+  batch_size: 8
+  num_workers: 0
+  preprocess:
+    clahe: true
+  augmentation:
+    horizontal_flip: true
+    flip_probability: 0.5
+training:
+  epochs: 20
+  learning_rate: 0.0003
+  weight_decay: 0.0001
+  fold_count: 5
+  split_path: ./artifacts/reports/busbra_5fold_splits.csv
+  positive_class: malignant

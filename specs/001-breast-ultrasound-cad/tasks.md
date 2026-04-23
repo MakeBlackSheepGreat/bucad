@@ -153,17 +153,17 @@ Specificity, runtime, model name, config path, fold, and dataset-boundary eviden
 
 ### Validation for Handbook Model Work (REQUIRED)
 
-- [ ] T033 [P] [US1] Add classifier backbone and comparison-config validation in `tests/unit/test_classifier_models.py` and `tests/smoke/test_comparison_config.py`
-- [ ] T034 [P] [US1] Add metric and threshold-analysis validation in `tests/unit/test_metrics.py` and `tests/integration/test_busi_eval.py`
+- [X] T033 [P] [US1] Add classifier backbone and comparison-config validation in `tests/unit/test_classifier_models.py` and `tests/smoke/test_comparison_config.py`
+- [X] T034 [P] [US1] Add metric and threshold-analysis validation in `tests/unit/test_metrics.py` and `tests/integration/test_busi_eval.py`
 
 ### Implementation for Handbook Model Work
 
-- [ ] T035 [P] [US1] Create handbook-aligned classifier configs in `configs/classifier/efficientnetv2_s.yml` and `configs/classifier/comparison.yml`
-- [ ] T036 [US1] Add `basic_cnn` comparison support and EfficientNetV2-S construction coverage in `src/models/classifier.py`
-- [ ] T037 [US1] Add optional CLAHE and deterministic augmentation controls in `src/preprocess/transforms.py` and `configs/classifier/efficientnetv2_s.yml`
-- [ ] T038 [US1] Implement the handbook comparison runner in `scripts/run_comparison.py` and `src/engine/compare_cls.py`
-- [ ] T039 [US1] Export model-selection evidence to `artifacts/reports/comparison_results.json` and document commands in `README.md` and `specs/001-breast-ultrasound-cad/quickstart.md`
-- [ ] T040 [US1] Add threshold sweep output for BUSI evaluation in `src/utils/metrics.py`, `scripts/eval_busi.py`, and `artifacts/reports/threshold_analysis.md`
+- [X] T035 [P] [US1] Create handbook-aligned classifier configs in `configs/classifier/efficientnetv2_s.yml` and `configs/classifier/comparison.yml`
+- [X] T036 [US1] Add `basic_cnn` comparison support and EfficientNetV2-S construction coverage in `src/models/classifier.py`
+- [X] T037 [US1] Add optional CLAHE and deterministic augmentation controls in `src/preprocess/transforms.py` and `configs/classifier/efficientnetv2_s.yml`
+- [X] T038 [US1] Implement the handbook comparison runner in `scripts/run_comparison.py` and `src/engine/compare_cls.py`
+- [X] T039 [US1] Export model-selection evidence to `artifacts/reports/comparison_results.json` and document commands in `README.md` and `specs/001-breast-ultrasound-cad/quickstart.md`
+- [X] T040 [US1] Add threshold sweep output for BUSI evaluation in `src/utils/metrics.py`, `scripts/eval_busi.py`, and `artifacts/reports/threshold_analysis.md`
 
 **Checkpoint**: User Story 1 should have reproducible proof for the selected main
 classifier and threshold strategy, not only a single baseline checkpoint.
@@ -184,15 +184,15 @@ reason.
 
 ### Validation for Visual Evidence Work (REQUIRED)
 
-- [ ] T041 [P] [US2] Add Grad-CAM target-layer resolution tests for ResNet-style and EfficientNetV2-style backbones in `tests/unit/test_gradcam_targets.py`
-- [ ] T042 [P] [US2] Add visual-evidence export validation in `tests/integration/test_visual_exports.py`
+- [X] T041 [P] [US2] Add Grad-CAM target-layer resolution tests for ResNet-style and EfficientNetV2-style backbones in `tests/unit/test_gradcam_targets.py`
+- [X] T042 [P] [US2] Add visual-evidence export validation in `tests/integration/test_visual_exports.py`
 
 ### Implementation for Visual Evidence Work
 
-- [ ] T043 [US2] Update Grad-CAM target-layer resolution for `layer4`, `features`, `blocks`, `conv_head`, and supported timm backbones in `src/models/classifier.py`
-- [ ] T044 [US2] Add visual evidence export script for report-ready overlays in `scripts/export_visual_evidence.py`
-- [ ] T045 [US2] Save representative overlay and heatmap review notes in `artifacts/reports/visual_evidence_review.md`
-- [ ] T046 [US2] Document visual-evidence review commands and missing-output behavior in `specs/001-breast-ultrasound-cad/quickstart.md`
+- [X] T043 [US2] Update Grad-CAM target-layer resolution for `layer4`, `features`, `blocks`, `conv_head`, and supported timm backbones in `src/models/classifier.py`
+- [X] T044 [US2] Add visual evidence export script for report-ready overlays in `scripts/export_visual_evidence.py`
+- [X] T045 [US2] Save representative overlay and heatmap review notes in `artifacts/reports/visual_evidence_review.md`
+- [X] T046 [US2] Document visual-evidence review commands and missing-output behavior in `specs/001-breast-ultrasound-cad/quickstart.md`
 
 **Checkpoint**: User Story 2 should be explainable with report-ready visual evidence,
 and Grad-CAM should not silently break when the classifier backbone changes.
@@ -212,16 +212,16 @@ manifest.
 
 ### Validation for Release Work (REQUIRED)
 
-- [ ] T047 [P] [US3] Add release-manifest validation in `tests/integration/test_packaged_demo.py`
-- [ ] T048 [P] [US3] Add batch-inference smoke validation in `tests/smoke/test_batch_inference.py`
+- [X] T047 [P] [US3] Add release-manifest validation in `tests/integration/test_packaged_demo.py`
+- [X] T048 [P] [US3] Add batch-inference smoke validation in `tests/smoke/test_batch_inference.py`
 
 ### Implementation for Release Work
 
-- [ ] T049 [US3] Add release asset export with SHA-256 manifest in `scripts/export_demo_assets.py` and `artifacts/reports/release_v1_manifest.md`
-- [ ] T050 [US3] Add optional 5-fold classifier ensemble runtime support in `src/engine/inference.py` and `configs/inference/demo.yml`
-- [ ] T051 [US3] Implement batch inference export in `scripts/batch_infer.py` and expose the validated command in `README.md`
-- [ ] T052 [US3] Update packaging guidance for `artifacts/release_v1/` in `packaging/demo.spec`, `README.md`, and `specs/001-breast-ultrasound-cad/quickstart.md`
-- [ ] T053 [US3] Record demo rehearsal and defense checklist evidence in `artifacts/reports/demo_rehearsal.md`
+- [X] T049 [US3] Add release asset export with SHA-256 manifest in `scripts/export_demo_assets.py` and `artifacts/reports/release_v1_manifest.md`
+- [X] T050 [US3] Add optional 5-fold classifier ensemble runtime support in `src/engine/inference.py` and `configs/inference/demo.yml`
+- [X] T051 [US3] Implement batch inference export in `scripts/batch_infer.py` and expose the validated command in `README.md`
+- [X] T052 [US3] Update packaging guidance for `artifacts/release_v1/` in `packaging/demo.spec`, `README.md`, and `specs/001-breast-ultrasound-cad/quickstart.md`
+- [X] T053 [US3] Record demo rehearsal and defense checklist evidence in `artifacts/reports/demo_rehearsal.md`
 
 **Checkpoint**: User Story 3 should be ready for final presentation, packaging,
 report writing, and teammate handoff.
@@ -233,9 +233,9 @@ report writing, and teammate handoff.
 **Purpose**: Lock the final experiment evidence and keep implementation, docs, and
 release artifacts synchronized before the final delivery window.
 
-- [ ] T054 [P] Generate report-ready model tables from comparison, BUSI evaluation, and threshold reports in `artifacts/reports/report_tables.md`
-- [ ] T055 [P] Update final validation evidence after handbook follow-up work in `artifacts/reports/final_validation.md`
-- [ ] T056 Run full regression plus selected handbook smoke commands, then update completion status in `specs/001-breast-ultrasound-cad/tasks.md`
+- [X] T054 [P] Generate report-ready model tables from comparison, BUSI evaluation, and threshold reports in `artifacts/reports/report_tables.md`
+- [X] T055 [P] Update final validation evidence after handbook follow-up work in `artifacts/reports/final_validation.md`
+- [X] T056 Run full regression plus selected handbook smoke commands, then update completion status in `specs/001-breast-ultrasound-cad/tasks.md`
 
 ---
 

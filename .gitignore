@@ -66,7 +66,9 @@ artifacts/pytest-tmp/
 pytest-cache-files-*/
 configs/paths.local.yml
 artifacts/demo_assets/
+artifacts/release_v1/
 artifacts/reports/*.csv
 artifacts/reports/*.json
 artifacts/reports/demo_single_image/
+artifacts/reports/visual_evidence/
 artifacts/reports/packaged_demo_*.txt

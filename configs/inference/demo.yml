@@ -5,11 +5,13 @@ runtime:
   classifier_model: resnet18
   classifier_pretrained: false
   classifier_image_size: 224
+  classifier_apply_clahe: false
   segmenter_image_size: 256
   gradcam_enabled: true
   segmentation_enabled: true
   default_threshold: 0.5
   borderline_margin: 0.08
   classifier_checkpoint: null
+  classifier_checkpoints: []
   segmenter_checkpoint: null
   allow_missing_visuals: true

@@ -8,6 +8,7 @@ import pandas as pd
 
 from src.datasets.busbra import BUSBRAClassificationDataset, generate_busbra_split_assignments, load_busbra_manifest
 from src.models.classifier import create_classifier
+from src.preprocess.transforms import build_classifier_transform
 from src.utils.config import load_project_config
 from src.utils.logging import get_logger
 from src.utils.metrics import classification_metrics
@@ -94,11 +95,25 @@ def run_classifier_training(
     if train_manifest.empty or val_manifest.empty:
         raise ValueError(f"Fold {fold} produced an empty train or validation split.")
 
+    image_size = int(data_cfg.get("image_size", 224))
+    preprocess_cfg = data_cfg.get("preprocess", {})
+    augmentation_cfg = data_cfg.get("augmentation", {})
+    train_transform = build_classifier_transform(
+        image_size=image_size,
+        apply_clahe_enabled=bool(preprocess_cfg.get("clahe", False)),
+        horizontal_flip=bool(augmentation_cfg.get("horizontal_flip", False)),
+        flip_probability=float(augmentation_cfg.get("flip_probability", 0.5)),
+    )
+    eval_transform = build_classifier_transform(
+        image_size=image_size,
+        apply_clahe_enabled=bool(preprocess_cfg.get("clahe", False)),
+    )
+
     train_dataset = BUSBRAClassificationDataset(
-        train_manifest, image_size=int(data_cfg.get("image_size", 224))
+        train_manifest, image_size=image_size, transform=train_transform
     )
     val_dataset = BUSBRAClassificationDataset(
-        val_manifest, image_size=int(data_cfg.get("image_size", 224))
+        val_manifest, image_size=image_size, transform=eval_transform
     )
     train_loader = torch_utils_data.DataLoader(
         train_dataset,

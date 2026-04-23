@@ -43,4 +43,6 @@ def test_demo_asset_export_creates_expected_layout() -> None:
     assert (output_dir / "configs" / "inference" / "demo.yml").exists()
     assert (output_dir / "artifacts" / "checkpoints" / "classifier.pt").exists()
     assert (output_dir / "artifacts" / "checkpoints" / "segmenter.pt").exists()
+    assert (output_dir / "release_v1.sha256").exists()
+    assert (root / "artifacts" / "reports" / "release_v1_manifest.md").exists()
     assert Path("packaging/demo.spec").exists()

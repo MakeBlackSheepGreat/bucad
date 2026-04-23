@@ -21,6 +21,9 @@ def main() -> int:
     args = build_parser().parse_args()
     report = evaluate_busi_dataset(args.config, output_path=args.output)
     print(report["metrics"])
+    best = report.get("threshold_analysis", {}).get("best_by_youden", {})
+    if best:
+        print({"best_threshold_by_youden": best.get("threshold")})
     return 0
 
 

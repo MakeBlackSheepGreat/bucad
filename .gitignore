@@ -22,6 +22,7 @@ __pycache__/
 
 # 本地环境
 .env
+.env*
 .vscode/
 .idea/
 
@@ -32,6 +33,8 @@ artifacts/logs/
 # 系统
 Thumbs.db
 .DS_Store
+*.tmp
+*.swp
 
 # 其他
 基于超声影像的乳腺肿瘤良恶性分类辅助诊断系统设计.txt

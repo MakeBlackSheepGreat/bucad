@@ -25,9 +25,9 @@ and testing of each story.
 **Purpose**: Create the repository skeleton, dependency manifests, and baseline config
 files used by all later work.
 
-- [ ] T001 Create project scaffolding and ignore rules in `.gitignore`, `configs/`, `src/`, `scripts/`, `app/`, `tests/`, `packaging/`, and `artifacts/`
-- [ ] T002 Define the Python dependency manifest in `requirements.txt` and add environment smoke entry points in `check_env.py` and `check_all.py`
-- [ ] T003 [P] Create baseline configuration files in `configs/paths.example.yml`, `configs/classifier/baseline.yml`, `configs/segmenter/unet.yml`, and `configs/inference/demo.yml`
+- [X] T001 Create project scaffolding and ignore rules in `.gitignore`, `configs/`, `src/`, `scripts/`, `app/`, `tests/`, `packaging/`, and `artifacts/`
+- [X] T002 Define the Python dependency manifest in `requirements.txt` and add environment smoke entry points in `check_env.py` and `check_all.py`
+- [X] T003 [P] Create baseline configuration files in `configs/paths.example.yml`, `configs/classifier/baseline.yml`, `configs/segmenter/unet.yml`, and `configs/inference/demo.yml`
 
 ---
 
@@ -38,12 +38,12 @@ infrastructure that blocks all user stories.
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete.
 
-- [ ] T004 Implement BUSBRA and BUSI dataset loaders in `src/datasets/busbra.py` and `src/datasets/busi.py`
-- [ ] T005 Implement leakage-safe split generation and validation in `scripts/make_split.py` and `tests/smoke/test_case_split.py`
-- [ ] T006 [P] Implement shared config and path loading in `src/utils/config.py` and `src/utils/paths.py`
-- [ ] T007 [P] Implement shared image I/O and preprocessing transforms in `src/preprocess/io.py` and `src/preprocess/transforms.py`
-- [ ] T008 [P] Implement metrics and report writers in `src/utils/metrics.py` and `src/utils/reporting.py`
-- [ ] T009 Implement shared runtime, logging, and error types in `src/utils/runtime.py`, `src/utils/logging.py`, and `src/engine/errors.py`
+- [X] T004 Implement BUSBRA and BUSI dataset loaders in `src/datasets/busbra.py` and `src/datasets/busi.py`
+- [X] T005 Implement leakage-safe split generation and validation in `scripts/make_split.py` and `tests/smoke/test_case_split.py`
+- [X] T006 [P] Implement shared config and path loading in `src/utils/config.py` and `src/utils/paths.py`
+- [X] T007 [P] Implement shared image I/O and preprocessing transforms in `src/preprocess/io.py` and `src/preprocess/transforms.py`
+- [X] T008 [P] Implement metrics and report writers in `src/utils/metrics.py` and `src/utils/reporting.py`
+- [X] T009 Implement shared runtime, logging, and error types in `src/utils/runtime.py`, `src/utils/logging.py`, and `src/engine/errors.py`
 
 **Checkpoint**: Foundation ready - user story implementation can now begin.
 
@@ -60,17 +60,17 @@ evaluation/report generation.
 
 ### Validation for User Story 1 (REQUIRED) ⚠️
 
-- [ ] T010 [P] [US1] Add single-image inference smoke coverage in `tests/smoke/test_single_image_inference.py`
-- [ ] T011 [P] [US1] Add BUSI evaluation validation in `tests/integration/test_busi_eval.py`
+- [X] T010 [P] [US1] Add single-image inference smoke coverage in `tests/smoke/test_single_image_inference.py`
+- [X] T011 [P] [US1] Add BUSI evaluation validation in `tests/integration/test_busi_eval.py`
 
 ### Implementation for User Story 1
 
-- [ ] T012 [P] [US1] Implement the classifier model factory in `src/models/classifier.py`
-- [ ] T013 [P] [US1] Implement diagnostic result schema and confidence rules in `src/utils/results.py`
-- [ ] T014 [US1] Implement the classifier training workflow in `scripts/train_cls.py` and `src/engine/train_cls.py`
-- [ ] T015 [US1] Implement the single-image diagnosis service in `src/engine/inference.py`
-- [ ] T016 [US1] Implement BUSI evaluation and JSON report export in `scripts/eval_busi.py`
-- [ ] T017 [US1] Add invalid-input, low-quality, and borderline-case handling in `src/engine/inference.py` and `tests/smoke/test_single_image_inference.py`
+- [X] T012 [P] [US1] Implement the classifier model factory in `src/models/classifier.py`
+- [X] T013 [P] [US1] Implement diagnostic result schema and confidence rules in `src/utils/results.py`
+- [X] T014 [US1] Implement the classifier training workflow in `scripts/train_cls.py` and `src/engine/train_cls.py`
+- [X] T015 [US1] Implement the single-image diagnosis service in `src/engine/inference.py`
+- [X] T016 [US1] Implement BUSI evaluation and JSON report export in `scripts/eval_busi.py`
+- [X] T017 [US1] Add invalid-input, low-quality, and borderline-case handling in `src/engine/inference.py` and `tests/smoke/test_single_image_inference.py`
 
 **Checkpoint**: User Story 1 should return a complete diagnostic judgment and be
 verifiable independently of UI work.
@@ -88,15 +88,15 @@ an explicit missing-output reason.
 
 ### Validation for User Story 2 (REQUIRED) ⚠️
 
-- [ ] T018 [P] [US2] Add visual evidence smoke coverage in `tests/smoke/test_visual_evidence.py`
-- [ ] T019 [P] [US2] Add visualization export validation in `tests/integration/test_visual_exports.py`
+- [X] T018 [P] [US2] Add visual evidence smoke coverage in `tests/smoke/test_visual_evidence.py`
+- [X] T019 [P] [US2] Add visualization export validation in `tests/integration/test_visual_exports.py`
 
 ### Implementation for User Story 2
 
-- [ ] T020 [P] [US2] Implement the segmenter model factory in `src/models/segmenter.py`
-- [ ] T021 [P] [US2] Implement the Grad-CAM generator in `src/explain/gradcam.py`
-- [ ] T022 [US2] Implement the segmentation training workflow in `scripts/train_seg.py` and `src/engine/train_seg.py`
-- [ ] T023 [US2] Implement lesion overlays and explanation assembly in `src/explain/overlay.py` and `src/engine/inference.py`
+- [X] T020 [P] [US2] Implement the segmenter model factory in `src/models/segmenter.py`
+- [X] T021 [P] [US2] Implement the Grad-CAM generator in `src/explain/gradcam.py`
+- [X] T022 [US2] Implement the segmentation training workflow in `scripts/train_seg.py` and `src/engine/train_seg.py`
+- [X] T023 [US2] Implement lesion overlays and explanation assembly in `src/explain/overlay.py` and `src/engine/inference.py`
 
 **Checkpoint**: User Stories 1 and 2 together should produce diagnosis plus spatial
 evidence for the same image.
@@ -114,15 +114,15 @@ generated demo bundle.
 
 ### Validation for User Story 3 (REQUIRED) ⚠️
 
-- [ ] T024 [P] [US3] Add Gradio end-to-end smoke validation in `tests/smoke/test_gradio_flow.py`
-- [ ] T025 [P] [US3] Add packaged demo smoke validation in `tests/integration/test_packaged_demo.py`
+- [X] T024 [P] [US3] Add Gradio end-to-end smoke validation in `tests/smoke/test_gradio_flow.py`
+- [X] T025 [P] [US3] Add packaged demo smoke validation in `tests/integration/test_packaged_demo.py`
 
 ### Implementation for User Story 3
 
-- [ ] T026 [P] [US3] Build the Gradio upload/result layout in `app/main.py` and `app/components/result_panels.py`
-- [ ] T027 [US3] Implement UI status, warning, and fallback panels in `app/components/status_panels.py` and `app/main.py`
-- [ ] T028 [US3] Integrate the inference service with the Gradio flow in `app/main.py` and `src/engine/inference.py`
-- [ ] T029 [US3] Create demo asset export and packaging support in `scripts/export_demo_assets.py` and `packaging/demo.spec`
+- [X] T026 [P] [US3] Build the Gradio upload/result layout in `app/main.py` and `app/components/result_panels.py`
+- [X] T027 [US3] Implement UI status, warning, and fallback panels in `app/components/status_panels.py` and `app/main.py`
+- [X] T028 [US3] Integrate the inference service with the Gradio flow in `app/main.py` and `src/engine/inference.py`
+- [X] T029 [US3] Create demo asset export and packaging support in `scripts/export_demo_assets.py` and `packaging/demo.spec`
 
 **Checkpoint**: All three user stories should now be demonstrable through the UI and
 packaging workflow.
@@ -134,8 +134,8 @@ packaging workflow.
 **Purpose**: Tighten documentation, regression coverage, and final demo readiness
 across all user stories.
 
-- [ ] T030 [P] Update operator documentation in `README.md` and `specs/001-breast-ultrasound-cad/quickstart.md`
-- [ ] T031 [P] Add unit coverage for shared helpers in `tests/unit/test_config.py`, `tests/unit/test_metrics.py`, and `tests/unit/test_results.py`
+- [X] T030 [P] Update operator documentation in `README.md` and `specs/001-breast-ultrasound-cad/quickstart.md`
+- [X] T031 [P] Add unit coverage for shared helpers in `tests/unit/test_config.py`, `tests/unit/test_metrics.py`, and `tests/unit/test_results.py`
 - [ ] T032 Run the full quickstart and final demo validation, then save evidence in `artifacts/reports/final_validation.md`
 
 ---

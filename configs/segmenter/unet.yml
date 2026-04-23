@@ -1,0 +1,23 @@
+paths_config: configs/paths.local.yml
+task_type: segmentation
+seed: 42
+device: auto
+model:
+  architecture: unet
+  encoder_name: resnet18
+  encoder_weights: imagenet
+  in_channels: 3
+  classes: 1
+data:
+  image_size: 256
+  batch_size: 4
+  num_workers: 0
+training:
+  epochs: 5
+  learning_rate: 0.0003
+  weight_decay: 0.0001
+  fold_count: 5
+  split_path: ./artifacts/reports/busbra_5fold_splits.csv
+output:
+  checkpoint_name: segmenter_fold{fold}.pt
+  report_name: train_seg_fold{fold}.json

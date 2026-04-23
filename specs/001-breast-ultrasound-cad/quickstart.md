@@ -15,6 +15,7 @@ conda create -n bucad python=3.10 -y
 conda activate bucad
 pip install -r requirements.txt
 python check_env.py
+python check_all.py
 ```
 
 Expected result:
@@ -92,6 +93,7 @@ Validation target:
 
 ```powershell
 pyinstaller packaging\demo.spec --noconfirm
+python scripts\export_demo_assets.py --config configs\paths.local.yml
 ```
 
 Validation target:

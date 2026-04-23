@@ -1,0 +1,15 @@
+numpy
+pandas
+opencv-python
+PyYAML
+scikit-learn
+torch
+torchvision
+timm
+segmentation_models_pytorch
+tqdm
+tensorboard
+pytorch-grad-cam
+gradio
+PyInstaller
+pytest

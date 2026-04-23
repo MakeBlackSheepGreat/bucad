@@ -1,5 +1,7 @@
 # BUCAD
 
+[中文介绍](README_CN.md)
+
 BUCAD is a breast ultrasound computer-aided diagnosis prototype built around a
 single Python codebase. The repository covers dataset preparation, model
 training, external evaluation, explainability overlays, and a Gradio-based demo

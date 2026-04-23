@@ -11,6 +11,8 @@ data/
 !artifacts/reports/documents/
 !artifacts/reports/documents/*.docx
 artifacts/reports/documents/*.pdf
+*.pdf   
+开发手册_V2.md
 
 # 模型权重太大
 *.pt

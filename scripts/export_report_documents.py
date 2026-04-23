@@ -11,11 +11,11 @@ from src.utils.document_reports import export_report_documents
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Export readable DOCX/PDF report documents.")
+    parser = argparse.ArgumentParser(description="Export a readable Word DOCX report document.")
     parser.add_argument("--reports-dir", default="artifacts/reports")
     parser.add_argument("--output-dir", default="artifacts/reports/documents")
     parser.add_argument("--basename", default="bucad_report_summary")
-    parser.add_argument("--formats", default="docx,pdf", help="Comma-separated values: docx,pdf")
+    parser.add_argument("--formats", default="docx", help="Comma-separated values. Currently supported: docx")
     return parser
 
 

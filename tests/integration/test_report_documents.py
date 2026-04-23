@@ -13,11 +13,21 @@ from src.utils.document_reports import export_report_documents
 TEST_ROOT = Path("artifacts/test-workspace/test_report_documents")
 
 
-def test_report_document_export_writes_readable_docx_and_pdf() -> None:
+def test_report_document_export_writes_readable_docx() -> None:
     shutil.rmtree(TEST_ROOT, ignore_errors=True)
     reports_dir = TEST_ROOT / "reports"
     output_dir = reports_dir / "documents"
     reports_dir.mkdir(parents=True, exist_ok=True)
+    (reports_dir / "handbook_progress.md").write_text(
+        "\n".join(
+            [
+                "# 开发手册进度同步",
+                "",
+                "- 当前已完成可演示原型和报告文档导出。",
+            ]
+        ),
+        encoding="utf-8",
+    )
     (reports_dir / "final_validation.md").write_text(
         "\n".join(
             [
@@ -53,22 +63,21 @@ def test_report_document_export_writes_readable_docx_and_pdf() -> None:
     outputs = export_report_documents(reports_dir, output_dir, basename="sample_report")
 
     docx_path = outputs["docx"]
-    pdf_path = outputs["pdf"]
+    assert sorted(outputs) == ["docx"]
     assert docx_path.exists()
-    assert pdf_path.exists()
     assert docx_path.stat().st_size > 5_000
-    assert pdf_path.read_bytes().startswith(b"%PDF")
 
     document_text = "\n".join(paragraph.text for paragraph in Document(docx_path).paragraphs)
     assert "BUCAD 项目报告汇总" in document_text
+    assert "开发手册进度同步" in document_text
     assert "最终验证报告" in document_text
     assert "样本数量：4" in document_text
 
 
-def test_report_document_export_rejects_unknown_format() -> None:
+def test_report_document_export_rejects_pdf_format() -> None:
     shutil.rmtree(TEST_ROOT, ignore_errors=True)
     reports_dir = TEST_ROOT / "reports"
     reports_dir.mkdir(parents=True, exist_ok=True)
 
     with pytest.raises(ValueError, match="Unsupported report format"):
-        export_report_documents(reports_dir, reports_dir / "documents", formats=("html",))
+        export_report_documents(reports_dir, reports_dir / "documents", formats=("pdf",))

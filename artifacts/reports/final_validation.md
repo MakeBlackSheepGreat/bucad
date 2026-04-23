@@ -29,7 +29,7 @@ The following commands were executed successfully in the current environment:
 
 ## Automated Regression Status
 
-- Full test suite result after report document export work: `32 passed in 9.11s`
+- Full test suite result after DOCX-only report export sync: `32 passed in 10.37s`
 
 ## Metrics And Outputs
 
@@ -86,9 +86,9 @@ Date: 2026-04-23
 
 Date: 2026-04-23
 
-- Added readable DOCX/PDF report export through `scripts\export_report_documents.py`.
+- Added readable Word DOCX report export through `scripts\export_report_documents.py`.
 - Generated `artifacts\reports\documents\bucad_report_summary.docx` for editable report review.
-- Generated `artifacts\reports\documents\bucad_report_summary.pdf` for direct reading, handoff, and defense preparation.
-- Rendered PDF pages with PyMuPDF for visual spot-checking because `pdftoppm` and `soffice` were not available on this Windows environment.
+- PDF export is intentionally out of scope after the 2026-04-23 delivery decision to use Word documents only.
 - Automated validation completed with `python -m pytest tests\integration\test_report_documents.py`: `2 passed`.
-- Full regression completed with `python -m pytest tests\unit tests\smoke tests\integration`: `32 passed in 9.11s`.
+- Full regression completed with `python -m pytest tests\unit tests\smoke tests\integration`: `32 passed in 10.37s`.
+- Development handbook progress was synchronized in `artifacts\reports\handbook_progress.md` and included in the DOCX report summary.

@@ -331,8 +331,9 @@ talking points, and final handoff notes.
 - [ ] T074 [P] Prepare likely defense Q&A based on model choice, data leakage, metrics, Grad-CAM, and limitations in `artifacts/reports/defense_qa.md`
 - [ ] T075 Create final handoff checklist with commands, artifacts, risks, and owners in `artifacts/reports/final_handoff.md`
 - [ ] T076 Run final full validation after release freeze and update `artifacts/reports/final_validation.md` and `specs/001-breast-ultrasound-cad/tasks.md`
-- [X] T077 [P] Add readable DOCX/PDF report export support in `src/utils/document_reports.py` and `scripts/export_report_documents.py`
-- [X] T078 [P] Document and validate report document export in `README.md`, `specs/001-breast-ultrasound-cad/quickstart.md`, and `tests/integration/test_report_documents.py`
+- [X] T077 [P] Add readable Word DOCX report export support in `src/utils/document_reports.py` and `scripts/export_report_documents.py`
+- [X] T078 [P] Document and validate DOCX-only report export in `README.md`, `specs/001-breast-ultrasound-cad/quickstart.md`, and `tests/integration/test_report_documents.py`
+- [X] T079 [P] Sync development handbook progress in `artifacts/reports/handbook_progress.md` and include it in the generated DOCX report
 
 ---
 
@@ -472,4 +473,4 @@ Task: "Draft report/PPT outline and defense talking points in artifacts/reports/
 - Validation/report tasks are included for every user story
 - User Story 1 is the recommended MVP scope
 - User Story 3 is intentionally scheduled after core model work to preserve demo stability
-- The next executable scope is Phase 11 because the implementation and smoke evidence are complete, while formal long-run evidence and defense assets remain open
+- The next executable scope is Phase 11 because the implementation, smoke evidence, DOCX report export, and handbook progress sync are complete, while formal long-run evidence and defense assets remain open

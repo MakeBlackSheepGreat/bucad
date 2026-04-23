@@ -5,10 +5,10 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Iterable
-from xml.sax.saxutils import escape
 
 
 CORE_MARKDOWN_REPORTS = [
+    "handbook_progress.md",
     "final_validation.md",
     "report_tables.md",
     "threshold_analysis.md",
@@ -30,7 +30,7 @@ CORE_JSON_REPORTS = [
     "busbra_split_summary.json",
 ]
 
-SUPPORTED_FORMATS = {"docx", "pdf"}
+SUPPORTED_FORMATS = {"docx"}
 
 
 @dataclass
@@ -310,130 +310,12 @@ def export_docx(blocks: list[ReportBlock], output_path: str | Path) -> Path:
     return path
 
 
-def _pdf_table_widths(column_count: int) -> list[float]:
-    from reportlab.lib.units import mm
-
-    usable_width = 182 * mm
-    if column_count <= 1:
-        return [usable_width]
-    if column_count == 2:
-        return [48 * mm, usable_width - 48 * mm]
-    return [usable_width / column_count] * column_count
-
-
-def _register_pdf_font() -> str:
-    from reportlab.pdfbase import pdfmetrics
-    from reportlab.pdfbase.cidfonts import UnicodeCIDFont
-    from reportlab.pdfbase.ttfonts import TTFont
-
-    candidates = [
-        ("BUCADSans", Path("C:/Windows/Fonts/Deng.ttf")),
-        ("BUCADSans", Path("C:/Windows/Fonts/simhei.ttf")),
-        ("BUCADSans", Path("C:/Windows/Fonts/NotoSansSC-VF.ttf")),
-    ]
-    for font_name, font_path in candidates:
-        if font_path.exists():
-            try:
-                pdfmetrics.registerFont(TTFont(font_name, str(font_path)))
-                return font_name
-            except Exception:
-                continue
-    pdfmetrics.registerFont(UnicodeCIDFont("STSong-Light"))
-    return "STSong-Light"
-
-
-def _make_pdf_footer(font_name: str) -> Any:
-    from reportlab.lib.units import mm
-
-    def draw_footer(canvas: Any, doc: Any) -> None:
-        canvas.saveState()
-        canvas.setFont(font_name, 8)
-        canvas.drawString(14 * mm, 9 * mm, "BUCAD 项目报告汇总")
-        canvas.drawRightString(196 * mm, 9 * mm, f"第 {doc.page} 页")
-        canvas.restoreState()
-
-    return draw_footer
-
-
-def export_pdf(blocks: list[ReportBlock], output_path: str | Path) -> Path:
-    from reportlab.lib import colors
-    from reportlab.lib.pagesizes import A4
-    from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
-    from reportlab.lib.units import mm
-    from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
-
-    path = Path(output_path)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    font_name = _register_pdf_font()
-    styles = getSampleStyleSheet()
-    body = ParagraphStyle(
-        "CNBody",
-        parent=styles["BodyText"],
-        fontName=font_name,
-        fontSize=9.5,
-        leading=13,
-        wordWrap="CJK",
-        splitLongWords=1,
-    )
-    title = ParagraphStyle("CNTitle", parent=styles["Title"], fontName=font_name, fontSize=20, leading=26, alignment=1)
-    heading1 = ParagraphStyle("CNHeading1", parent=styles["Heading1"], fontName=font_name, fontSize=15, leading=20)
-    heading2 = ParagraphStyle("CNHeading2", parent=styles["Heading2"], fontName=font_name, fontSize=12.5, leading=17)
-    code = ParagraphStyle("CNCode", parent=body, fontName="Courier", fontSize=8, leading=11)
-    story = []
-    for block in blocks:
-        if block.kind == "title":
-            story.append(Paragraph(escape(block.text), title))
-            story.append(Spacer(1, 6 * mm))
-        elif block.kind == "heading":
-            story.append(Spacer(1, 2 * mm))
-            story.append(Paragraph(escape(block.text), heading1 if block.level == 1 else heading2))
-        elif block.kind == "bullet":
-            story.append(Paragraph("- " + escape(block.text), body))
-        elif block.kind == "code":
-            story.append(Paragraph(escape(block.text).replace("\n", "<br/>"), code))
-        elif block.kind == "table" and block.rows:
-            normalized_rows = [
-                [Paragraph(escape(str(cell)), body) for cell in row]
-                for row in _iter_table_rows(block.rows)
-            ]
-            table = Table(normalized_rows, colWidths=_pdf_table_widths(len(normalized_rows[0])), repeatRows=1)
-            table.setStyle(
-                TableStyle(
-                    [
-                        ("FONTNAME", (0, 0), (-1, -1), font_name),
-                        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#EAF2F8")),
-                        ("GRID", (0, 0), (-1, -1), 0.25, colors.HexColor("#B0B7C3")),
-                        ("VALIGN", (0, 0), (-1, -1), "TOP"),
-                        ("LEFTPADDING", (0, 0), (-1, -1), 4),
-                        ("RIGHTPADDING", (0, 0), (-1, -1), 4),
-                        ("TOPPADDING", (0, 0), (-1, -1), 3),
-                        ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
-                    ]
-                )
-            )
-            story.append(table)
-            story.append(Spacer(1, 3 * mm))
-        else:
-            story.append(Paragraph(escape(block.text), body))
-    document = SimpleDocTemplate(
-        str(path),
-        pagesize=A4,
-        leftMargin=14 * mm,
-        rightMargin=14 * mm,
-        topMargin=14 * mm,
-        bottomMargin=16 * mm,
-    )
-    footer = _make_pdf_footer(font_name)
-    document.build(story, onFirstPage=footer, onLaterPages=footer)
-    return path
-
-
 def export_report_documents(
     reports_dir: str | Path,
     output_dir: str | Path,
     *,
     basename: str = "bucad_report_summary",
-    formats: Iterable[str] = ("docx", "pdf"),
+    formats: Iterable[str] = ("docx",),
 ) -> dict[str, Path]:
     selected = {item.lower() for item in formats}
     if not selected:
@@ -447,6 +329,4 @@ def export_report_documents(
     outputs: dict[str, Path] = {}
     if "docx" in selected:
         outputs["docx"] = export_docx(blocks, output_root / f"{basename}.docx")
-    if "pdf" in selected:
-        outputs["pdf"] = export_pdf(blocks, output_root / f"{basename}.pdf")
     return outputs

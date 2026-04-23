@@ -14,4 +14,3 @@ gradio
 PyInstaller
 pytest
 python-docx
-reportlab

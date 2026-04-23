@@ -10,6 +10,7 @@ data/
 *.docx
 !artifacts/reports/documents/
 !artifacts/reports/documents/*.docx
+artifacts/reports/documents/*.pdf
 
 # 模型权重太大
 *.pt

@@ -128,7 +128,7 @@ Validation target:
 - visual examples are saved beside `artifacts\reports\visual_evidence_review.md`
 - batch CSV contains filename, probabilities, final label, status, and warnings
 
-## 10. Export Readable Report Documents
+## 10. Export Readable Word Report Document
 
 ```powershell
 python scripts\export_report_documents.py --reports-dir artifacts\reports --output-dir artifacts\reports\documents
@@ -137,8 +137,8 @@ python scripts\export_report_documents.py --reports-dir artifacts\reports --outp
 Validation target:
 
 - `artifacts\reports\documents\bucad_report_summary.docx` is generated for editable report review
-- `artifacts\reports\documents\bucad_report_summary.pdf` is generated for direct reading and handoff
-- Markdown reports and JSON metrics are summarized with readable headings, tables, and page numbers
+- Markdown reports and JSON metrics are summarized with readable headings and tables
+- DOCX is the formal report handoff format; PDF export is intentionally out of scope
 
 ## 11. Package the Demo
 

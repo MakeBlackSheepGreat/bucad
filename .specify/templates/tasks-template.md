@@ -8,7 +8,9 @@ description: "Task list template for feature implementation"
 **Input**: Design documents from `/specs/[###-feature-name]/`
 **Prerequisites**: plan.md (required), spec.md (required for user stories), research.md, data-model.md, contracts/
 
-**Tests**: The examples below include test tasks. Tests are OPTIONAL - only include them if explicitly requested in the feature specification.
+**Tests**: Validation tasks are REQUIRED. Automated tests SHOULD be included whenever
+they are practical; if they are not, the task list MUST still include scripted or
+manual validation covering data boundaries, metrics, and demo readiness.
 
 **Organization**: Tasks are grouped by user story to enable independent implementation and testing of each story.
 
@@ -17,6 +19,8 @@ description: "Task list template for feature implementation"
 - **[P]**: Can run in parallel (different files, no dependencies)
 - **[Story]**: Which user story this task belongs to (e.g., US1, US2, US3)
 - Include exact file paths in descriptions
+- Include validation/report tasks whenever metrics, data boundaries, or user-facing
+  demo flows change
 
 ## Path Conventions
 
@@ -46,11 +50,11 @@ description: "Task list template for feature implementation"
 
 ## Phase 1: Setup (Shared Infrastructure)
 
-**Purpose**: Project initialization and basic structure
+**Purpose**: Project initialization, repository boundaries, and shared structure
 
-- [ ] T001 Create project structure per implementation plan
-- [ ] T002 Initialize [language] project with [framework] dependencies
-- [ ] T003 [P] Configure linting and formatting tools
+- [ ] T001 Create project structure, `.gitignore`, and artifact directories per implementation plan
+- [ ] T002 Initialize or update [language] dependencies, environment manifests, and config defaults
+- [ ] T003 [P] Add onboarding and smoke-run commands for environment, evaluation, or demo startup
 
 ---
 
@@ -62,12 +66,12 @@ description: "Task list template for feature implementation"
 
 Examples of foundational tasks (adjust based on your project):
 
-- [ ] T004 Setup database schema and migrations framework
-- [ ] T005 [P] Implement authentication/authorization framework
-- [ ] T006 [P] Setup API routing and middleware structure
-- [ ] T007 Create base models/entities that all stories depend on
-- [ ] T008 Configure error handling and logging infrastructure
-- [ ] T009 Setup environment configuration management
+- [ ] T004 Define dataset or input boundaries and add leakage/sanity checks
+- [ ] T005 [P] Create shared configuration for paths, thresholds, and artifact locations
+- [ ] T006 [P] Setup evaluation/reporting pipeline for required metrics
+- [ ] T007 Create base models/entities/services that all stories depend on
+- [ ] T008 Configure error handling, logging, and report output locations
+- [ ] T009 Confirm the primary CLI, script, or UI entry points for affected workflows
 
 **Checkpoint**: Foundation ready - user story implementation can now begin in parallel
 
@@ -79,12 +83,13 @@ Examples of foundational tasks (adjust based on your project):
 
 **Independent Test**: [How to verify this story works on its own]
 
-### Tests for User Story 1 (OPTIONAL - only if tests requested) ⚠️
+### Validation for User Story 1 (REQUIRED) ⚠️
 
-> **NOTE: Write these tests FIRST, ensure they FAIL before implementation**
+> **NOTE: Prefer automated tests first. Every story MUST also include the
+> independent validation needed to prove metrics, data safety, or demo behavior.**
 
-- [ ] T010 [P] [US1] Contract test for [endpoint] in tests/contract/test_[name].py
-- [ ] T011 [P] [US1] Integration test for [user journey] in tests/integration/test_[name].py
+- [ ] T010 [P] [US1] Add automated or scripted validation in tests/ or scripts/ for the core story path
+- [ ] T011 [P] [US1] Record metric, report, or demo evidence in artifacts/reports/ or quickstart.md
 
 ### Implementation for User Story 1
 
@@ -105,10 +110,10 @@ Examples of foundational tasks (adjust based on your project):
 
 **Independent Test**: [How to verify this story works on its own]
 
-### Tests for User Story 2 (OPTIONAL - only if tests requested) ⚠️
+### Validation for User Story 2 (REQUIRED) ⚠️
 
-- [ ] T018 [P] [US2] Contract test for [endpoint] in tests/contract/test_[name].py
-- [ ] T019 [P] [US2] Integration test for [user journey] in tests/integration/test_[name].py
+- [ ] T018 [P] [US2] Add automated or scripted validation in tests/ or scripts/ for the core story path
+- [ ] T019 [P] [US2] Record metric, report, or demo evidence in artifacts/reports/ or quickstart.md
 
 ### Implementation for User Story 2
 
@@ -127,10 +132,10 @@ Examples of foundational tasks (adjust based on your project):
 
 **Independent Test**: [How to verify this story works on its own]
 
-### Tests for User Story 3 (OPTIONAL - only if tests requested) ⚠️
+### Validation for User Story 3 (REQUIRED) ⚠️
 
-- [ ] T024 [P] [US3] Contract test for [endpoint] in tests/contract/test_[name].py
-- [ ] T025 [P] [US3] Integration test for [user journey] in tests/integration/test_[name].py
+- [ ] T024 [P] [US3] Add automated or scripted validation in tests/ or scripts/ for the core story path
+- [ ] T025 [P] [US3] Record metric, report, or demo evidence in artifacts/reports/ or quickstart.md
 
 ### Implementation for User Story 3
 
@@ -151,9 +156,10 @@ Examples of foundational tasks (adjust based on your project):
 **Purpose**: Improvements that affect multiple user stories
 
 - [ ] TXXX [P] Documentation updates in docs/
+- [ ] TXXX [P] Artifact/report cleanup and packaging or demo validation
 - [ ] TXXX Code cleanup and refactoring
 - [ ] TXXX Performance optimization across all stories
-- [ ] TXXX [P] Additional unit tests (if requested) in tests/unit/
+- [ ] TXXX [P] Additional automated tests in tests/unit/ or tests/integration/
 - [ ] TXXX Security hardening
 - [ ] TXXX Run quickstart.md validation
 
@@ -178,7 +184,8 @@ Examples of foundational tasks (adjust based on your project):
 
 ### Within Each User Story
 
-- Tests (if included) MUST be written and FAIL before implementation
+- Automated tests SHOULD be written and fail before implementation when practical
+- Every story MUST include independent validation for metrics, data boundaries, or demo behavior
 - Models before services
 - Services before endpoints
 - Core implementation before integration
@@ -198,9 +205,9 @@ Examples of foundational tasks (adjust based on your project):
 ## Parallel Example: User Story 1
 
 ```bash
-# Launch all tests for User Story 1 together (if tests requested):
-Task: "Contract test for [endpoint] in tests/contract/test_[name].py"
-Task: "Integration test for [user journey] in tests/integration/test_[name].py"
+# Launch all validation for User Story 1 together:
+Task: "Add automated or scripted validation in tests/ or scripts/ for the core story path"
+Task: "Record metric, report, or demo evidence in artifacts/reports/ or quickstart.md"
 
 # Launch all models for User Story 1 together:
 Task: "Create [Entity1] model in src/models/[entity1].py"
@@ -245,7 +252,7 @@ With multiple developers:
 - [P] tasks = different files, no dependencies
 - [Story] label maps task to specific user story for traceability
 - Each user story should be independently completable and testable
-- Verify tests fail before implementing
+- Include leak-prevention, metric/report, and demo validation tasks whenever relevant
 - Commit after each task or logical group
 - Stop at any checkpoint to validate story independently
 - Avoid: vague tasks, same file conflicts, cross-story dependencies that break independence

@@ -25,13 +25,24 @@
 **Project Type**: [e.g., library/cli/web-service/mobile-app/compiler/desktop-app or NEEDS CLARIFICATION]  
 **Performance Goals**: [domain-specific, e.g., 1000 req/s, 10k lines/sec, 60 fps or NEEDS CLARIFICATION]  
 **Constraints**: [domain-specific, e.g., <200ms p95, <100MB memory, offline-capable or NEEDS CLARIFICATION]  
-**Scale/Scope**: [domain-specific, e.g., 10k users, 1M LOC, 50 screens or NEEDS CLARIFICATION]
+**Scale/Scope**: [domain-specific, e.g., 10k users, 1M LOC, 50 screens or NEEDS CLARIFICATION]  
+**Data Inputs**: [e.g., BUSBRA for training, BUSI for external evaluation, or N/A]  
+**User-Facing Surface**: [e.g., training CLI, evaluation report, Gradio UI, packaged demo, or N/A]
 
 ## Constitution Check
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-[Gates determined based on constitution file]
+- **Scope Alignment**: Explain how this work advances classification, segmentation,
+  UI/demo delivery, or a directly required supporting capability.
+- **Reproducible Environment**: Record dependency, config, or environment changes and
+  the exact command another teammate will run to verify setup.
+- **Data Governance**: Identify training/evaluation datasets, confirm BUSI never
+  enters training, and describe leak-prevention plus `.gitignore` impact.
+- **Metric Gate**: Define baseline, success metrics, and the report or artifact path
+  that will hold evaluation evidence.
+- **Demo Readiness**: Describe the end-to-end smoke test, including fallback behavior
+  when optional assets such as GPU or segmentation weights are unavailable.
 
 ## Project Structure
 

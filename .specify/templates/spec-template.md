@@ -72,8 +72,20 @@
   Fill them out with the right edge cases.
 -->
 
-- What happens when [boundary condition]?
-- How does system handle [error scenario]?
+- What happens when a dataset path, split configuration, or artifact boundary is
+  misconfigured and creates a leakage risk?
+- How does the system handle missing GPU support, missing weights, or unavailable
+  local data paths?
+
+## Data & Evaluation Constraints *(mandatory for data/model features)*
+
+- **Training Data Boundary**: [e.g., BUSBRA only with case-level split, or N/A]
+- **Evaluation Data Boundary**: [e.g., BUSBRA validation + BUSI external evaluation,
+  or N/A]
+- **Leakage Safeguards**: [Describe split strategy, case/patient isolation, ignored
+  artifacts, and checks that prevent train/eval contamination]
+- **Required Evidence**: [Metrics, reports, smoke tests, screenshots, or demo outputs
+  required for acceptance]
 
 ## Requirements *(mandatory)*
 
@@ -111,8 +123,10 @@
 
 - **SC-001**: [Measurable metric, e.g., "Users can complete account creation in under 2 minutes"]
 - **SC-002**: [Measurable metric, e.g., "System handles 1000 concurrent users without degradation"]
-- **SC-003**: [User satisfaction metric, e.g., "90% of users successfully complete primary task on first attempt"]
-- **SC-004**: [Business metric, e.g., "Reduce support tickets related to [X] by 50%"]
+- **SC-003**: [For ML/data work, include core evaluation metrics such as AUC,
+  Sensitivity, Specificity, or an equivalent measurable quality bar]
+- **SC-004**: [For demo/delivery work, include a runnable smoke test, packaging
+  success criterion, or user-facing completion metric]
 
 ## Assumptions
 
@@ -123,6 +137,11 @@
 -->
 
 - [Assumption about target users, e.g., "Users have stable internet connectivity"]
-- [Assumption about scope boundaries, e.g., "Mobile support is out of scope for v1"]
-- [Assumption about data/environment, e.g., "Existing authentication system will be reused"]
-- [Dependency on existing system/service, e.g., "Requires access to the existing user profile API"]
+- [Assumption about scope boundaries, e.g., "Only classification and demo workflow are
+  in scope for v1"]
+- [Assumption about shared environment, e.g., "Contributors work from the `bucad`
+  conda environment on Windows"]
+- [Assumption about data or artifact boundaries, e.g., "BUSBRA remains training-only
+  and BUSI remains external-evaluation-only"]
+- [Dependency on existing system/service, e.g., "Requires access to the current
+  report, UI, or evaluation pipeline"]

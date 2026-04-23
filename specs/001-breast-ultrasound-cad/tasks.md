@@ -140,6 +140,105 @@ across all user stories.
 
 ---
 
+## Phase 7: Handbook Follow-up - User Story 1 Model Quality Evidence (Priority: P1)
+
+**Source**: `开发手册_V2.md` chapters 7, 9, and 15.
+
+**Goal**: Move beyond the runnable baseline by creating reproducible evidence for
+model selection, augmentation, thresholding, and the handbook-recommended main model.
+
+**Independent Test**: Run one smoke comparison on the same BUSBRA split and confirm
+that `artifacts/reports/comparison_results.json` records AUC, Sensitivity,
+Specificity, runtime, model name, config path, fold, and dataset-boundary evidence.
+
+### Validation for Handbook Model Work (REQUIRED)
+
+- [ ] T033 [P] [US1] Add classifier backbone and comparison-config validation in `tests/unit/test_classifier_models.py` and `tests/smoke/test_comparison_config.py`
+- [ ] T034 [P] [US1] Add metric and threshold-analysis validation in `tests/unit/test_metrics.py` and `tests/integration/test_busi_eval.py`
+
+### Implementation for Handbook Model Work
+
+- [ ] T035 [P] [US1] Create handbook-aligned classifier configs in `configs/classifier/efficientnetv2_s.yml` and `configs/classifier/comparison.yml`
+- [ ] T036 [US1] Add `basic_cnn` comparison support and EfficientNetV2-S construction coverage in `src/models/classifier.py`
+- [ ] T037 [US1] Add optional CLAHE and deterministic augmentation controls in `src/preprocess/transforms.py` and `configs/classifier/efficientnetv2_s.yml`
+- [ ] T038 [US1] Implement the handbook comparison runner in `scripts/run_comparison.py` and `src/engine/compare_cls.py`
+- [ ] T039 [US1] Export model-selection evidence to `artifacts/reports/comparison_results.json` and document commands in `README.md` and `specs/001-breast-ultrasound-cad/quickstart.md`
+- [ ] T040 [US1] Add threshold sweep output for BUSI evaluation in `src/utils/metrics.py`, `scripts/eval_busi.py`, and `artifacts/reports/threshold_analysis.md`
+
+**Checkpoint**: User Story 1 should have reproducible proof for the selected main
+classifier and threshold strategy, not only a single baseline checkpoint.
+
+---
+
+## Phase 8: Handbook Follow-up - User Story 2 Visual Evidence Hardening (Priority: P2)
+
+**Source**: `开发手册_V2.md` chapters 8, 10, and 15.
+
+**Goal**: Make lesion visualization and Grad-CAM robust enough for final demos,
+including the handbook's recommended EfficientNetV2-S backbone and clinical review
+evidence.
+
+**Independent Test**: Export a visual evidence pack for selected BUSI/BUSBRA samples
+and confirm every sample has either lesion overlay plus Grad-CAM or a clear missing
+reason.
+
+### Validation for Visual Evidence Work (REQUIRED)
+
+- [ ] T041 [P] [US2] Add Grad-CAM target-layer resolution tests for ResNet-style and EfficientNetV2-style backbones in `tests/unit/test_gradcam_targets.py`
+- [ ] T042 [P] [US2] Add visual-evidence export validation in `tests/integration/test_visual_exports.py`
+
+### Implementation for Visual Evidence Work
+
+- [ ] T043 [US2] Update Grad-CAM target-layer resolution for `layer4`, `features`, `blocks`, `conv_head`, and supported timm backbones in `src/models/classifier.py`
+- [ ] T044 [US2] Add visual evidence export script for report-ready overlays in `scripts/export_visual_evidence.py`
+- [ ] T045 [US2] Save representative overlay and heatmap review notes in `artifacts/reports/visual_evidence_review.md`
+- [ ] T046 [US2] Document visual-evidence review commands and missing-output behavior in `specs/001-breast-ultrasound-cad/quickstart.md`
+
+**Checkpoint**: User Story 2 should be explainable with report-ready visual evidence,
+and Grad-CAM should not silently break when the classifier backbone changes.
+
+---
+
+## Phase 9: Handbook Follow-up - User Story 3 Release And Defense Readiness (Priority: P3)
+
+**Source**: `开发手册_V2.md` chapters 11, 12, and 15.
+
+**Goal**: Turn the prototype into a final handoff package with frozen runtime
+weights, batch/demo workflows, checksums, report tables, and rehearsal evidence.
+
+**Independent Test**: Build `artifacts/release_v1/`, launch the packaged demo from
+the exported release assets, and verify a single-image result plus release checksum
+manifest.
+
+### Validation for Release Work (REQUIRED)
+
+- [ ] T047 [P] [US3] Add release-manifest validation in `tests/integration/test_packaged_demo.py`
+- [ ] T048 [P] [US3] Add batch-inference smoke validation in `tests/smoke/test_batch_inference.py`
+
+### Implementation for Release Work
+
+- [ ] T049 [US3] Add release asset export with SHA-256 manifest in `scripts/export_demo_assets.py` and `artifacts/reports/release_v1_manifest.md`
+- [ ] T050 [US3] Add optional 5-fold classifier ensemble runtime support in `src/engine/inference.py` and `configs/inference/demo.yml`
+- [ ] T051 [US3] Implement batch inference export in `scripts/batch_infer.py` and expose the validated command in `README.md`
+- [ ] T052 [US3] Update packaging guidance for `artifacts/release_v1/` in `packaging/demo.spec`, `README.md`, and `specs/001-breast-ultrasound-cad/quickstart.md`
+- [ ] T053 [US3] Record demo rehearsal and defense checklist evidence in `artifacts/reports/demo_rehearsal.md`
+
+**Checkpoint**: User Story 3 should be ready for final presentation, packaging,
+report writing, and teammate handoff.
+
+---
+
+## Phase 10: Final Handbook Evidence Freeze
+
+**Purpose**: Lock the final experiment evidence and keep implementation, docs, and
+release artifacts synchronized before the final delivery window.
+
+- [ ] T054 [P] Generate report-ready model tables from comparison, BUSI evaluation, and threshold reports in `artifacts/reports/report_tables.md`
+- [ ] T055 [P] Update final validation evidence after handbook follow-up work in `artifacts/reports/final_validation.md`
+- [ ] T056 Run full regression plus selected handbook smoke commands, then update completion status in `specs/001-breast-ultrasound-cad/tasks.md`
+
+---
+
 ## Dependencies & Execution Order
 
 ### Phase Dependencies
@@ -150,12 +249,19 @@ across all user stories.
 - **User Story 2 (Phase 4)**: Depends on Foundational completion and integrates with the inference service from User Story 1
 - **User Story 3 (Phase 5)**: Depends on User Story 1 and consumes visualization outputs from User Story 2 when available
 - **Polish (Phase 6)**: Depends on the desired user stories being complete
+- **Handbook Model Quality (Phase 7)**: Depends on Phase 6 completion and should complete before final model freeze
+- **Handbook Visual Evidence (Phase 8)**: Depends on Phase 7 model decisions for backbone-specific Grad-CAM checks
+- **Handbook Release Readiness (Phase 9)**: Depends on Phase 7 runtime weights and Phase 8 visual evidence behavior
+- **Final Handbook Evidence Freeze (Phase 10)**: Depends on Phases 7-9 completion
 
 ### User Story Dependencies
 
 - **User Story 1 (P1)**: No dependency on later stories; this is the recommended MVP slice
 - **User Story 2 (P2)**: Builds on the shared inference pipeline created in User Story 1
 - **User Story 3 (P3)**: Requires the diagnosis pipeline from User Story 1 and should surface User Story 2 outputs or their fallback warnings
+- **Handbook follow-up US1**: Prioritize first because model-selection evidence drives report claims and final runtime weights
+- **Handbook follow-up US2**: Run after the selected classifier backbone is stable so Grad-CAM targets match the real model
+- **Handbook follow-up US3**: Run after model and visual evidence are frozen so release assets are reproducible
 
 ### Within Each User Story
 
@@ -172,6 +278,10 @@ across all user stories.
 - `T020` and `T021` can run in parallel before `T022` and `T023`
 - `T024` and `T025` can run in parallel before `T028` and `T029`
 - `T030` and `T031` can run in parallel during the polish phase
+- `T033` and `T034` can run in parallel before model-quality implementation tasks
+- `T041` and `T042` can run in parallel before visual-evidence hardening tasks
+- `T047` and `T048` can run in parallel before release implementation tasks
+- `T054` and `T055` can run in parallel once Phases 7-9 have produced evidence
 
 ---
 
@@ -201,6 +311,14 @@ Task: "Add Gradio end-to-end smoke validation in tests/smoke/test_gradio_flow.py
 Task: "Add packaged demo smoke validation in tests/integration/test_packaged_demo.py"
 ```
 
+## Parallel Example: Handbook Follow-up
+
+```bash
+Task: "Add classifier backbone and comparison-config validation in tests/unit/test_classifier_models.py and tests/smoke/test_comparison_config.py"
+Task: "Add metric and threshold-analysis validation in tests/unit/test_metrics.py and tests/integration/test_busi_eval.py"
+Task: "Add Grad-CAM target-layer resolution tests in tests/unit/test_gradcam_targets.py"
+```
+
 ---
 
 ## Implementation Strategy
@@ -220,6 +338,7 @@ Task: "Add packaged demo smoke validation in tests/integration/test_packaged_dem
 3. Add User Story 2 to enrich results with lesion/explanation evidence
 4. Add User Story 3 to expose the flow through the UI and packaging
 5. Finish with Phase 6 for regression coverage and final evidence capture
+6. Continue with the handbook follow-up phases: model evidence, visual evidence hardening, release readiness, and final evidence freeze
 
 ### Parallel Team Strategy
 
@@ -236,3 +355,4 @@ Task: "Add packaged demo smoke validation in tests/integration/test_packaged_dem
 - Validation/report tasks are included for every user story
 - User Story 1 is the recommended MVP scope
 - User Story 3 is intentionally scheduled after core model work to preserve demo stability
+- The next executable scope is Phase 7 because the initial MVP is complete and the handbook now prioritizes model-quality evidence

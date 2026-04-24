@@ -1,166 +1,279 @@
-# BUCAD 中文介绍
+# BUCAD 中文说明
 
-BUCAD 是一个面向乳腺超声图像的智能辅助诊断原型系统。项目目标不是替代医生，而是把“上传乳腺超声图像、自动分析风险、标出可疑区域、展示模型关注区域、生成可阅读报告”串成一个可以演示、可以交付、可以继续扩展的软件流程。
+BUCAD（Breast Ultrasound Computer-Aided Diagnosis）是一个面向乳腺超声图像的辅助诊断原型系统。项目目标不是替代医生，而是把“数据准备、模型训练、外部评估、病灶可视化、Grad-CAM 解释、Gradio 演示、打包交付、报告答辩材料”串成一套可运行、可展示、可交接的完整流程。
 
-## 项目目标
+> 重要说明：本项目仅用于科研、竞赛展示和辅助分析原型，不得作为临床最终诊断依据。
 
-用户输入一张乳腺超声图像后，系统会输出三类结果：
+## 当前状态
 
-- 良恶性判断：输出恶性概率、良性概率和最终判定结果。
-- 病灶区域可视化：通过分割结果或叠加图展示可疑病灶大致位置。
-- 辅助解释信息：通过 Grad-CAM 热力图、风险提示和结果说明展示模型关注区域。
+- Spec Kit 任务：`specs/001-breast-ultrasound-cad/tasks.md` 中 79/79 已完成。
+- 当前冻结分类模型：`tf_efficientnetv2_s` 五折 ensemble。
+- 当前分割模型：`artifacts/checkpoints/segmenter_fold1.pt`。
+- 当前推理阈值：`0.25`，来自 BUSI 阈值分析中的 Youden J 最优点。
+- 当前回归验证：`BUCAD` Conda 环境下 `check_all.py` 通过 26 个测试。
+- 当前模型选择结论：在已完成的对比模型中，`EfficientNetV2-S` 的 fold-1 AUC 最高。
 
-整体流程可以概括为：
+## 最终模型效果
 
-```text
-输入图像 -> 识别风险 -> 展示病灶 -> 输出判断 -> 辅助理解结果
+### BUSI 外部评估
+
+当前冻结的 EfficientNetV2-S 五折 ensemble 在 BUSI 外部评估上的结果如下：
+
+| 指标 | 数值 |
+| --- | ---: |
+| AUC | 0.8955 |
+| Sensitivity | 0.8476 |
+| Specificity | 0.8215 |
+| Accuracy | 0.8300 |
+| 选定阈值 | 0.25 |
+
+结论：
+
+- AUC 目标 `>= 0.75`：已超过。
+- Sensitivity 目标 `0.85`：非常接近，目前还差 `0.0024`。
+- 报告中建议写“接近敏感度目标”，不要写成“完全达到临床筛查要求”。
+
+### 模型对比结果
+
+当前记录的 fold-1、20 epoch 对比实验：
+
+| 排名 | 模型 | AUC | Sensitivity | Specificity | 状态 |
+| ---: | --- | ---: | ---: | ---: | --- |
+| 1 | `tf_efficientnetv2_s` | 0.8937 | 0.7049 | 0.8775 | completed |
+| 2 | `densenet121` | 0.8867 | 0.7213 | 0.8775 | completed |
+| 3 | `resnet18` | 0.8756 | 0.7131 | 0.8577 | completed |
+| 4 | `mobilenetv3_small_100` | 0.8704 | 0.6557 | 0.9170 | completed |
+| 5 | `basic_cnn` | 0.6427 | 0.0000 | 0.9921 | completed |
+| 6 | `vgg16` | 0.5000 | 0.0000 | 1.0000 | completed |
+| - | `alexnet` | - | - | - | recorded run failed |
+
+说明：`alexnet` 在已记录的 T060 对比运行中失败；之后项目已经补上 `torchvision` AlexNet 支持。如果最终报告必须包含 AlexNet 指标，需要重新跑一次 T060 或单独补跑 AlexNet。
+
+## 项目目录
+
+- `configs/`：路径、分类模型、分割模型、推理流程的 YAML 配置。
+- `src/datasets/`：BUSBRA/BUSI 数据集读取和病例级 split 支持。
+- `src/models/`：分类器和分割器构建逻辑。
+- `src/engine/`：训练、对比实验、推理、评估和错误处理。
+- `src/explain/`：Grad-CAM 和可视化叠加图。
+- `src/preprocess/`：图像读取、预处理、增强。
+- `src/utils/`：配置、路径、指标、报告、日志和结果 schema。
+- `scripts/`：命令行脚本入口。
+- `app/`：Gradio 演示界面。
+- `tests/`：单元测试和 smoke 测试。
+- `specs/001-breast-ultrasound-cad/`：Spec Kit 的 spec、plan、tasks、quickstart、contracts。
+- `artifacts/`：本地运行产物、权重、报告和 release 包。
+
+## 数据边界
+
+- BUSBRA：只用于训练和内部验证。
+- BUSI：只用于外部评估和演示验证。
+- split：病例级划分，避免同一病例泄漏到训练集和验证集两边。
+- 数据集、权重、图片、JSON/CSV 报告、release 包默认不进入 Git。
+
+本地数据路径在 `configs/paths.local.yml` 中配置：
+
+```yaml
+datasets:
+  busbra_root: ./训练集/BUSBRA
+  busi_root: ./测试集/Dataset_BUSI_with_GT
 ```
 
-## 当前能力
+## 环境安装
 
-- 已支持 BUSBRA/BUSI 数据读取、病例级划分和泄漏检查。
-- 已支持分类模型训练、BUSI 外部评估、阈值分析和指标报告。
-- 已加入开发手册推荐方向：EfficientNetV2-S 主模型配置、模型对比配置、Grad-CAM 目标层适配和可视化证据导出。
-- 已支持 Gradio 中文操作界面，用户可以上传单张图像并查看诊断结果、病灶叠加图和解释热力图。
-- 已支持 PyInstaller 打包和 release 资产导出，便于离线演示。
-- 已支持将主要 Markdown/JSON 报告汇总为 Word 文档：`artifacts\reports\documents\bucad_report_summary.docx`。
-
-## 技术栈
-
-- 语言与环境：Python 3.10、Conda
-- 深度学习框架：PyTorch、torchvision
-- 分类模型库：timm
-- 分割模型库：segmentation_models_pytorch
-- 图像处理：OpenCV
-- 数据处理：NumPy、pandas
-- 评估指标：scikit-learn
-- 训练日志：TensorBoard、tqdm
-- 配置与命令行：PyYAML、argparse
-- 可解释性：pytorch-grad-cam
-- 操作界面：Gradio
-- 打包：PyInstaller
-- 版本管理：Git、GitHub
-
-## 快速开始
-
-1. 创建并激活环境：
+Windows PowerShell 推荐流程：
 
 ```powershell
-conda create -n BUCAD python=3.10 -y
+conda create -n BUCAD python=3.11 -y
 conda activate BUCAD
-pip install -r requirements.txt
+python -m pip install -r requirements.txt
 ```
 
-2. 检查环境：
+如果是在 Codex/外部 agent 中执行，不能永久激活环境时，可以使用：
+
+```powershell
+conda run -n BUCAD python check_env.py
+```
+
+## 检查环境和测试
 
 ```powershell
 python check_env.py
 python check_all.py
 ```
 
-3. 复制路径配置模板，并改成你的本地数据路径：
+`check_all.py` 会先检查依赖，再运行 `tests/unit` 和 `tests/smoke`。脚本已经改为使用仓库内临时目录，避免 Windows 系统 Temp 目录权限或锁文件问题。
 
-```powershell
-Copy-Item configs\paths.example.yml configs\paths.local.yml
-```
-
-4. 生成病例级安全划分：
+## 生成病例级 5 折划分
 
 ```powershell
 python scripts\make_split.py --config configs\paths.local.yml
 ```
 
-5. 训练和评估基础分类模型：
+输出：
 
-```powershell
-python scripts\train_cls.py --config configs\classifier\baseline.yml --fold 1 --epochs 1
-python scripts\eval_busi.py --config configs\inference\demo.yml
-```
+- `artifacts/reports/busbra_5fold_splits.csv`
+- `artifacts/reports/busbra_split_summary.json`
 
-6. 运行开发手册主模型配置：
+重点看 `busbra_split_summary.json` 中的 `leakage_detected=false`。
+
+## 训练模型
+
+训练 EfficientNetV2-S 单折：
 
 ```powershell
 python scripts\train_cls.py --config configs\classifier\efficientnetv2_s.yml --fold 1
 ```
 
-7. 运行模型对比证据：
+训练 EfficientNetV2-S 五折：
+
+```powershell
+scripts\train_all_folds.bat
+```
+
+等价展开命令：
+
+```powershell
+python scripts\train_cls.py --config configs\classifier\efficientnetv2_s.yml --fold 1
+python scripts\train_cls.py --config configs\classifier\efficientnetv2_s.yml --fold 2
+python scripts\train_cls.py --config configs\classifier\efficientnetv2_s.yml --fold 3
+python scripts\train_cls.py --config configs\classifier\efficientnetv2_s.yml --fold 4
+python scripts\train_cls.py --config configs\classifier\efficientnetv2_s.yml --fold 5
+```
+
+输出：
+
+- `artifacts/checkpoints/efficientnetv2_s_fold1.pt` 到 `efficientnetv2_s_fold5.pt`
+- `artifacts/reports/train_cls_efficientnetv2_s_fold1.json` 到 `fold5.json`
+- `artifacts/reports/efficientnetv2_s_5fold_summary.md`
+
+## 运行模型对比实验
+
+先做快速 dry-run：
 
 ```powershell
 python scripts\run_comparison.py --config configs\classifier\comparison.yml --fold 1 --model-limit 1 --dry-run
+```
+
+再跑完整对比：
+
+```powershell
 python scripts\run_comparison.py --config configs\classifier\comparison.yml --fold 1 --epochs 20
 ```
 
-8. 启动操作界面：
+输出：
+
+- `artifacts/reports/comparison_results.json`
+- `artifacts/reports/comparison_summary.md`
+- 各模型 checkpoint：`artifacts/checkpoints/`
+- 各模型报告：`artifacts/reports/comparison_*_fold1.json`
+
+## BUSI 外部评估
+
+```powershell
+python scripts\eval_busi.py --config configs\inference\demo.yml --output artifacts\reports\busi_eval_final.json
+```
+
+输出：
+
+- `artifacts/reports/busi_eval_final.json`
+- `artifacts/reports/threshold_analysis.md`
+
+注意：评估函数顶层 `metrics` 仍保留传统 `0.50` 阈值指标；当前正式采用的高敏感度阈值 `0.25` 写在 `threshold_analysis.best_by_youden` 中。
+
+## 启动 Gradio 演示
 
 ```powershell
 python app\main.py
 ```
 
-## 报告与交付
+界面支持：
 
-项目的正式报告交付格式使用 Word DOCX，不默认生成 PDF。
+- 上传一张乳腺超声图像。
+- 输出良性/恶性概率。
+- 输出最终判断和置信度/边界情况。
+- 生成病灶定位叠加图。
+- 生成 Grad-CAM 风格解释热力图。
+- 当分割或解释模块缺失时，给出明确 warning。
+
+## 导出证据和报告
+
+导出最终可视化证据：
+
+```powershell
+python scripts\export_visual_evidence.py --config configs\inference\demo.yml --output-dir artifacts\reports\visual_evidence_final --limit 6
+```
+
+导出批量推理结果：
+
+```powershell
+python scripts\batch_infer.py --config configs\inference\demo.yml --input-dir 测试集\Dataset_BUSI_with_GT\malignant --output artifacts\reports\batch_inference_final.csv
+```
+
+导出 Word 报告：
 
 ```powershell
 python scripts\export_report_documents.py --reports-dir artifacts\reports --output-dir artifacts\reports\documents
 ```
 
-生成结果：
+关键报告文件：
 
-```text
-artifacts\reports\documents\bucad_report_summary.docx
-```
+- `artifacts/reports/efficientnetv2_s_5fold_summary.md`
+- `artifacts/reports/model_freeze_decision.md`
+- `artifacts/reports/comparison_summary.md`
+- `artifacts/reports/report_tables.md`
+- `artifacts/reports/defense_outline.md`
+- `artifacts/reports/defense_qa.md`
+- `artifacts/reports/final_handoff.md`
+- `artifacts/reports/documents/bucad_report_summary.docx`
 
-这份 Word 文档会汇总最终验证、模型指标、阈值分析、可视化证据、发布记录和开发手册进度，适合用于归档、答辩准备和队友交接。
-
-## 常用导出命令
-
-导出可视化证据：
-
-```powershell
-python scripts\export_visual_evidence.py --config configs\inference\demo.yml --output-dir artifacts\reports\visual_evidence --limit 6
-```
-
-批量推理：
-
-```powershell
-python scripts\batch_infer.py --config configs\inference\demo.yml --input-dir 测试集\Dataset_BUSI_with_GT\malignant --output artifacts\reports\batch_inference.csv
-```
-
-打包演示版本：
+## 打包交付
 
 ```powershell
 pyinstaller packaging\demo.spec --noconfirm
 python scripts\export_demo_assets.py --config configs\paths.local.yml --output-dir artifacts\release_v1
 ```
 
-## 项目结构
+输出：
 
-- `configs/`：路径、分类、分割、推理等 YAML 配置。
-- `src/`：数据集、模型、预处理、训练推理、解释性和工具模块。
-- `scripts/`：划分、训练、评估、导出和批量推理命令入口。
-- `app/`：Gradio 操作界面。
-- `tests/`：单元测试、烟雾测试和集成测试。
-- `artifacts/`：运行输出、日志、报告和交付资产。
-- `specs/001-breast-ultrasound-cad/`：Spec Kit 计划、任务、合同和快速开始文档。
+- `dist/bucad-demo/bucad-demo.exe`
+- `artifacts/release_v1/`
+- `artifacts/reports/release_v1_manifest.md`
+- `artifacts/reports/final_packaged_demo.md`
 
-## 当前进度
+## 推荐最终运行顺序
 
-当前已完成可演示原型、基础训练评估流程、可视化解释、打包流程和 DOCX 报告导出。开发手册进度记录在：
-
-```text
-artifacts\reports\handbook_progress.md
+```powershell
+conda activate BUCAD
+python check_all.py
+python scripts\make_split.py --config configs\paths.local.yml
+scripts\train_all_folds.bat
+python scripts\run_comparison.py --config configs\classifier\comparison.yml --fold 1 --epochs 20
+python scripts\eval_busi.py --config configs\inference\demo.yml --output artifacts\reports\busi_eval_final.json
+python scripts\export_visual_evidence.py --config configs\inference\demo.yml --output-dir artifacts\reports\visual_evidence_final --limit 6
+python scripts\batch_infer.py --config configs\inference\demo.yml --input-dir 测试集\Dataset_BUSI_with_GT\malignant --output artifacts\reports\batch_inference_final.csv
+python scripts\export_report_documents.py --reports-dir artifacts\reports --output-dir artifacts\reports\documents
+python scripts\export_demo_assets.py --config configs\paths.local.yml --output-dir artifacts\release_v1
 ```
 
-下一阶段重点是正式实验和最终证据冻结：
+## 答辩表述建议
 
-- 完成 EfficientNetV2-S 5 折正式训练。
-- 完成完整模型对比和 BUSI 最终外部评估。
-- 冻结最终模型、阈值和推理配置。
-- 整理最终良恶性可视化样例、答辩提纲、常见问答和交接清单。
+可以说：
 
-## 注意事项
+- 我们完成了 BUSBRA 训练、BUSI 外部评估、可解释性可视化和软件演示闭环。
+- EfficientNetV2-S 在已完成对比模型中 AUC 最优。
+- 当前 BUSI AUC 为 `0.8955`，敏感度在选定阈值下为 `0.8476`，接近 `0.85` 目标。
+- 系统定位是辅助分析和竞赛原型，不是临床诊断工具。
 
-- 本项目仅用于辅助诊断研究、比赛展示和原型演示，不能作为临床最终诊断依据。
-- 训练数据和测试数据默认不进入 Git 仓库。
-- BUSBRA 用于训练和内部验证，BUSI 用于外部评估和演示验证，二者需要保持边界隔离。
-- 如果分割权重或解释模块不可用，系统仍应返回基础诊断结果，并在界面中明确提示缺失项。
+不要说：
+
+- “模型已经达到临床可用”。
+- “Grad-CAM 证明模型一定看到了真实病灶”。
+- “敏感度已经严格超过 0.85”。
+
+## 局限性
+
+- 当前系统仍是原型系统。
+- Sensitivity 非常接近目标，但还没有严格超过 `0.85`。
+- 分割和 Grad-CAM 是解释性证据，不是临床标注或诊断依据。
+- 最终 PPT 截图和视觉案例仍建议人工复核，避免选到不适合展示的图。

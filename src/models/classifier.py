@@ -10,6 +10,7 @@ torch = optional_import("torch")
 nn = optional_import("torch.nn")
 F = optional_import("torch.nn.functional")
 timm = optional_import("timm")
+torchvision_models = optional_import("torchvision.models")
 
 
 if nn is not None:
@@ -50,6 +51,19 @@ def create_classifier(
     normalized_name = model_name.lower()
     if normalized_name in {"basic_cnn", "tiny_cnn"}:
         return TinyCNNClassifier(in_chans=in_chans, num_classes=num_classes)
+    if normalized_name == "alexnet" and torchvision_models is not None:
+        weights = torchvision_models.AlexNet_Weights.DEFAULT if pretrained else None
+        model = torchvision_models.alexnet(weights=weights)
+        if in_chans != 3:
+            model.features[0] = nn.Conv2d(
+                in_chans,
+                model.features[0].out_channels,
+                kernel_size=model.features[0].kernel_size,
+                stride=model.features[0].stride,
+                padding=model.features[0].padding,
+            )
+        model.classifier[-1] = nn.Linear(model.classifier[-1].in_features, num_classes)
+        return model
     if timm is not None:
         return timm.create_model(
             model_name,

@@ -2,16 +2,21 @@ paths_config: configs/paths.local.yml
 seed: 42
 device: auto
 runtime:
-  classifier_model: resnet18
+  classifier_model: tf_efficientnetv2_s
   classifier_pretrained: false
   classifier_image_size: 224
-  classifier_apply_clahe: false
+  classifier_apply_clahe: true
   segmenter_image_size: 256
   gradcam_enabled: true
   segmentation_enabled: true
-  default_threshold: 0.5
+  default_threshold: 0.25
   borderline_margin: 0.08
   classifier_checkpoint: null
-  classifier_checkpoints: []
+  classifier_checkpoints:
+    - ./artifacts/checkpoints/efficientnetv2_s_fold1.pt
+    - ./artifacts/checkpoints/efficientnetv2_s_fold2.pt
+    - ./artifacts/checkpoints/efficientnetv2_s_fold3.pt
+    - ./artifacts/checkpoints/efficientnetv2_s_fold4.pt
+    - ./artifacts/checkpoints/efficientnetv2_s_fold5.pt
   segmenter_checkpoint: null
   allow_missing_visuals: true

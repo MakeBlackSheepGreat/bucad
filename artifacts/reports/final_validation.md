@@ -92,3 +92,49 @@ Date: 2026-04-23
 - Automated validation completed with `python -m pytest tests\integration\test_report_documents.py`: `2 passed`.
 - Full regression completed with `python -m pytest tests\unit tests\smoke tests\integration`: `32 passed in 10.37s`.
 - Development handbook progress was synchronized in `artifacts\reports\handbook_progress.md` and included in the DOCX report summary.
+
+## Release Candidate Follow-up Validation
+
+Date: 2026-04-24
+
+- Environment: `conda run -n BUCAD python check_all.py` completed with `26 passed in 9.29s`.
+- Final visual evidence export completed: `artifacts/reports/visual_evidence_final/` with 6 cases.
+- Final BUSI evaluation completed: `artifacts/reports/busi_eval_final.json` with AUC 0.7564, sensitivity 0.6095, specificity 0.8009, accuracy 0.7388.
+- Final batch inference export completed: `artifacts/reports/batch_inference_final.csv`.
+- Release asset export completed: `artifacts/release_v1/` and `artifacts/reports/release_v1_manifest.md`.
+- Packaged demo smoke completed: `dist/bucad-demo/bucad-demo.exe` stayed alive for 20 seconds with empty stdout/stderr.
+- Remaining long-running evidence: T059 EfficientNetV2-S 5-fold training and T060 full handbook comparison.
+
+## EfficientNetV2-S T059 Completion
+
+Date: 2026-04-24
+
+- Completed all five EfficientNetV2-S training folds and generated checkpoints under `artifacts/checkpoints/efficientnetv2_s_fold{1..5}.pt`.
+- Mean internal validation AUC: `0.8946`.
+- Mean internal validation sensitivity: `0.6525`.
+- Mean internal validation specificity: `0.9054`.
+- Switched `configs/inference/demo.yml` to the EfficientNetV2-S five-fold ensemble.
+- BUSI ensemble AUC: `0.8955`.
+- Selected threshold by Youden J: `0.25` with sensitivity `0.8476`, specificity `0.8215`, and accuracy `0.8300`.
+- Remaining formal task: T060 full handbook model comparison.
+## T060 Full Comparison Completion
+
+Date: 2026-04-24
+
+- Completed full handbook comparison command with 7 configured models, fold 1, 20 epochs.
+- Best completed model by validation AUC: `tf_efficientnetv2_s` at `0.8937`.
+- Comparison summary: `artifacts/reports/comparison_summary.md`.
+- Full machine-readable result: `artifacts/reports/comparison_results.json`.
+- Note: `alexnet` failed in this run and is documented as a failed baseline.
+
+
+## Manual Recheck Fixes
+
+Date: 2026-04-24
+
+- Fixed comparison dry-run test isolation so check_all.py no longer overwrites formal rtifacts/reports/comparison_results.json.
+- Added scripts/train_all_folds.bat to match the development handbook quick command reference.
+- Added AlexNet construction support through torchvision so the configured comparison model is supported by the model factory.
+- Updated check_all.py to use a unique repository-local pytest temp directory, avoiding locked Windows temp-directory failures.
+- Verification: C:\Users\876762330\.conda\envs\BUCAD\python.exe check_all.py completed with 26 passed in 9.74s, and formal comparison remained dry_run=false, model_count=7.
+

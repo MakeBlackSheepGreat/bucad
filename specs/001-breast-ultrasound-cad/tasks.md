@@ -252,15 +252,15 @@ evaluation, threshold choice, and exact commands/configs used.
 
 ### Validation for Formal Experiment Work (REQUIRED)
 
-- [ ] T057 [P] [US1] Verify formal experiment prerequisites and record dataset/checkpoint availability in `artifacts/reports/formal_experiment_prerequisites.md`
-- [ ] T058 [P] [US1] Add a formal-run command checklist for 5-fold training and comparison in `artifacts/reports/formal_experiment_commands.md`
+- [X] T057 [P] [US1] Verify formal experiment prerequisites and record dataset/checkpoint availability in `artifacts/reports/formal_experiment_prerequisites.md`
+- [X] T058 [P] [US1] Add a formal-run command checklist for 5-fold training and comparison in `artifacts/reports/formal_experiment_commands.md`
 
 ### Implementation for Formal Experiment Work
 
-- [ ] T059 [US1] Run EfficientNetV2-S 5-fold training and save metrics/checkpoints under `artifacts/reports/train_cls_efficientnetv2_s_fold{fold}.json` and `artifacts/checkpoints/efficientnetv2_s_fold{fold}.pt`
-- [ ] T060 [US1] Run the full handbook comparison with `configs/classifier/comparison.yml` and update `artifacts/reports/comparison_results.json`
-- [ ] T061 [US1] Run BUSI evaluation for the frozen final classifier or ensemble and save `artifacts/reports/busi_eval_final.json`
-- [ ] T062 [US1] Write the final model and threshold freeze decision in `artifacts/reports/model_freeze_decision.md`
+- [X] T059 [US1] Run EfficientNetV2-S 5-fold training and save metrics/checkpoints under `artifacts/reports/train_cls_efficientnetv2_s_fold{fold}.json` and `artifacts/checkpoints/efficientnetv2_s_fold{fold}.pt`
+- [X] T060 [US1] Run the full handbook comparison with `configs/classifier/comparison.yml` and update `artifacts/reports/comparison_results.json`
+- [X] T061 [US1] Run BUSI evaluation for the frozen final classifier or ensemble and save `artifacts/reports/busi_eval_final.json`
+- [X] T062 [US1] Write the final model and threshold freeze decision in `artifacts/reports/model_freeze_decision.md`
 
 **Checkpoint**: User Story 1 should have real long-run evidence, not only smoke
 validation, before claiming EfficientNetV2-S is the best model.
@@ -280,13 +280,13 @@ and any failure/missing-output reason.
 
 ### Validation for Formal Visual Review (REQUIRED)
 
-- [ ] T063 [P] [US2] Export final benign/malignant visual examples into `artifacts/reports/visual_evidence_final/README.md`
-- [ ] T064 [P] [US2] Record segmentation and Grad-CAM plausibility review notes in `artifacts/reports/visual_evidence_review.md`
+- [X] T063 [P] [US2] Export final benign/malignant visual examples into `artifacts/reports/visual_evidence_final/README.md`
+- [X] T064 [P] [US2] Record segmentation and Grad-CAM plausibility review notes in `artifacts/reports/visual_evidence_review.md`
 
 ### Implementation for Formal Visual Review
 
-- [ ] T065 [US2] Select final representative BUSI/BUSBRA cases and document sample IDs in `artifacts/reports/final_visual_cases.md`
-- [ ] T066 [US2] Capture report-ready original, lesion overlay, and heatmap figure index in `artifacts/reports/final_figures.md`
+- [X] T065 [US2] Select final representative BUSI/BUSBRA cases and document sample IDs in `artifacts/reports/final_visual_cases.md`
+- [X] T066 [US2] Capture report-ready original, lesion overlay, and heatmap figure index in `artifacts/reports/final_figures.md`
 
 **Checkpoint**: User Story 2 should have final visual evidence ready for report
 screenshots and defense explanation.
@@ -305,14 +305,14 @@ record the result in `artifacts/reports/final_packaged_demo.md`.
 
 ### Validation for Release Candidate Freeze (REQUIRED)
 
-- [ ] T067 [P] [US3] Validate final runtime config and checkpoint references in `configs/inference/demo.yml` and `artifacts/reports/release_v1_manifest.md`
-- [ ] T068 [P] [US3] Run final batch inference export and save `artifacts/reports/batch_inference_final.csv`
+- [X] T067 [P] [US3] Validate final runtime config and checkpoint references in `configs/inference/demo.yml` and `artifacts/reports/release_v1_manifest.md`
+- [X] T068 [P] [US3] Run final batch inference export and save `artifacts/reports/batch_inference_final.csv`
 
 ### Implementation for Release Candidate Freeze
 
-- [ ] T069 [US3] Export final release assets and SHA-256 manifest into `artifacts/release_v1/` and `artifacts/reports/release_v1_manifest.md`
-- [ ] T070 [US3] Run packaged demo smoke from final release assets and record evidence in `artifacts/reports/final_packaged_demo.md`
-- [ ] T071 [US3] Complete the live Chinese UI rehearsal checklist in `artifacts/reports/demo_rehearsal.md`
+- [X] T069 [US3] Export final release assets and SHA-256 manifest into `artifacts/release_v1/` and `artifacts/reports/release_v1_manifest.md`
+- [X] T070 [US3] Run packaged demo smoke from final release assets and record evidence in `artifacts/reports/final_packaged_demo.md`
+- [X] T071 [US3] Complete the live Chinese UI rehearsal checklist in `artifacts/reports/demo_rehearsal.md`
 
 **Checkpoint**: User Story 3 should be frozen as a repeatable demo package suitable
 for handoff, presentation, and offline recovery.
@@ -326,11 +326,11 @@ for handoff, presentation, and offline recovery.
 **Purpose**: Turn the final experiment outputs into report tables, presentation
 talking points, and final handoff notes.
 
-- [ ] T072 [P] Convert final comparison, BUSI, threshold, and segmentation outputs into report-ready tables in `artifacts/reports/report_tables.md`
-- [ ] T073 [P] Draft report/PPT outline and defense talking points in `artifacts/reports/defense_outline.md`
-- [ ] T074 [P] Prepare likely defense Q&A based on model choice, data leakage, metrics, Grad-CAM, and limitations in `artifacts/reports/defense_qa.md`
-- [ ] T075 Create final handoff checklist with commands, artifacts, risks, and owners in `artifacts/reports/final_handoff.md`
-- [ ] T076 Run final full validation after release freeze and update `artifacts/reports/final_validation.md` and `specs/001-breast-ultrasound-cad/tasks.md`
+- [X] T072 [P] Convert final comparison, BUSI, threshold, and segmentation outputs into report-ready tables in `artifacts/reports/report_tables.md`
+- [X] T073 [P] Draft report/PPT outline and defense talking points in `artifacts/reports/defense_outline.md`
+- [X] T074 [P] Prepare likely defense Q&A based on model choice, data leakage, metrics, Grad-CAM, and limitations in `artifacts/reports/defense_qa.md`
+- [X] T075 Create final handoff checklist with commands, artifacts, risks, and owners in `artifacts/reports/final_handoff.md`
+- [X] T076 Run final full validation after release freeze and update `artifacts/reports/final_validation.md` and `specs/001-breast-ultrasound-cad/tasks.md`
 - [X] T077 [P] Add readable Word DOCX report export support in `src/utils/document_reports.py` and `scripts/export_report_documents.py`
 - [X] T078 [P] Document and validate DOCX-only report export in `README.md`, `specs/001-breast-ultrasound-cad/quickstart.md`, and `tests/integration/test_report_documents.py`
 - [X] T079 [P] Sync development handbook progress in `artifacts/reports/handbook_progress.md` and include it in the generated DOCX report

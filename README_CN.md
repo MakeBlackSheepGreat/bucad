@@ -210,9 +210,3 @@ python scripts\export_demo_assets.py --config configs\paths.local.yml --output-d
 - `artifacts/reports/comparison_summary.md`
 - `artifacts/reports/report_tables.md`
 - `artifacts/reports/final_validation.md`
-
-## 注意事项
-
-- 本地数据集和模型权重不要提交到 Git。
-- 比赛题面、开发手册、答辩说明、队员配置等比赛管理材料不要提交到 Git。
-- 提交前建议先运行 `python check_all.py`。

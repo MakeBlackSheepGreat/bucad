@@ -222,9 +222,3 @@ python scripts\export_demo_assets.py --config configs\paths.local.yml --output-d
 - `artifacts/reports/comparison_summary.md`
 - `artifacts/reports/report_tables.md`
 - `artifacts/reports/final_validation.md`
-
-## Notes
-
-- Keep local datasets and model weights out of Git.
-- Keep competition-only material, defense notes, and team-management documents out of Git.
-- Use `check_all.py` before committing changes.

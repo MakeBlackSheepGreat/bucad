@@ -25,7 +25,7 @@ comparison:
       description: DenseNet-121 baseline
       pretrained: true
     - name: tf_efficientnetv2_s
-      description: EfficientNetV2-S handbook main model
+      description: EfficientNetV2-S main model
       pretrained: true
 data:
   image_size: 224

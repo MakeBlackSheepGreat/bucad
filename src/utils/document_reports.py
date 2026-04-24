@@ -8,17 +8,14 @@ from typing import Any, Iterable
 
 
 CORE_MARKDOWN_REPORTS = [
-    "handbook_progress.md",
     "final_validation.md",
     "report_tables.md",
     "threshold_analysis.md",
     "visual_evidence_review.md",
     "release_v1_manifest.md",
-    "demo_rehearsal.md",
     "model_freeze_decision.md",
-    "defense_outline.md",
-    "defense_qa.md",
-    "final_handoff.md",
+    "comparison_summary.md",
+    "efficientnetv2_s_5fold_summary.md",
 ]
 
 CORE_JSON_REPORTS = [
@@ -206,7 +203,7 @@ def collect_report_blocks(reports_dir: str | Path) -> list[ReportBlock]:
         ReportBlock("heading", "说明", level=1),
         ReportBlock(
             "paragraph",
-            "本文件汇总项目主要验证、评估、可视化、发布和答辩相关报告，便于阅读、归档和展示。",
+            "本文件汇总项目主要验证、评估、可视化和发布相关报告，便于阅读和归档。",
         ),
         ReportBlock("bullet", f"纳入文件：{included}"),
     ]

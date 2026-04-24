@@ -28,7 +28,7 @@ Date: 2026-04-24
 | Task | Status |
 | --- | --- |
 | T059 EfficientNetV2-S 5-fold training | complete |
-| T060 full handbook comparison | pending |
+| T060 full model comparison | pending |
 ## Full Model Comparison
 
 | Rank | Model | AUC | Sensitivity | Specificity | Accuracy | Status |

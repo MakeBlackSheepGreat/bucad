@@ -34,9 +34,12 @@ artifacts/reports/final_*.md
 # Competition-only / non-project materials
 赛题*.pdf
 赛题*.docx
+赛题*
 开发手册*.md
 开发手册*.docx
+开发手册*
 队员配置*.docx
+队员配置*
 答辩*.md
 答辩*.docx
 defense*.md
@@ -45,6 +48,8 @@ local_notes/
 # Agent / local workflow files
 AGENTS.md
 .agents/
+.specify/
+specs/
 
 # Python caches and test outputs
 __pycache__/

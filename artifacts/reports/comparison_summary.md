@@ -1,4 +1,4 @@
-# Full Handbook Comparison Summary
+# Full Model Comparison Summary
 
 Date: 2026-04-24
 
@@ -11,7 +11,7 @@ Model count: `7`
 
 | Rank | Model | Status | AUC | Sensitivity | Specificity | Accuracy | Runtime Seconds | Notes |
 | ---: | --- | --- | ---: | ---: | ---: | ---: | ---: | --- |
-| 1 | `tf_efficientnetv2_s` | completed | 0.8937 | 0.7049 | 0.8775 | 0.8213 | 342.1 | EfficientNetV2-S handbook main model |
+| 1 | `tf_efficientnetv2_s` | completed | 0.8937 | 0.7049 | 0.8775 | 0.8213 | 342.1 | EfficientNetV2-S main model |
 | 2 | `densenet121` | completed | 0.8867 | 0.7213 | 0.8775 | 0.8267 | 638.4 | DenseNet-121 baseline |
 | 3 | `resnet18` | completed | 0.8756 | 0.7131 | 0.8577 | 0.8107 | 153.9 | ResNet-18 baseline |
 | 4 | `mobilenetv3_small_100` | completed | 0.8704 | 0.6557 | 0.9170 | 0.8320 | 188.2 | MobileNetV3-Small baseline |

@@ -31,7 +31,7 @@ Date: 2026-04-24
 
 ## Limitations
 
-- T060 full handbook comparison is still pending, so final report should say EfficientNetV2-S is the selected/frozen model, not yet fully proven best against every baseline.
+- T060 full model comparison is still pending, so final report should say EfficientNetV2-S is the selected/frozen model, not yet fully proven best against every baseline.
 - BUSI sensitivity is very close to but still slightly below the target; avoid overclaiming clinical screening readiness.
 - Grad-CAM and segmentation remain explanatory aids, not clinical ground truth.
 ## Full Comparison Result

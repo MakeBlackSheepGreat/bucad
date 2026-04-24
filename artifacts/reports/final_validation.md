@@ -68,13 +68,13 @@ The following commands were executed successfully in the current environment:
 - The real single-image demo run produced a complete response with both visualization outputs, but the sampled malignant BUSI image `malignant (1).png` was classified as benign with malignant probability `0.3769`. This is acceptable for smoke validation, but it reinforces that the prototype is not clinically reliable and must remain an auxiliary demo system only.
 - Packaging required runtime asset export into `dist\bucad-demo` so the executable could resolve `configs/inference/demo.yml` and the trained checkpoints from the packaged working directory. The quickstart and README were updated to match this validated flow.
 
-## Handbook Follow-up Validation
+## Model Pipeline Follow-up Validation
 
 Date: 2026-04-23
 
-- Added handbook follow-up implementation paths for EfficientNetV2-S, comparison experiments, threshold analysis, visual evidence export, release manifests, and batch inference.
-- Automated regression after handbook follow-up: `30 passed in 9.28s`.
-- Handbook smoke commands completed:
+- Added model pipeline follow-up implementation paths for EfficientNetV2-S, comparison experiments, threshold analysis, visual evidence export, release manifests, and batch inference.
+- Automated regression after model pipeline follow-up: `30 passed in 9.28s`.
+- Model pipeline smoke commands completed:
   - `python scripts\run_comparison.py --config configs\classifier\comparison.yml --fold 1 --model-limit 1 --dry-run`
   - `python scripts\export_demo_assets.py --config configs\paths.local.yml --output-dir artifacts\release_v1`
   - `python scripts\export_visual_evidence.py --config configs\inference\demo.yml --output-dir artifacts\reports\visual_evidence --limit 1`
@@ -91,8 +91,7 @@ Date: 2026-04-23
 - PDF export is intentionally out of scope after the 2026-04-23 delivery decision to use Word documents only.
 - Automated validation completed with `python -m pytest tests\integration\test_report_documents.py`: `2 passed`.
 - Full regression completed with `python -m pytest tests\unit tests\smoke tests\integration`: `32 passed in 10.37s`.
-- Development handbook progress was synchronized in `artifacts\reports\handbook_progress.md` and included in the DOCX report summary.
-
+- 
 ## Release Candidate Follow-up Validation
 
 Date: 2026-04-24
@@ -103,7 +102,7 @@ Date: 2026-04-24
 - Final batch inference export completed: `artifacts/reports/batch_inference_final.csv`.
 - Release asset export completed: `artifacts/release_v1/` and `artifacts/reports/release_v1_manifest.md`.
 - Packaged demo smoke completed: `dist/bucad-demo/bucad-demo.exe` stayed alive for 20 seconds with empty stdout/stderr.
-- Remaining long-running evidence: T059 EfficientNetV2-S 5-fold training and T060 full handbook comparison.
+- Remaining long-running evidence: T059 EfficientNetV2-S 5-fold training and T060 full model comparison.
 
 ## EfficientNetV2-S T059 Completion
 
@@ -116,12 +115,12 @@ Date: 2026-04-24
 - Switched `configs/inference/demo.yml` to the EfficientNetV2-S five-fold ensemble.
 - BUSI ensemble AUC: `0.8955`.
 - Selected threshold by Youden J: `0.25` with sensitivity `0.8476`, specificity `0.8215`, and accuracy `0.8300`.
-- Remaining formal task: T060 full handbook model comparison.
+- Remaining formal task: T060 full model comparison.
 ## T060 Full Comparison Completion
 
 Date: 2026-04-24
 
-- Completed full handbook comparison command with 7 configured models, fold 1, 20 epochs.
+- Completed full model comparison command with 7 configured models, fold 1, 20 epochs.
 - Best completed model by validation AUC: `tf_efficientnetv2_s` at `0.8937`.
 - Comparison summary: `artifacts/reports/comparison_summary.md`.
 - Full machine-readable result: `artifacts/reports/comparison_results.json`.
@@ -133,7 +132,7 @@ Date: 2026-04-24
 Date: 2026-04-24
 
 - Fixed comparison dry-run test isolation so check_all.py no longer overwrites formal rtifacts/reports/comparison_results.json.
-- Added scripts/train_all_folds.bat to match the development handbook quick command reference.
+- Added scripts/train_all_folds.bat to match the project quick command workflow.
 - Added AlexNet construction support through torchvision so the configured comparison model is supported by the model factory.
 - Updated check_all.py to use a unique repository-local pytest temp directory, avoiding locked Windows temp-directory failures.
 - Verification: C:\Users\876762330\.conda\envs\BUCAD\python.exe check_all.py completed with 26 passed in 9.74s, and formal comparison remained dry_run=false, model_count=7.

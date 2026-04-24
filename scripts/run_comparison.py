@@ -11,7 +11,7 @@ from src.engine.compare_cls import run_classifier_comparison
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Run handbook classifier comparison experiments.")
+    parser = argparse.ArgumentParser(description="Run classifier comparison experiments.")
     parser.add_argument("--config", default="configs/classifier/comparison.yml")
     parser.add_argument("--fold", type=int, default=1)
     parser.add_argument("--epochs", type=int, default=None)

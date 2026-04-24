@@ -47,7 +47,7 @@ Expected evidence:
 - `artifacts/reports/train_cls_efficientnetv2_s_fold4.json`
 - `artifacts/reports/train_cls_efficientnetv2_s_fold5.json`
 
-## T060: Full Handbook Comparison
+## T060: Full Model Comparison
 
 ```powershell
 conda run -n BUCAD python scripts\run_comparison.py --config configs\classifier\comparison.yml --fold 1 --epochs 20

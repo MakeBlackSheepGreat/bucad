@@ -8,7 +8,7 @@ from src.engine.compare_cls import run_classifier_comparison
 from src.utils.config import load_yaml
 
 
-def test_comparison_config_contains_handbook_models() -> None:
+def test_comparison_config_contains_expected_models() -> None:
     config = load_yaml("configs/classifier/comparison.yml")
     models = [entry["name"] for entry in config["comparison"]["models"]]
 

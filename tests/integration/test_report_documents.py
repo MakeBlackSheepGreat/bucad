@@ -18,10 +18,10 @@ def test_report_document_export_writes_readable_docx() -> None:
     reports_dir = TEST_ROOT / "reports"
     output_dir = reports_dir / "documents"
     reports_dir.mkdir(parents=True, exist_ok=True)
-    (reports_dir / "handbook_progress.md").write_text(
+    (reports_dir / "model_pipeline_progress.md").write_text(
         "\n".join(
             [
-                "# 开发手册进度同步",
+                "# 模型流程进度同步",
                 "",
                 "- 当前已完成可演示原型和报告文档导出。",
             ]
@@ -69,7 +69,7 @@ def test_report_document_export_writes_readable_docx() -> None:
 
     document_text = "\n".join(paragraph.text for paragraph in Document(docx_path).paragraphs)
     assert "BUCAD 项目报告汇总" in document_text
-    assert "开发手册进度同步" in document_text
+    assert "模型流程进度同步" not in document_text
     assert "最终验证报告" in document_text
     assert "样本数量：4" in document_text
 

@@ -3,28 +3,44 @@
 [中文说明](README_CN.md)
 
 BUCAD is a Windows-first breast ultrasound computer-aided diagnosis prototype.
-It provides an end-to-end workflow for dataset preparation, classifier training,
-external BUSI evaluation, lesion visualization, Grad-CAM-style explanation,
-Gradio demo delivery, release packaging, and report/defense handoff.
+It covers the core engineering workflow for a breast ultrasound CAD project:
+dataset preparation, leakage-safe splitting, classifier training, external
+evaluation, lesion visualization, Grad-CAM-style explanation, Gradio demo
+delivery, and release packaging.
 
-> This project is for research, competition demonstration, and auxiliary
-> analysis only. It must not be used as a clinical diagnosis replacement.
+> BUCAD is a research and prototype system. It is not a clinical diagnosis
+> product and must not replace clinician judgment.
 
-## Current Status
+## What The Project Does
 
-- Feature tasks: 79/79 complete in `specs/001-breast-ultrasound-cad/tasks.md`.
-- Runtime classifier: five-fold `tf_efficientnetv2_s` ensemble.
-- Runtime segmenter: `artifacts/checkpoints/segmenter_fold1.pt`.
-- Runtime threshold: `0.25`, selected from BUSI threshold analysis.
-- Latest verification: `26 passed` through `check_all.py` in the `BUCAD` Conda environment.
-- Formal comparison: `tf_efficientnetv2_s` has the highest completed fold-1 AUC among the recorded baseline comparison run.
+Given one breast ultrasound image, the system can:
 
-## Final Model Evidence
+- predict benign and malignant probabilities;
+- apply a configurable decision threshold;
+- return confidence and borderline warnings;
+- generate lesion localization overlays;
+- generate Grad-CAM-style explanation heatmaps;
+- run BUSI folder-level batch inference;
+- launch a Gradio demo for local review.
+
+## Current Model
+
+The current runtime classifier is a five-fold `tf_efficientnetv2_s` ensemble.
+The inference config is stored in `configs/inference/demo.yml`.
+
+Runtime settings:
+
+- classifier: `tf_efficientnetv2_s`
+- checkpoints: `artifacts/checkpoints/efficientnetv2_s_fold1.pt` through `efficientnetv2_s_fold5.pt`
+- preprocessing: CLAHE enabled
+- selected threshold: `0.25`
+- segmenter checkpoint: `artifacts/checkpoints/segmenter_fold1.pt`
+
+## Evaluation Summary
 
 ### BUSI External Evaluation
 
-The frozen EfficientNetV2-S ensemble reaches the following BUSI external
-evaluation results at the selected high-sensitivity operating point:
+At the selected threshold (`0.25`), the current EfficientNetV2-S ensemble has:
 
 | Metric | Value |
 | --- | ---: |
@@ -32,10 +48,10 @@ evaluation results at the selected high-sensitivity operating point:
 | Sensitivity | 0.8476 |
 | Specificity | 0.8215 |
 | Accuracy | 0.8300 |
-| Selected threshold | 0.25 |
 
-The AUC target (`>= 0.75`) is exceeded. The sensitivity target (`0.85`) is
-nearly reached, short by `0.0024`.
+The evaluator also keeps conventional `0.50` metrics in
+`artifacts/reports/busi_eval_final.json`. The selected operating point is stored
+under `threshold_analysis.best_by_youden`.
 
 ### Model Comparison
 
@@ -51,33 +67,27 @@ Recorded fold-1, 20-epoch comparison:
 | 6 | `vgg16` | 0.5000 | 0.0000 | 1.0000 | completed |
 | - | `alexnet` | - | - | - | failed in recorded run |
 
-`alexnet` support has since been added through `torchvision`; rerun T060 if an
-updated AlexNet metric is required in the final report.
+`alexnet` support was added after the recorded run. Rerun the comparison if an
+updated AlexNet metric is required.
 
 ## Repository Layout
 
 - `configs/`: YAML configuration files for paths, classifiers, segmenter, and inference.
 - `src/datasets/`: BUSBRA and BUSI dataset loading plus split support.
 - `src/models/`: classifier and segmenter factories.
-- `src/engine/`: training, comparison, inference, and error-handling workflows.
+- `src/engine/`: training, comparison, inference, and evaluation workflows.
 - `src/explain/`: Grad-CAM and overlay generation.
 - `src/preprocess/`: image I/O and preprocessing transforms.
 - `src/utils/`: config, metrics, reports, paths, logging, and result schemas.
-- `scripts/`: command-line entry points for training, evaluation, export, and packaging.
+- `scripts/`: command-line entry points.
 - `app/`: Gradio application.
 - `tests/`: unit and smoke tests.
-- `specs/001-breast-ultrasound-cad/`: Spec Kit plan, spec, contracts, quickstart, and task list.
-- `artifacts/`: local runtime outputs, checkpoints, reports, and release bundles.
+- `specs/001-breast-ultrasound-cad/`: project specification, plan, contracts, quickstart, and tasks.
+- `artifacts/`: local outputs, checkpoints, reports, and release bundles.
 
-## Data Governance
+## Data Layout
 
-- BUSBRA is used for training and internal validation.
-- BUSI is reserved for external evaluation and demo validation.
-- Split generation is case-level to avoid leakage.
-- Datasets, checkpoints, generated images, JSON/CSV reports, and release bundles
-  are ignored or kept local by default.
-
-Expected local dataset paths are configured in `configs/paths.local.yml`:
+Local paths are configured in `configs/paths.local.yml`:
 
 ```yaml
 datasets:
@@ -85,9 +95,15 @@ datasets:
   busi_root: ./测试集/Dataset_BUSI_with_GT
 ```
 
-## Environment Setup
+Data governance:
 
-Recommended Windows PowerShell workflow:
+- BUSBRA is used for training and internal validation.
+- BUSI is used for external evaluation and demo validation.
+- Splits are case-level to avoid leakage.
+- Datasets, checkpoints, generated images, JSON/CSV reports, and release bundles
+  are local artifacts and are ignored by Git.
+
+## Setup
 
 ```powershell
 conda create -n BUCAD python=3.11 -y
@@ -95,113 +111,84 @@ conda activate BUCAD
 python -m pip install -r requirements.txt
 ```
 
-If you are running commands from an external agent or non-activated shell, use:
-
-```powershell
-conda run -n BUCAD python check_env.py
-```
-
-## Verify The Project
+Verify the environment:
 
 ```powershell
 python check_env.py
 python check_all.py
 ```
 
-`check_all.py` verifies dependencies and runs the unit/smoke suite with a
-repository-local temporary directory to avoid Windows Temp permission issues.
-
-## Prepare Data Splits
+## Generate Splits
 
 ```powershell
 python scripts\make_split.py --config configs\paths.local.yml
 ```
 
-Expected outputs:
+Outputs:
 
 - `artifacts/reports/busbra_5fold_splits.csv`
 - `artifacts/reports/busbra_split_summary.json`
 
-## Train Classifiers
+## Train The Classifier
 
-Train the current handbook main model for one fold:
+Train one fold:
 
 ```powershell
 python scripts\train_cls.py --config configs\classifier\efficientnetv2_s.yml --fold 1
 ```
 
-Train all five EfficientNetV2-S folds:
+Train all five folds:
 
 ```powershell
 scripts\train_all_folds.bat
 ```
 
-Equivalent explicit commands:
-
-```powershell
-python scripts\train_cls.py --config configs\classifier\efficientnetv2_s.yml --fold 1
-python scripts\train_cls.py --config configs\classifier\efficientnetv2_s.yml --fold 2
-python scripts\train_cls.py --config configs\classifier\efficientnetv2_s.yml --fold 3
-python scripts\train_cls.py --config configs\classifier\efficientnetv2_s.yml --fold 4
-python scripts\train_cls.py --config configs\classifier\efficientnetv2_s.yml --fold 5
-```
-
-Expected outputs:
+Outputs:
 
 - `artifacts/checkpoints/efficientnetv2_s_fold1.pt` through `efficientnetv2_s_fold5.pt`
 - `artifacts/reports/train_cls_efficientnetv2_s_fold1.json` through `fold5.json`
 
 ## Run Model Comparison
 
-Fast configuration check:
+Fast dry run:
 
 ```powershell
 python scripts\run_comparison.py --config configs\classifier\comparison.yml --fold 1 --model-limit 1 --dry-run
 ```
 
-Full handbook comparison:
+Full comparison:
 
 ```powershell
 python scripts\run_comparison.py --config configs\classifier\comparison.yml --fold 1 --epochs 20
 ```
 
-Expected outputs:
+Outputs:
 
 - `artifacts/reports/comparison_results.json`
 - `artifacts/reports/comparison_summary.md`
 - per-model checkpoints under `artifacts/checkpoints/`
 - per-model reports under `artifacts/reports/comparison_*_fold1.json`
 
-## Run BUSI External Evaluation
+## Run BUSI Evaluation
 
 ```powershell
 python scripts\eval_busi.py --config configs\inference\demo.yml --output artifacts\reports\busi_eval_final.json
 ```
 
-Expected outputs:
+Outputs:
 
 - `artifacts/reports/busi_eval_final.json`
 - `artifacts/reports/threshold_analysis.md`
 
-Note: the evaluator keeps conventional `0.50` metrics under the top-level
-`metrics` key and writes the selected operating point under
-`threshold_analysis.best_by_youden`.
-
-## Launch The Gradio Demo
+## Launch The Demo
 
 ```powershell
 python app\main.py
 ```
 
-The UI accepts one breast ultrasound image and returns:
+The demo opens a local Gradio app for single-image diagnosis and visualization.
 
-- benign/malignant probabilities
-- final judgment and confidence/borderline information
-- lesion localization overlay
-- Grad-CAM-style explanation heatmap
-- warnings when optional outputs are missing
-
-## Export Evidence And Reports
+## Export Project Artifacts
 
 Visual evidence:
 
@@ -215,55 +202,29 @@ Batch inference:
 python scripts\batch_infer.py --config configs\inference\demo.yml --input-dir 测试集\Dataset_BUSI_with_GT\malignant --output artifacts\reports\batch_inference_final.csv
 ```
 
-Editable Word report:
+Word report summary:
 
 ```powershell
 python scripts\export_report_documents.py --reports-dir artifacts\reports --output-dir artifacts\reports\documents
 ```
 
-Important report files:
-
-- `artifacts/reports/efficientnetv2_s_5fold_summary.md`
-- `artifacts/reports/model_freeze_decision.md`
-- `artifacts/reports/comparison_summary.md`
-- `artifacts/reports/report_tables.md`
-- `artifacts/reports/defense_outline.md`
-- `artifacts/reports/defense_qa.md`
-- `artifacts/reports/final_handoff.md`
-- `artifacts/reports/documents/bucad_report_summary.docx`
-
-## Build A Release Bundle
+Release bundle:
 
 ```powershell
 pyinstaller packaging\demo.spec --noconfirm
 python scripts\export_demo_assets.py --config configs\paths.local.yml --output-dir artifacts\release_v1
 ```
 
-Expected outputs:
+## Useful Reports
 
-- `dist/bucad-demo/bucad-demo.exe`
-- `artifacts/release_v1/`
-- `artifacts/reports/release_v1_manifest.md`
-- `artifacts/reports/final_packaged_demo.md`
+- `artifacts/reports/efficientnetv2_s_5fold_summary.md`
+- `artifacts/reports/model_freeze_decision.md`
+- `artifacts/reports/comparison_summary.md`
+- `artifacts/reports/report_tables.md`
+- `artifacts/reports/final_validation.md`
 
-## Recommended Final Workflow
+## Notes
 
-```powershell
-conda activate BUCAD
-python check_all.py
-python scripts\make_split.py --config configs\paths.local.yml
-scripts\train_all_folds.bat
-python scripts\run_comparison.py --config configs\classifier\comparison.yml --fold 1 --epochs 20
-python scripts\eval_busi.py --config configs\inference\demo.yml --output artifacts\reports\busi_eval_final.json
-python scripts\export_visual_evidence.py --config configs\inference\demo.yml --output-dir artifacts\reports\visual_evidence_final --limit 6
-python scripts\batch_infer.py --config configs\inference\demo.yml --input-dir 测试集\Dataset_BUSI_with_GT\malignant --output artifacts\reports\batch_inference_final.csv
-python scripts\export_report_documents.py --reports-dir artifacts\reports --output-dir artifacts\reports\documents
-python scripts\export_demo_assets.py --config configs\paths.local.yml --output-dir artifacts\release_v1
-```
-
-## Limitations
-
-- The current system is a prototype and should be described as auxiliary analysis only.
-- Sensitivity is very close to the handbook target but not strictly above `0.85`.
-- Grad-CAM and segmentation outputs are explanatory evidence, not clinical ground truth.
-- Final presentation slides should still be manually reviewed for visual plausibility and wording.
+- Keep local datasets and model weights out of Git.
+- Keep competition-only material, defense notes, and team-management documents out of Git.
+- Use `check_all.py` before committing changes.

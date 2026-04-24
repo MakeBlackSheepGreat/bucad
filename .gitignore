@@ -1,79 +1,78 @@
-# 数据（绝对不要传）
+# Local datasets and raw medical data
 data/
 训练集/
 测试集/
 *.png
 *.jpg
+*.jpeg
 *.dcm
 *.nii
 *.npz
-*.docx
-!artifacts/reports/documents/
-!artifacts/reports/documents/*.docx
-artifacts/reports/documents/*.pdf
-*.pdf   
-开发手册_V2.md
 
-# 模型权重太大
+# Model weights and large generated artifacts
 *.pt
 *.pth
 *.ckpt
 artifacts/checkpoints/
+artifacts/demo_assets/
+artifacts/release_v1/
+dist/
+build/
 
-# Python 缓存
+# Generated reports that should stay local
+artifacts/reports/*.csv
+artifacts/reports/*.json
+artifacts/reports/documents/
+artifacts/reports/demo_single_image/
+artifacts/reports/visual_evidence/
+artifacts/reports/visual_evidence_final/
+artifacts/reports/packaged_demo_*.txt
+artifacts/reports/defense_*.md
+artifacts/reports/demo_rehearsal.md
+artifacts/reports/final_*.md
+
+# Competition-only / non-project materials
+赛题*.pdf
+赛题*.docx
+开发手册*.md
+开发手册*.docx
+队员配置*.docx
+答辩*.md
+答辩*.docx
+defense*.md
+local_notes/
+
+# Agent / local workflow files
+AGENTS.md
+.agents/
+
+# Python caches and test outputs
 __pycache__/
 *.pyc
-.ipynb_checkpoints/
-
-# 本地环境
-.env
-.env*
-.vscode/
-.idea/
-
-# 日志
-artifacts/logs/
-*.log
-
-# 系统
-Thumbs.db
-.DS_Store
-*.tmp
-*.swp
-
-# 其他
-基于超声影像的乳腺肿瘤良恶性分类辅助诊断系统设计.txt
-Design of a Computer-Aided Diagnostic System for Classifying Benign and Malignant Breast Tumors Based on Ultrasound Imaging.txt
-code/check_all.py
-code/check_env.py
-归档文件/比赛技术文档.md
-归档文件/测试集.zip
-归档文件/竞赛选题指导.md
-归档文件/开发计划.md
-归档文件/开发手册.md
-归档文件/赛题1_基于超声影像的乳腺肿瘤良恶性诊断算法设计.pdf
-归档文件/项目文档.md
-归档文件/训练集.zip
-归档文件/医学影像技术专业本科人才培养方案.pdf
-.gitignore
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
 .coverage
 htmlcov/
-dist/
-build/
-*.egg-info/
-.venv/
-venv/
 artifacts/test-workspace/
 artifacts/pytest-tmp/
 pytest-cache-files-*/
+tmp/pytest-bucad-*/
+
+# Local environment and editor files
+.env
+.env*
+.venv/
+venv/
+.vscode/
+.idea/
+*.egg-info/
 configs/paths.local.yml
-artifacts/demo_assets/
-artifacts/release_v1/
-artifacts/reports/*.csv
-artifacts/reports/*.json
-artifacts/reports/demo_single_image/
-artifacts/reports/visual_evidence/
-artifacts/reports/packaged_demo_*.txt
+
+# Logs and temporary files
+artifacts/logs/
+*.log
+*.tmp
+*.swp
+Thumbs.db
+.DS_Store

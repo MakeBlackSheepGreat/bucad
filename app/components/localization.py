@@ -4,12 +4,10 @@ from src.utils.results import AUXILIARY_USE_DISCLAIMER
 
 
 STATUS_TEXT = {
-    "completed": "分析完成",
-    "partial": "分析完成（部分可视化未生成）",
-    "invalid_input": "输入无效",
+    "completed": "推理完成",
     "quality_blocked": "图像质量不足",
-    "classification_unavailable": "诊断不可用",
-    "failed": "分析失败",
+    "invalid_input": "输入无效",
+    "classification_unavailable": "分类模型不可用",
     "unexpected_runtime_error": "运行异常",
 }
 
@@ -20,28 +18,28 @@ FINAL_LABEL_TEXT = {
 
 CONFIDENCE_BAND_TEXT = {
     "high": "高",
-    "low": "低",
-    "borderline": "临界",
+    "low": "中低",
+    "borderline": "边界",
 }
 
 WARNING_TEXT = {
-    "Uploaded image is invalid or too small.": "上传图像无效，或图像尺寸过小。",
     "Image quality is too poor for reliable analysis.": "图像质量过低，当前无法给出可靠分析结果。",
-    "No classifier checkpoint is configured.": "未配置分类模型权重，无法执行诊断。",
-    "Torch is not available in the current environment.": "当前环境缺少 Torch，无法执行诊断。",
-    "Torch tensor conversion failed for classifier input.": "分类输入张量转换失败，无法执行诊断。",
-    "Segmentation weights are not available.": "当前未提供病灶分割权重。",
-    "Torch is not available for segmentation.": "当前环境缺少 Torch，无法生成病灶定位结果。",
-    "Torch tensor conversion failed for segmentation.": "分割输入张量转换失败，无法生成病灶定位结果。",
-    "Grad-CAM is disabled in runtime config.": "当前配置已禁用解释热力图。",
-    "Classifier model is not loaded for explanation.": "分类模型未加载，无法生成解释热力图。",
-    "Torch tensor conversion failed for explanation.": "解释分支输入张量转换失败，无法生成解释热力图。",
-    "Grad-CAM dependency is not installed in the current environment.": "当前环境未安装 Grad-CAM 依赖，无法生成解释热力图。",
-    "Could not resolve a Grad-CAM target layer.": "无法定位 Grad-CAM 目标层，无法生成解释热力图。",
+    "No classifier checkpoint is configured.": "未配置分类模型权重，请检查推理配置。",
+    "Torch is not available in the current environment.": "当前环境未安装 PyTorch，无法加载模型。",
+    "Classifier input tensor conversion failed.": "分类模型输入张量转换失败。",
+    "No segmentation checkpoint is configured.": "未配置分割模型权重，病灶定位图无法生成。",
+    "Segmentation is disabled in runtime config.": "当前配置已关闭病灶定位输出。",
+    "Torch is not available for segmentation.": "当前环境未安装 PyTorch，无法运行分割模型。",
+    "Segmentation input tensor conversion failed.": "分割模型输入张量转换失败。",
+    "Grad-CAM is disabled in runtime config.": "当前配置已关闭 Grad-CAM 热力图。",
+    "Classifier model is not loaded for explanation.": "分类模型尚未加载，无法生成解释热力图。",
+    "Torch tensor conversion failed for explanation.": "解释模块输入张量转换失败。",
+    "Grad-CAM dependency is not installed in the current environment.": "当前环境未安装 Grad-CAM 依赖，无法生成热力图。",
+    "Could not resolve a Grad-CAM target layer.": "无法定位 Grad-CAM 目标层。",
     "Grad-CAM returned no explanation map.": "Grad-CAM 未返回有效热力图。",
     "No image backend is installed. Install opencv-python or Pillow.": "当前缺少图像读取依赖，请安装 opencv-python 或 Pillow。",
     "No image backend is installed for saving.": "当前缺少图像保存依赖，无法导出可视化结果。",
-    AUXILIARY_USE_DISCLAIMER: "本系统仅用于辅助分析，不能替代医生诊断。",
+    AUXILIARY_USE_DISCLAIMER: "本系统仅用于辅助分析和原型演示，不能替代医生诊断。",
 }
 
 
@@ -60,11 +58,11 @@ def localize_confidence_band(band: str) -> str:
 def localize_recommendation(final_label: str, confidence_band: str) -> str:
     localized_label = localize_final_label(final_label)
     if confidence_band == "borderline":
-        return "结果接近判定阈值，建议由医生进一步复核。"
+        return "结果接近判定阈值，建议人工复核并结合原始超声图像判断。"
     if confidence_band == "low":
-        return f"模型当前更倾向于{localized_label}，但置信度有限，建议结合原图谨慎判断。"
+        return f"模型当前倾向于{localized_label}，但置信度有限，建议谨慎复核。"
     if final_label == "malignant":
-        return "系统提示高风险恶性征象，建议尽快由医生复核。"
+        return "系统提示高风险恶性征象，建议尽快进行人工复核。"
     return "系统当前更倾向于良性，但仍需结合医生判断。"
 
 
@@ -75,16 +73,15 @@ def localize_disclaimer(message: str) -> str:
 def localize_warning(message: str) -> str:
     if message in WARNING_TEXT:
         return WARNING_TEXT[message]
-    if message.startswith("Image does not exist: "):
-        return f"图像文件不存在：{message.removeprefix('Image does not exist: ')}"
-    if message.startswith("Unsupported image file type: "):
-        return f"暂不支持该图像格式：{message.removeprefix('Unsupported image file type: ')}"
-    if message.startswith("Unable to read image: "):
-        return f"无法读取图像文件：{message.removeprefix('Unable to read image: ')}"
-    if message.startswith("Unable to encode image for saving: "):
-        return f"无法编码并保存图像：{message.removeprefix('Unable to encode image for saving: ')}"
-    if message.startswith("Unexpected image shape: "):
-        return f"图像维度不符合预期：{message.removeprefix('Unexpected image shape: ')}"
-    if message.startswith("Unexpected runtime error: "):
-        return f"运行时出现异常：{message.removeprefix('Unexpected runtime error: ')}"
+    prefix_map = {
+        "Image does not exist: ": "图像文件不存在：",
+        "Unsupported image file type: ": "暂不支持该图像格式：",
+        "Unable to read image: ": "无法读取图像文件：",
+        "Unable to encode image for saving: ": "无法编码并保存图像：",
+        "Unexpected image shape: ": "图像维度不符合预期：",
+        "Unexpected runtime error: ": "运行时出现异常：",
+    }
+    for prefix, localized in prefix_map.items():
+        if message.startswith(prefix):
+            return f"{localized}{message.removeprefix(prefix)}"
     return message

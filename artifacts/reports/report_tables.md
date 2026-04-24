@@ -20,8 +20,9 @@ Date: 2026-04-24
 
 | Operating Point | AUC | Sensitivity | Specificity | Accuracy | Threshold |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| Conventional metrics | 0.8955 | 0.6667 | 0.9382 | 0.8501 | 0.50 |
-| Selected high-sensitivity point | 0.8955 | 0.8476 | 0.8215 | 0.8300 | 0.25 |
+| Conventional metrics with flip TTA | 0.8997 | 0.6619 | 0.9382 | 0.8485 | 0.50 |
+| Selected high-sensitivity point with flip TTA | 0.8997 | 0.8476 | 0.8078 | 0.8207 | 0.25 |
+| Best Youden point with flip TTA | 0.8997 | 0.7810 | 0.8833 | 0.8501 | 0.35 |
 
 ## Remaining Formal Evidence
 

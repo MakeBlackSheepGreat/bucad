@@ -32,7 +32,7 @@ Runtime settings:
 
 - classifier: `tf_efficientnetv2_s`
 - checkpoints: `artifacts/checkpoints/efficientnetv2_s_fold1.pt` through `efficientnetv2_s_fold5.pt`
-- preprocessing: CLAHE enabled
+- preprocessing: CLAHE enabled, horizontal-flip TTA enabled
 - selected threshold: `0.25`
 - segmenter checkpoint: `artifacts/checkpoints/segmenter_fold1.pt`
 
@@ -44,13 +44,13 @@ At the selected threshold (`0.25`), the current EfficientNetV2-S ensemble has:
 
 | Metric | Value |
 | --- | ---: |
-| AUC | 0.8955 |
+| AUC | 0.8997 |
 | Sensitivity | 0.8476 |
-| Specificity | 0.8215 |
-| Accuracy | 0.8300 |
+| Specificity | 0.8078 |
+| Accuracy | 0.8207 |
 
 The evaluator also keeps conventional `0.50` metrics in
-`artifacts/reports/busi_eval_final.json`. The selected operating point is stored
+`artifacts/reports/busi_tta_eval.json`. The selected operating point is stored
 under `threshold_analysis.best_by_youden`.
 
 ### Model Comparison
@@ -82,7 +82,6 @@ updated AlexNet metric is required.
 - `scripts/`: command-line entry points.
 - `app/`: Gradio application.
 - `tests/`: unit and smoke tests.
-- `specs/001-breast-ultrasound-cad/`: project specification, plan, contracts, quickstart, and tasks.
 - `artifacts/`: local outputs, checkpoints, reports, and release bundles.
 
 ## Data Layout
@@ -172,12 +171,12 @@ Outputs:
 ## Run BUSI Evaluation
 
 ```powershell
-python scripts\eval_busi.py --config configs\inference\demo.yml --output artifacts\reports\busi_eval_final.json
+python scripts\eval_busi.py --config configs\inference\demo.yml --output artifacts\reports\busi_tta_eval.json
 ```
 
 Outputs:
 
-- `artifacts/reports/busi_eval_final.json`
+- `artifacts/reports/busi_tta_eval.json`
 - `artifacts/reports/threshold_analysis.md`
 
 ## Launch The Demo
@@ -221,4 +220,5 @@ python scripts\export_demo_assets.py --config configs\paths.local.yml --output-d
 - `artifacts/reports/model_freeze_decision.md`
 - `artifacts/reports/comparison_summary.md`
 - `artifacts/reports/report_tables.md`
+- `artifacts/reports/resolution_augmentation_experiment.md`
 - `artifacts/reports/final_validation.md`

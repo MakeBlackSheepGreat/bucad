@@ -103,6 +103,11 @@ def run_classifier_training(
         apply_clahe_enabled=bool(preprocess_cfg.get("clahe", False)),
         horizontal_flip=bool(augmentation_cfg.get("horizontal_flip", False)),
         flip_probability=float(augmentation_cfg.get("flip_probability", 0.5)),
+        rotation_degrees=float(augmentation_cfg.get("rotation_degrees", 0.0)),
+        brightness=float(augmentation_cfg.get("brightness", 0.0)),
+        contrast=float(augmentation_cfg.get("contrast", 0.0)),
+        scale_min=float(augmentation_cfg.get("scale_min", 1.0)),
+        scale_max=float(augmentation_cfg.get("scale_max", 1.0)),
     )
     eval_transform = build_classifier_transform(
         image_size=image_size,

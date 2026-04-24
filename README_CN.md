@@ -24,7 +24,7 @@ BUCAD（Breast Ultrasound Computer-Aided Diagnosis）是一个面向乳腺超声
 
 - 分类器：`tf_efficientnetv2_s`
 - 权重：`artifacts/checkpoints/efficientnetv2_s_fold1.pt` 到 `efficientnetv2_s_fold5.pt`
-- 预处理：启用 CLAHE
+- 预处理：启用 CLAHE 和水平翻转 TTA
 - 选定阈值：`0.25`
 - 分割权重：`artifacts/checkpoints/segmenter_fold1.pt`
 
@@ -36,12 +36,12 @@ BUCAD（Breast Ultrasound Computer-Aided Diagnosis）是一个面向乳腺超声
 
 | 指标 | 数值 |
 | --- | ---: |
-| AUC | 0.8955 |
+| AUC | 0.8997 |
 | Sensitivity | 0.8476 |
-| Specificity | 0.8215 |
-| Accuracy | 0.8300 |
+| Specificity | 0.8078 |
+| Accuracy | 0.8207 |
 
-评估脚本仍会在 `artifacts/reports/busi_eval_final.json` 顶层 `metrics` 中保留传统 `0.50` 阈值指标；当前采用的运行点在 `threshold_analysis.best_by_youden` 中。
+评估脚本仍会在 `artifacts/reports/busi_tta_eval.json` 顶层 `metrics` 中保留传统 `0.50` 阈值指标；当前采用的运行点在 `threshold_analysis.best_by_youden` 中。
 
 ### 模型对比
 
@@ -71,7 +71,6 @@ BUCAD（Breast Ultrasound Computer-Aided Diagnosis）是一个面向乳腺超声
 - `scripts/`：命令行脚本。
 - `app/`：Gradio 应用。
 - `tests/`：单元测试和 smoke 测试。
-- `specs/001-breast-ultrasound-cad/`：项目 spec、plan、contracts、quickstart 和 tasks。
 - `artifacts/`：本地产物、权重、报告和 release 包。
 
 ## 数据路径
@@ -160,12 +159,12 @@ python scripts\run_comparison.py --config configs\classifier\comparison.yml --fo
 ## BUSI 外部评估
 
 ```powershell
-python scripts\eval_busi.py --config configs\inference\demo.yml --output artifacts\reports\busi_eval_final.json
+python scripts\eval_busi.py --config configs\inference\demo.yml --output artifacts\reports\busi_tta_eval.json
 ```
 
 输出：
 
-- `artifacts/reports/busi_eval_final.json`
+- `artifacts/reports/busi_tta_eval.json`
 - `artifacts/reports/threshold_analysis.md`
 
 ## 启动演示界面
@@ -209,4 +208,5 @@ python scripts\export_demo_assets.py --config configs\paths.local.yml --output-d
 - `artifacts/reports/model_freeze_decision.md`
 - `artifacts/reports/comparison_summary.md`
 - `artifacts/reports/report_tables.md`
+- `artifacts/reports/resolution_augmentation_experiment.md`
 - `artifacts/reports/final_validation.md`

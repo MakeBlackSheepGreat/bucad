@@ -190,10 +190,14 @@ class BreastUltrasoundInferenceService:
         )
         if not hasattr(input_tensor, "unsqueeze"):
             raise ClassificationUnavailableError("Torch tensor conversion failed for classifier input.")
-        ensemble_probs = [
-            classifier_probabilities(model, input_tensor, device="cpu")[0]
-            for model in self._classifier_models
-        ]
+        input_tensors = [input_tensor]
+        if bool(self.runtime_config.get("classifier_tta_horizontal_flip", False)):
+            input_tensors.append(input_tensor.flip(dims=[2]))
+
+        ensemble_probs = []
+        for model in self._classifier_models:
+            for tensor in input_tensors:
+                ensemble_probs.append(classifier_probabilities(model, tensor, device="cpu")[0])
         probs = np.mean(np.asarray(ensemble_probs, dtype=np.float32), axis=0)
         return float(probs[0]), float(probs[1])
 

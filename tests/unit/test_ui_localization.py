@@ -14,10 +14,12 @@ def test_diagnosis_markdown_is_localized_to_chinese() -> None:
 
     markdown = diagnosis_markdown(response)
 
-    assert "## 诊断结果" in markdown
-    assert "最终判断：**恶性**" in markdown
-    assert "恶性概率：**0.800**" in markdown
-    assert "免责声明：本系统仅用于辅助分析，不能替代医生诊断。" in markdown
+    assert "诊断结果" in markdown
+    assert "最终判定" in markdown
+    assert "恶性" in markdown
+    assert "恶性概率" in markdown
+    assert "80.0%" in markdown
+    assert "本系统仅用于辅助分析和原型演示，不能替代医生诊断。" in markdown
 
 
 def test_status_and_warning_panels_are_localized_to_chinese() -> None:
@@ -31,7 +33,7 @@ def test_status_and_warning_panels_are_localized_to_chinese() -> None:
     status = status_markdown(response)
     warnings = warnings_markdown(response)
 
-    assert "## 运行状态" in status
+    assert "运行状态" in status
     assert "图像质量不足" in status
-    assert "## 提示信息" in warnings
+    assert "提示信息" in warnings
     assert "图像质量过低，当前无法给出可靠分析结果。" in warnings

@@ -1,0 +1,27 @@
+paths_config: configs/paths.local.yml
+seed: 42
+device: auto
+runtime:
+  classifier_model: tf_efficientnetv2_s
+  classifier_pretrained: false
+  classifier_device: auto
+  classifier_image_size: 224
+  classifier_apply_clahe: true
+  classifier_tta_horizontal_flip: false
+  default_threshold: 0.5
+  borderline_margin: 0.08
+  classifier_checkpoint: ./artifacts/checkpoints/efficientnetv2_s_bestauc_seed123_fold5.pt
+  classifier_checkpoints: []
+  classifier_members:
+  - model: tf_efficientnetv2_s
+    checkpoint: ./artifacts/checkpoints/efficientnetv2_s_bestauc_seed123_fold5.pt
+    weight: 1.0
+    image_size: 224
+    apply_clahe: true
+    tta_variants:
+    - name: identity
+  segmenter_checkpoint: null
+  segmenter_image_size: 256
+  gradcam_enabled: false
+  segmentation_enabled: false
+  allow_missing_visuals: true

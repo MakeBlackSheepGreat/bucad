@@ -21,3 +21,16 @@ def test_efficientnetv2_s_classifier_can_be_constructed_without_pretrained_weigh
     model = create_classifier("tf_efficientnetv2_s", pretrained=False, in_chans=3, num_classes=2)
 
     assert model is not None
+
+
+@pytest.mark.skipif(classifier.timm is None, reason="timm is not installed")
+def test_timm_classifier_accepts_regularization_kwargs() -> None:
+    model = create_classifier(
+        "convnext_tiny",
+        pretrained=False,
+        in_chans=3,
+        num_classes=2,
+        drop_path_rate=0.1,
+    )
+
+    assert model is not None

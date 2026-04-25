@@ -108,6 +108,14 @@ def _pretrained_data_settings(model, preprocess_cfg: dict[str, Any]) -> dict[str
     }
 
 
+def _extra_model_kwargs(model_cfg: dict[str, Any]) -> dict[str, Any]:
+    return {
+        key: value
+        for key, value in model_cfg.items()
+        if key not in {"name", "pretrained", "in_chans", "num_classes"}
+    }
+
+
 def _resolve_preprocess_settings(
     data_cfg: dict[str, Any],
     preprocess_cfg: dict[str, Any],
@@ -207,11 +215,13 @@ def run_classifier_training(
 
     preprocess_cfg = data_cfg.get("preprocess", {})
     augmentation_cfg = data_cfg.get("augmentation", {})
+    model_cfg = config.get("model", {})
     model = create_classifier(
-        model_name=config.get("model", {}).get("name", "resnet18"),
-        pretrained=bool(config.get("model", {}).get("pretrained", True)),
-        in_chans=int(config.get("model", {}).get("in_chans", 3)),
-        num_classes=int(config.get("model", {}).get("num_classes", 2)),
+        model_name=model_cfg.get("name", "resnet18"),
+        pretrained=bool(model_cfg.get("pretrained", True)),
+        in_chans=int(model_cfg.get("in_chans", 3)),
+        num_classes=int(model_cfg.get("num_classes", 2)),
+        **_extra_model_kwargs(model_cfg),
     ).to(device)
     model_data_settings = _pretrained_data_settings(model, preprocess_cfg)
     preprocess_settings = _resolve_preprocess_settings(
@@ -286,7 +296,10 @@ def run_classifier_training(
         class_weights = _class_weights(train_manifest, positive_weight=float(positive_weight))
     if class_weights is not None:
         class_weights = class_weights.to(device=device)
-    criterion = torch.nn.CrossEntropyLoss(weight=class_weights)
+    criterion = torch.nn.CrossEntropyLoss(
+        weight=class_weights,
+        label_smoothing=float(training_cfg.get("label_smoothing", 0.0)),
+    )
 
     epochs = int(epochs_override or training_cfg.get("epochs", 5))
     scheduler_cfg = training_cfg.get("scheduler", {}) or {}
@@ -422,6 +435,7 @@ def run_classifier_training(
         "preprocess_settings": preprocess_settings,
         "scheduler": scheduler_cfg,
         "class_weights": class_weights.detach().cpu().tolist() if class_weights is not None else None,
+        "label_smoothing": float(training_cfg.get("label_smoothing", 0.0)),
         "min_specificity": min_specificity,
         "epoch_reports": epoch_reports,
         "train_size": int(len(train_manifest)),

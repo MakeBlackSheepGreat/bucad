@@ -1,0 +1,118 @@
+paths_config: configs/paths.local.yml
+seed: 42
+device: auto
+runtime:
+  classifier_model: convnext_tiny
+  classifier_pretrained: false
+  classifier_device: auto
+  classifier_image_size: 224
+  classifier_apply_clahe: true
+  default_threshold: 0.399
+  borderline_margin: 0.08
+  primary_classifier_model: ConvNeXt-Tiny
+  ensemble_display_name: ConvNeXt-Tiny crop-sweep TTA + EfficientNetV2-S identity TTA
+  classifier_checkpoint: null
+  classifier_checkpoints: []
+  classifier_members:
+    - model: tf_efficientnetv2_s
+      checkpoint: ./artifacts/checkpoints/efficientnetv2_s_fold1.pt
+      weight: 0.431
+      image_size: 224
+      apply_clahe: true
+      tta_variants:
+        - name: identity
+    - model: tf_efficientnetv2_s
+      checkpoint: ./artifacts/checkpoints/efficientnetv2_s_fold2.pt
+      weight: 0.431
+      image_size: 224
+      apply_clahe: true
+      tta_variants:
+        - name: identity
+    - model: tf_efficientnetv2_s
+      checkpoint: ./artifacts/checkpoints/efficientnetv2_s_fold3.pt
+      weight: 0.431
+      image_size: 224
+      apply_clahe: true
+      tta_variants:
+        - name: identity
+    - model: tf_efficientnetv2_s
+      checkpoint: ./artifacts/checkpoints/efficientnetv2_s_fold4.pt
+      weight: 0.431
+      image_size: 224
+      apply_clahe: true
+      tta_variants:
+        - name: identity
+    - model: tf_efficientnetv2_s
+      checkpoint: ./artifacts/checkpoints/efficientnetv2_s_fold5.pt
+      weight: 0.431
+      image_size: 224
+      apply_clahe: true
+      tta_variants:
+        - name: identity
+    - model: convnext_tiny
+      checkpoint: ./artifacts/checkpoints/convnext_tiny_timm_recipe_fold1.pt
+      weight: 0.569
+      image_size: 224
+      apply_clahe: true
+      mean: [0.485, 0.456, 0.406]
+      std: [0.229, 0.224, 0.225]
+      interpolation: bicubic
+      crop_pct: 0.95
+      tta_variants: &convnext_crop_sweep_tta
+        - name: identity
+          crop_pct: 0.90
+        - name: hflip
+          crop_pct: 0.90
+        - name: identity
+          crop_pct: 0.95
+        - name: hflip
+          crop_pct: 0.95
+        - name: identity
+          crop_pct: 1.00
+        - name: hflip
+          crop_pct: 1.00
+    - model: convnext_tiny
+      checkpoint: ./artifacts/checkpoints/convnext_tiny_timm_recipe_fold2.pt
+      weight: 0.569
+      image_size: 224
+      apply_clahe: true
+      mean: [0.485, 0.456, 0.406]
+      std: [0.229, 0.224, 0.225]
+      interpolation: bicubic
+      crop_pct: 0.95
+      tta_variants: *convnext_crop_sweep_tta
+    - model: convnext_tiny
+      checkpoint: ./artifacts/checkpoints/convnext_tiny_timm_recipe_fold3.pt
+      weight: 0.569
+      image_size: 224
+      apply_clahe: true
+      mean: [0.485, 0.456, 0.406]
+      std: [0.229, 0.224, 0.225]
+      interpolation: bicubic
+      crop_pct: 0.95
+      tta_variants: *convnext_crop_sweep_tta
+    - model: convnext_tiny
+      checkpoint: ./artifacts/checkpoints/convnext_tiny_timm_recipe_fold4.pt
+      weight: 0.569
+      image_size: 224
+      apply_clahe: true
+      mean: [0.485, 0.456, 0.406]
+      std: [0.229, 0.224, 0.225]
+      interpolation: bicubic
+      crop_pct: 0.95
+      tta_variants: *convnext_crop_sweep_tta
+    - model: convnext_tiny
+      checkpoint: ./artifacts/checkpoints/convnext_tiny_timm_recipe_fold5.pt
+      weight: 0.569
+      image_size: 224
+      apply_clahe: true
+      mean: [0.485, 0.456, 0.406]
+      std: [0.229, 0.224, 0.225]
+      interpolation: bicubic
+      crop_pct: 0.95
+      tta_variants: *convnext_crop_sweep_tta
+  segmenter_checkpoint: null
+  segmenter_image_size: 256
+  gradcam_enabled: false
+  segmentation_enabled: false
+  allow_missing_visuals: true

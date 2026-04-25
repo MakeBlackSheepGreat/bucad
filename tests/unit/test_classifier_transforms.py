@@ -94,3 +94,15 @@ def test_densenet_config_matches_mixed_ensemble_plan() -> None:
     assert config["data"]["image_size"] == 224
     assert config["training"]["fold_count"] == 5
     assert config["output"]["checkpoint_name"] == "densenet121_fold{fold}.pt"
+
+
+def test_convnext_small_regularized_config_adds_stronger_regularization() -> None:
+    config = load_yaml("configs/classifier/convnext_small_timm_recipe_regularized.yml")
+
+    assert config["model"]["name"] == "convnext_small"
+    assert config["model"]["drop_path_rate"] > 0
+    assert config["training"]["label_smoothing"] > 0
+    assert config["training"]["weight_decay"] >= 0.08
+    assert config["data"]["augmentation"]["rotation_degrees"] > 0
+    assert config["data"]["augmentation"]["scale_min"] < 1.0
+    assert config["data"]["augmentation"]["scale_max"] > 1.0

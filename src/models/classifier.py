@@ -45,6 +45,7 @@ def create_classifier(
     pretrained: bool = True,
     in_chans: int = 3,
     num_classes: int = 2,
+    **model_kwargs,
 ):
     require_dependency("torch", torch)
     require_dependency("torch.nn", nn)
@@ -70,6 +71,7 @@ def create_classifier(
             pretrained=pretrained,
             in_chans=in_chans,
             num_classes=num_classes,
+            **model_kwargs,
         )
     return TinyCNNClassifier(in_chans=in_chans, num_classes=num_classes)
 
@@ -80,11 +82,17 @@ def load_classifier(
     *,
     map_location: str = "cpu",
 ):
+    extra_model_kwargs = {
+        key: value
+        for key, value in model_config.items()
+        if key not in {"name", "pretrained", "in_chans", "num_classes"}
+    }
     model = create_classifier(
         model_name=model_config.get("name", "resnet18"),
         pretrained=bool(model_config.get("pretrained", False)),
         in_chans=int(model_config.get("in_chans", 3)),
         num_classes=int(model_config.get("num_classes", 2)),
+        **extra_model_kwargs,
     )
     if checkpoint_path is not None and Path(checkpoint_path).exists():
         state = torch.load(checkpoint_path, map_location=map_location)
@@ -107,7 +115,7 @@ def classifier_probabilities(model, batch, *, device: str = "cpu"):
 
 
 def resolve_gradcam_target_layer(model) -> Any | None:
-    for candidate in ("layer4", "features", "blocks", "conv_head", "backbone"):
+    for candidate in ("layer4", "features", "stages", "blocks", "conv_head", "backbone"):
         layer = getattr(model, candidate, None)
         if layer is not None:
             if candidate == "backbone":

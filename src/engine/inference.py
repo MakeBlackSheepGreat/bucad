@@ -19,7 +19,7 @@ from src.models.classifier import classifier_probabilities, load_classifier
 from src.models.segmenter import load_segmenter
 from src.explain.gradcam import generate_gradcam_map
 from src.explain.overlay import render_heatmap_overlay, render_mask_overlay
-from src.preprocess.io import ensure_three_channels, read_image, validate_image_array
+from src.preprocess.io import cv2, ensure_three_channels, read_image, validate_image_array
 from src.preprocess.transforms import prepare_classifier_input
 from src.utils.config import load_project_config
 from src.utils.metrics import best_threshold_by_youden, classification_metrics, threshold_sweep
@@ -56,12 +56,15 @@ class BreastUltrasoundInferenceService:
         self.explanation_generator = explanation_generator
         self._classifier_model = None
         self._classifier_models = None
+        self._classifier_members = None
         self._segmenter_model = None
 
     @classmethod
     def from_config(cls, config_path: str | Path) -> "BreastUltrasoundInferenceService":
         config, paths = load_project_config(config_path)
-        return cls(config.get("runtime", {}), paths=paths)
+        runtime_config = dict(config.get("runtime", {}))
+        runtime_config.setdefault("device", config.get("device", "cpu"))
+        return cls(runtime_config, paths=paths)
 
     def diagnose(
         self,
@@ -102,7 +105,15 @@ class BreastUltrasoundInferenceService:
                 input_filename=filename,
                 result=result,
                 original_image_view=ensure_three_channels(image),
-                metadata={"model_identifier": self._model_identifier()},
+                metadata={
+                    "model_identifier": self._model_identifier(),
+                    "decision_threshold": threshold,
+                    "primary_model": self.runtime_config.get(
+                        "primary_classifier_model",
+                        "unknown",
+                    ),
+                    "ensemble_display_name": self.runtime_config.get("ensemble_display_name"),
+                },
             )
             self._attach_optional_visuals(
                 response,
@@ -127,6 +138,33 @@ class BreastUltrasoundInferenceService:
         checkpoints = self._resolved_classifier_checkpoints()
         return checkpoints[0] if checkpoints else None
 
+    def _resolved_classifier_member_configs(self) -> list[dict[str, Any]]:
+        members = self.runtime_config.get("classifier_members")
+        if isinstance(members, list) and members:
+            resolved = []
+            for member in members:
+                if not isinstance(member, dict) or not member.get("checkpoint"):
+                    continue
+                resolved_member = dict(member)
+                resolved_member["model"] = str(
+                    member.get(
+                        "model",
+                        self.runtime_config.get("classifier_model", "resnet18"),
+                    )
+                )
+                resolved_member["checkpoint"] = str(member["checkpoint"])
+                resolved_member["weight"] = float(member.get("weight", 1.0))
+                resolved.append(resolved_member)
+            return resolved
+        return [
+            {
+                "model": str(self.runtime_config.get("classifier_model", "resnet18")),
+                "checkpoint": checkpoint,
+                "weight": 1.0,
+            }
+            for checkpoint in self._resolved_classifier_checkpoints()
+        ]
+
     def _resolved_classifier_checkpoints(self) -> list[str]:
         checkpoint_list = self.runtime_config.get("classifier_checkpoints")
         if isinstance(checkpoint_list, list) and checkpoint_list:
@@ -147,58 +185,187 @@ class BreastUltrasoundInferenceService:
         return None
 
     def _model_identifier(self) -> str:
-        checkpoints = self._resolved_classifier_checkpoints()
-        if len(checkpoints) > 1:
-            return "ensemble:" + ",".join(Path(checkpoint).name for checkpoint in checkpoints)
-        if checkpoints:
-            return Path(checkpoints[0]).name
+        members = self._resolved_classifier_member_configs()
+        if len(members) > 1:
+            model_names = sorted({member["model"] for member in members})
+            return "mixed-ensemble:" + "+".join(model_names)
+        if members:
+            return Path(members[0]["checkpoint"]).name
         return str(self.runtime_config.get("classifier_model", "unknown"))
+
+    def _member_config_value(
+        self,
+        member: dict[str, Any] | None,
+        key: str,
+        runtime_key: str,
+        default: Any,
+    ) -> Any:
+        if member is not None:
+            if key in member:
+                return member[key]
+            if runtime_key in member:
+                return member[runtime_key]
+        return self.runtime_config.get(runtime_key, default)
+
+    def _classifier_preprocess_kwargs(
+        self,
+        variant: dict[str, Any] | None = None,
+        member: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        variant = variant or {}
+        crop_pct = self._member_config_value(member, "crop_pct", "classifier_crop_pct", 1.0)
+        return {
+            "apply_clahe_enabled": bool(
+                self._member_config_value(
+                    member,
+                    "apply_clahe",
+                    "classifier_apply_clahe",
+                    False,
+                )
+            ),
+            "mean": self._member_config_value(member, "mean", "classifier_mean", None),
+            "std": self._member_config_value(member, "std", "classifier_std", None),
+            "interpolation": str(
+                self._member_config_value(member, "interpolation", "classifier_interpolation", "area")
+            ),
+            "crop_pct": float(variant.get("crop_pct", crop_pct)),
+        }
+
+    def _classifier_device(self) -> str:
+        requested = str(
+            self.runtime_config.get(
+                "classifier_device",
+                self.runtime_config.get("device", "cpu"),
+            )
+        ).lower()
+        if requested == "auto":
+            return "cuda" if torch is not None and torch.cuda.is_available() else "cpu"
+        return requested
+
+    def _classifier_tta_variants(self, member: dict[str, Any] | None = None) -> list[dict[str, Any]]:
+        configured = self._member_config_value(
+            member,
+            "tta_variants",
+            "classifier_tta_variants",
+            None,
+        )
+        if isinstance(configured, list) and configured:
+            variants = []
+            for item in configured:
+                if isinstance(item, str):
+                    variants.append({"name": item})
+                elif isinstance(item, dict):
+                    variants.append(dict(item))
+            if variants:
+                return variants
+        variants = [{"name": "identity"}]
+        if bool(
+            self._member_config_value(
+                member,
+                "tta_horizontal_flip",
+                "classifier_tta_horizontal_flip",
+                False,
+            )
+        ):
+            variants.append({"name": "hflip"})
+        return variants
+
+    def _apply_classifier_tta_variant(self, image: np.ndarray, variant: dict[str, Any]) -> np.ndarray:
+        name = str(variant.get("name", "identity")).lower()
+        if name in {"identity", "none", "original"}:
+            return image
+        if name in {"hflip", "horizontal_flip"}:
+            return np.fliplr(image).copy()
+        if name in {"rotate", "rotation"}:
+            degrees = float(variant.get("degrees", 0.0))
+        elif name.startswith("rotate_"):
+            suffix = name.replace("rotate_", "", 1).replace("p", "+").replace("m", "-")
+            degrees = float(suffix)
+        else:
+            return image
+        if abs(degrees) < 1e-6 or cv2 is None:
+            return image
+        height, width = image.shape[:2]
+        matrix = cv2.getRotationMatrix2D((width / 2.0, height / 2.0), degrees, 1.0)
+        return cv2.warpAffine(
+            image,
+            matrix,
+            (width, height),
+            flags=cv2.INTER_LINEAR,
+            borderMode=cv2.BORDER_REPLICATE,
+        )
+
+    def _classifier_input_tensors(
+        self,
+        image: np.ndarray,
+        member: dict[str, Any] | None = None,
+    ) -> list[Any]:
+        tensors = []
+        image_size = int(
+            self._member_config_value(member, "image_size", "classifier_image_size", 224)
+        )
+        for variant in self._classifier_tta_variants(member):
+            variant_image = self._apply_classifier_tta_variant(image, variant)
+            tensor = prepare_classifier_input(
+                variant_image,
+                image_size,
+                **self._classifier_preprocess_kwargs(variant, member),
+            )
+            tensors.append(tensor)
+        return tensors
 
     def _predict_classification(self, image: np.ndarray) -> tuple[float, float]:
         if self.classifier_predictor is not None:
             benign, malignant = self.classifier_predictor(image)
             return float(benign), float(malignant)
 
-        checkpoints = self._resolved_classifier_checkpoints()
-        if not checkpoints:
+        member_configs = self._resolved_classifier_member_configs()
+        if not member_configs:
             raise ClassificationUnavailableError("No classifier checkpoint is configured.")
         if torch is None:
             raise ClassificationUnavailableError("Torch is not available in the current environment.")
 
-        if self._classifier_models is None:
-            model_config = {
-                "name": self.runtime_config.get("classifier_model", "resnet18"),
-                "pretrained": bool(self.runtime_config.get("classifier_pretrained", False)),
-                "in_chans": 3,
-                "num_classes": 2,
-            }
+        if self._classifier_members is None:
+            self._classifier_members = []
             self._classifier_models = []
-            for checkpoint in checkpoints:
+            for member in member_configs:
+                model_config = {
+                    "name": member["model"],
+                    "pretrained": bool(
+                        self._member_config_value(
+                            member,
+                            "pretrained",
+                            "classifier_pretrained",
+                            False,
+                        )
+                    ),
+                    "in_chans": 3,
+                    "num_classes": 2,
+                }
                 model = load_classifier(
                     model_config,
-                    checkpoint_path=checkpoint,
+                    checkpoint_path=member["checkpoint"],
                     map_location="cpu",
                 )
                 model.eval()
                 self._classifier_models.append(model)
-            self._classifier_model = self._classifier_models[0]
+                self._classifier_members.append({**member, "model_instance": model})
+            self._classifier_model = self._classifier_members[0]["model_instance"]
 
-        input_tensor = prepare_classifier_input(
-            image,
-            int(self.runtime_config.get("classifier_image_size", 224)),
-            apply_clahe_enabled=bool(self.runtime_config.get("classifier_apply_clahe", False)),
-        )
-        if not hasattr(input_tensor, "unsqueeze"):
-            raise ClassificationUnavailableError("Torch tensor conversion failed for classifier input.")
-        input_tensors = [input_tensor]
-        if bool(self.runtime_config.get("classifier_tta_horizontal_flip", False)):
-            input_tensors.append(input_tensor.flip(dims=[2]))
-
+        device = self._classifier_device()
         ensemble_probs = []
-        for model in self._classifier_models:
-            for tensor in input_tensors:
-                ensemble_probs.append(classifier_probabilities(model, tensor, device="cpu")[0])
-        probs = np.mean(np.asarray(ensemble_probs, dtype=np.float32), axis=0)
+        weights = []
+        for member in self._classifier_members:
+            input_tensors = self._classifier_input_tensors(image, member)
+            if not input_tensors or not hasattr(input_tensors[0], "unsqueeze"):
+                raise ClassificationUnavailableError("Torch tensor conversion failed for classifier input.")
+            batch = torch.stack(input_tensors)
+            model = member["model_instance"]
+            weight = float(member.get("weight", 1.0))
+            tta_probs = classifier_probabilities(model, batch, device=device)
+            ensemble_probs.append(np.mean(tta_probs, axis=0) * weight)
+            weights.append(weight)
+        probs = np.sum(np.asarray(ensemble_probs, dtype=np.float32), axis=0) / float(sum(weights))
         return float(probs[0]), float(probs[1])
 
     def _attach_optional_visuals(
@@ -275,11 +442,15 @@ class BreastUltrasoundInferenceService:
         input_tensor = prepare_classifier_input(
             image,
             int(self.runtime_config.get("classifier_image_size", 224)),
-            apply_clahe_enabled=bool(self.runtime_config.get("classifier_apply_clahe", False)),
+            **self._classifier_preprocess_kwargs(),
         )
         if not hasattr(input_tensor, "unsqueeze"):
             raise OptionalOutputUnavailableError("Torch tensor conversion failed for explanation.")
-        return generate_gradcam_map(self._classifier_model, input_tensor.unsqueeze(0).to(dtype=torch.float32))
+        device = self._classifier_device()
+        return generate_gradcam_map(
+            self._classifier_model.to(device),
+            input_tensor.unsqueeze(0).to(device=device, dtype=torch.float32),
+        )
 
 
 def evaluate_busi_dataset(
@@ -289,8 +460,10 @@ def evaluate_busi_dataset(
     output_path: str | Path | None = None,
 ) -> dict[str, Any]:
     config, paths = load_project_config(config_path)
+    runtime_config = dict(config.get("runtime", {}))
+    runtime_config.setdefault("device", config.get("device", "cpu"))
     service = BreastUltrasoundInferenceService(
-        config.get("runtime", {}),
+        runtime_config,
         paths=paths,
         classifier_predictor=classifier_predictor,
     )
@@ -318,10 +491,23 @@ def evaluate_busi_dataset(
             }
         )
 
-    metrics = classification_metrics(y_true, malignant_probabilities)
+    default_threshold = float(service.runtime_config.get("default_threshold", 0.5))
+    metrics = classification_metrics(
+        y_true,
+        malignant_probabilities,
+        threshold=default_threshold,
+    )
     threshold_rows = threshold_sweep(y_true, malignant_probabilities)
     best_threshold = best_threshold_by_youden(y_true, malignant_probabilities)
     report = {
+        "config_path": str(config_path),
+        "model_identifier": service._model_identifier(),
+        "runtime_summary": {
+            "classifier_image_size": int(service.runtime_config.get("classifier_image_size", 224)),
+            "classifier_crop_pct": float(service.runtime_config.get("classifier_crop_pct", 1.0)),
+            "classifier_tta_variants": service._classifier_tta_variants(),
+            "classifier_member_count": len(service._resolved_classifier_member_configs()),
+        },
         "sample_count": len(rows),
         "metrics": metrics,
         "threshold_analysis": {
@@ -332,10 +518,13 @@ def evaluate_busi_dataset(
     }
     destination = Path(output_path) if output_path is not None else paths.reports_root / "busi_eval.json"
     write_json_report(destination, report)
-    write_markdown_report(
-        destination.parent / "threshold_analysis.md",
-        _threshold_analysis_markdown(metrics, best_threshold, threshold_rows),
-    )
+    threshold_markdown = _threshold_analysis_markdown(metrics, best_threshold, threshold_rows)
+    write_markdown_report(destination.parent / "threshold_analysis.md", threshold_markdown)
+    if output_path is not None:
+        write_markdown_report(
+            destination.with_name(f"threshold_analysis_{destination.stem}.md"),
+            threshold_markdown,
+        )
     return report
 
 

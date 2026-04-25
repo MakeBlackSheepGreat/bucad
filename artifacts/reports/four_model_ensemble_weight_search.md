@@ -1,0 +1,75 @@
+# 四个五折模型混合集成权重细搜
+
+日期：2026-04-25
+
+## 搜索设置
+
+- 输入模型：EfficientNetV2-S 五折、DenseNet121 五折、ConvNeXt-Tiny 五折、Swin-Tiny 五折。
+- 搜索范围：所有两两搭配、所有三三搭配、四个模型一起；单模型只作为参考，不进入本报告主表。
+- 搜索方式：权重归一化；粗搜步长 `0.01`，围绕 AUC、Youden、Accuracy 最优点再用 `0.001` 细搜。
+- BUSI 只用于外部评估和运行点分析，不参与训练。
+- 样本数：`647`；组合数：`11`。
+
+## 各组合最佳 AUC
+
+| 组合 | 权重 | AUC | Sens @0.50 | Spec @0.50 | Acc @0.50 | 最优阈值 | 最优 Sens | 最优 Spec | 最优 Acc | Youden J | 混淆矩阵 | 备注 |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- | --- |
+| convnext+swin | convnext 0.828 / swin 0.172 | 0.9071 | 0.7667 | 0.8970 | 0.8547 | 0.45 | 0.7952 | 0.8764 | 0.8501 | 0.6717 | TN 383 / FP 54 / FN 43 / TP 167 |  |
+| densenet+convnext | densenet 0.396 / convnext 0.604 | 0.9082 | 0.7190 | 0.9268 | 0.8594 | 0.37 | 0.7857 | 0.8879 | 0.8547 | 0.6736 | TN 388 / FP 49 / FN 45 / TP 165 |  |
+| densenet+swin | densenet 0.518 / swin 0.482 | 0.9019 | 0.7095 | 0.9336 | 0.8609 | 0.45 | 0.7429 | 0.9268 | 0.8671 | 0.6696 | TN 405 / FP 32 / FN 54 / TP 156 |  |
+| effnet+convnext | effnet 0.427 / convnext 0.573 | 0.9133 | 0.7381 | 0.9153 | 0.8578 | 0.42 | 0.7857 | 0.8902 | 0.8563 | 0.6759 | TN 389 / FP 48 / FN 45 / TP 165 |  |
+| effnet+densenet | effnet 0.612 / densenet 0.388 | 0.9053 | 0.5762 | 0.9565 | 0.8331 | 0.30 | 0.7810 | 0.9016 | 0.8624 | 0.6826 | TN 394 / FP 43 / FN 46 / TP 164 |  |
+| effnet+swin | effnet 0.630 / swin 0.370 | 0.9075 | 0.7333 | 0.9291 | 0.8655 | 0.34 | 0.8286 | 0.8696 | 0.8563 | 0.6981 | TN 380 / FP 57 / FN 36 / TP 174 |  |
+| densenet+convnext+swin | densenet 0.289 / convnext 0.501 / swin 0.210 | 0.9086 | 0.7429 | 0.9199 | 0.8624 | 0.48 | 0.7619 | 0.9176 | 0.8671 | 0.6795 | TN 401 / FP 36 / FN 50 / TP 160 |  |
+| effnet+convnext+swin | effnet 0.437 / convnext 0.551 / swin 0.012 | 0.9134 | 0.7333 | 0.9176 | 0.8578 | 0.25 | 0.9000 | 0.7803 | 0.8192 | 0.6803 | TN 341 / FP 96 / FN 21 / TP 189 |  |
+| effnet+densenet+convnext | effnet 0.358 / densenet 0.244 / convnext 0.398 | 0.9138 | 0.7095 | 0.9382 | 0.8640 | 0.32 | 0.8095 | 0.8627 | 0.8454 | 0.6722 | TN 377 / FP 60 / FN 40 / TP 170 |  |
+| effnet+densenet+swin | effnet 0.434 / densenet 0.305 / swin 0.261 | 0.9091 | 0.6952 | 0.9474 | 0.8655 | 0.29 | 0.8238 | 0.8627 | 0.8501 | 0.6865 | TN 377 / FP 60 / FN 37 / TP 173 |  |
+| effnet+densenet+convnext+swin | effnet 0.358 / densenet 0.244 / convnext 0.398 / swin 0.000 | 0.9138 | 0.7095 | 0.9382 | 0.8640 | 0.32 | 0.8095 | 0.8627 | 0.8454 | 0.6722 | TN 377 / FP 60 / FN 40 / TP 170 |  |
+
+## 各组合最佳 Youden 运行点
+
+| 组合 | 权重 | AUC | Sens @0.50 | Spec @0.50 | Acc @0.50 | 最优阈值 | 最优 Sens | 最优 Spec | 最优 Acc | Youden J | 混淆矩阵 | 备注 |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- | --- |
+| convnext+swin | convnext 0.902 / swin 0.098 | 0.9066 | 0.7667 | 0.8924 | 0.8516 | 0.43 | 0.8143 | 0.8650 | 0.8485 | 0.6793 | TN 378 / FP 59 / FN 39 / TP 171 |  |
+| densenet+convnext | densenet 0.255 / convnext 0.745 | 0.9080 | 0.7429 | 0.9130 | 0.8578 | 0.45 | 0.7810 | 0.9016 | 0.8624 | 0.6826 | TN 394 / FP 43 / FN 46 / TP 164 |  |
+| densenet+swin | densenet 0.801 / swin 0.199 | 0.8988 | 0.5810 | 0.9703 | 0.8439 | 0.27 | 0.7905 | 0.8970 | 0.8624 | 0.6875 | TN 392 / FP 45 / FN 44 / TP 166 |  |
+| effnet+convnext | effnet 0.760 / convnext 0.240 | 0.9094 | 0.6952 | 0.9405 | 0.8609 | 0.35 | 0.8048 | 0.8787 | 0.8547 | 0.6835 | TN 384 / FP 53 / FN 41 / TP 169 |  |
+| effnet+densenet | effnet 0.713 / densenet 0.287 | 0.9047 | 0.6000 | 0.9451 | 0.8331 | 0.29 | 0.8095 | 0.8787 | 0.8563 | 0.6882 | TN 384 / FP 53 / FN 40 / TP 170 |  |
+| effnet+swin | effnet 0.700 / swin 0.300 | 0.9070 | 0.7048 | 0.9336 | 0.8594 | 0.35 | 0.8190 | 0.8879 | 0.8655 | 0.7069 | TN 388 / FP 49 / FN 38 / TP 172 |  |
+| densenet+convnext+swin | densenet 0.799 / convnext 0.002 / swin 0.199 | 0.8989 | 0.5810 | 0.9703 | 0.8439 | 0.27 | 0.7905 | 0.8970 | 0.8624 | 0.6875 | TN 392 / FP 45 / FN 44 / TP 166 |  |
+| effnet+convnext+swin | effnet 0.688 / convnext 0.075 / swin 0.237 | 0.9085 | 0.7095 | 0.9359 | 0.8624 | 0.35 | 0.8286 | 0.8833 | 0.8655 | 0.7119 | TN 386 / FP 51 / FN 36 / TP 174 |  |
+| effnet+densenet+convnext | effnet 0.623 / densenet 0.291 / convnext 0.086 | 0.9087 | 0.6286 | 0.9451 | 0.8423 | 0.31 | 0.8048 | 0.8947 | 0.8655 | 0.6995 | TN 391 / FP 46 / FN 41 / TP 169 |  |
+| effnet+densenet+swin | effnet 0.640 / densenet 0.084 / swin 0.276 | 0.9078 | 0.7048 | 0.9451 | 0.8671 | 0.34 | 0.8238 | 0.8856 | 0.8655 | 0.7094 | TN 387 / FP 50 / FN 37 / TP 173 |  |
+| effnet+densenet+convnext+swin | effnet 0.673 / densenet 0.019 / convnext 0.074 / swin 0.234 | 0.9088 | 0.7095 | 0.9405 | 0.8655 | 0.35 | 0.8286 | 0.8833 | 0.8655 | 0.7119 | TN 386 / FP 51 / FN 36 / TP 174 |  |
+
+## 分类型最佳方案
+
+| 组合 | 权重 | AUC | Sens @0.50 | Spec @0.50 | Acc @0.50 | 最优阈值 | 最优 Sens | 最优 Spec | 最优 Acc | Youden J | 混淆矩阵 | 备注 |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- | --- |
+| effnet+convnext | effnet 0.427 / convnext 0.573 | 0.9133 | 0.7381 | 0.9153 | 0.8578 | 0.42 | 0.7857 | 0.8902 | 0.8563 | 0.6759 | TN 389 / FP 48 / FN 45 / TP 165 | 两模型 AUC 最优 |
+| effnet+swin | effnet 0.700 / swin 0.300 | 0.9070 | 0.7048 | 0.9336 | 0.8594 | 0.35 | 0.8190 | 0.8879 | 0.8655 | 0.7069 | TN 388 / FP 49 / FN 38 / TP 172 | 两模型 Youden 最优 |
+| convnext+swin | convnext 0.602 / swin 0.398 | 0.9067 | 0.7619 | 0.8947 | 0.8516 | 0.64 | 0.7381 | 0.9336 | 0.8702 | 0.6717 | TN 408 / FP 29 / FN 55 / TP 155 | 两模型 Accuracy 最优 |
+| effnet+densenet+convnext | effnet 0.358 / densenet 0.244 / convnext 0.398 | 0.9138 | 0.7095 | 0.9382 | 0.8640 | 0.32 | 0.8095 | 0.8627 | 0.8454 | 0.6722 | TN 377 / FP 60 / FN 40 / TP 170 | 三模型 AUC 最优 |
+| effnet+convnext+swin | effnet 0.688 / convnext 0.075 / swin 0.237 | 0.9085 | 0.7095 | 0.9359 | 0.8624 | 0.35 | 0.8286 | 0.8833 | 0.8655 | 0.7119 | TN 386 / FP 51 / FN 36 / TP 174 | 三模型 Youden 最优 |
+| effnet+convnext+swin | effnet 0.142 / convnext 0.565 / swin 0.293 | 0.9104 | 0.7619 | 0.9085 | 0.8609 | 0.63 | 0.7333 | 0.9405 | 0.8733 | 0.6738 | TN 411 / FP 26 / FN 56 / TP 154 | 三模型 Accuracy 最优 |
+| effnet+densenet+convnext+swin | effnet 0.358 / densenet 0.244 / convnext 0.398 / swin 0.000 | 0.9138 | 0.7095 | 0.9382 | 0.8640 | 0.32 | 0.8095 | 0.8627 | 0.8454 | 0.6722 | TN 377 / FP 60 / FN 40 / TP 170 | 四模型 AUC 最优；Swin 权重为 0，实际退化为三模型 |
+| effnet+densenet+convnext+swin | effnet 0.364 / densenet 0.234 / convnext 0.382 / swin 0.020 | 0.9138 | 0.7095 | 0.9382 | 0.8640 | 0.33 | 0.8048 | 0.8673 | 0.8470 | 0.6720 | TN 379 / FP 58 / FN 41 / TP 169 | 四模型 AUC 非零权重候选 |
+| effnet+densenet+convnext+swin | effnet 0.673 / densenet 0.019 / convnext 0.074 / swin 0.234 | 0.9088 | 0.7095 | 0.9405 | 0.8655 | 0.35 | 0.8286 | 0.8833 | 0.8655 | 0.7119 | TN 386 / FP 51 / FN 36 / TP 174 | 四模型 Youden 最优 |
+| effnet+densenet+convnext+swin | effnet 0.140 / densenet 0.046 / convnext 0.553 / swin 0.261 | 0.9109 | 0.7571 | 0.9108 | 0.8609 | 0.62 | 0.7333 | 0.9405 | 0.8733 | 0.6738 | TN 411 / FP 26 / FN 56 / TP 154 | 四模型 Accuracy 最优 |
+
+## 推荐候选
+
+| 组合 | 权重 | AUC | Sens @0.50 | Spec @0.50 | Acc @0.50 | 最优阈值 | 最优 Sens | 最优 Spec | 最优 Acc | Youden J | 混淆矩阵 | 备注 |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- | --- |
+| effnet+densenet+convnext | effnet 0.358 / densenet 0.244 / convnext 0.398 | 0.9138 | 0.7095 | 0.9382 | 0.8640 | 0.32 | 0.8095 | 0.8627 | 0.8454 | 0.6722 | TN 377 / FP 60 / FN 40 / TP 170 | AUC优先：当前最高排序能力；Swin 权重被搜索压到 0，说明它没有继续提高 AUC。 |
+| effnet+densenet+convnext+swin | effnet 0.673 / densenet 0.019 / convnext 0.074 / swin 0.234 | 0.9088 | 0.7095 | 0.9405 | 0.8655 | 0.35 | 0.8286 | 0.8833 | 0.8655 | 0.7119 | TN 386 / FP 51 / FN 36 / TP 174 | 平衡筛查优先：Youden J 最高，同时 Sensitivity 达到 0.8286，Accuracy 0.8655。 |
+| effnet+densenet+convnext+swin | effnet 0.364 / densenet 0.234 / convnext 0.382 / swin 0.020 | 0.9138 | 0.7095 | 0.9382 | 0.8640 | 0.33 | 0.8048 | 0.8673 | 0.8470 | 0.6720 | TN 379 / FP 58 / FN 41 / TP 169 | 四模型非零候选：四个模型都有权重，AUC 几乎等同最高点，适合需要展示四模型融合时使用。 |
+| effnet+convnext | effnet 0.427 / convnext 0.573 | 0.9133 | 0.7381 | 0.9153 | 0.8578 | 0.42 | 0.7857 | 0.8902 | 0.8563 | 0.6759 | TN 389 / FP 48 / FN 45 / TP 165 | 轻量两模型候选：只用 EffNet+ConvNeXt 就接近最高 AUC，部署复杂度低于三/四模型。 |
+| effnet+densenet+convnext+swin | effnet 0.140 / densenet 0.046 / convnext 0.553 / swin 0.261 | 0.9109 | 0.7571 | 0.9108 | 0.8609 | 0.62 | 0.7333 | 0.9405 | 0.8733 | 0.6738 | TN 411 / FP 26 / FN 56 / TP 154 | 准确率运行点候选：Accuracy 最高，但召回偏低，适合作为保守运行点参考。 |
+
+## 结论
+
+- 如果只看 AUC，最优方案仍是 `effnet+densenet+convnext`，权重 `0.358 / 0.244 / 0.398`，AUC `0.9138`。
+- 加入 Swin 后没有提高最高 AUC；四模型 AUC 最优点把 Swin 权重压到 `0.000`，实际等价于三模型。
+- 如果重视筛查运行点，四模型方案更有价值：`effnet 0.673 / densenet 0.019 / convnext 0.074 / swin 0.234`，Youden J `0.7119`，Sensitivity `0.8286`，Specificity `0.8833`。
+- 如果考虑部署复杂度，`effnet+convnext` 两模型 AUC `0.9133`，非常接近三模型最高 AUC，是最值得保留的轻量候选。

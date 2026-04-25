@@ -1,0 +1,176 @@
+paths_config: configs/paths.local.yml
+seed: 42
+device: auto
+runtime:
+  classifier_model: tf_efficientnetv2_s
+  classifier_pretrained: false
+  classifier_device: auto
+  default_threshold: 0.5
+  borderline_margin: 0.08
+  classifier_checkpoint: null
+  classifier_members:
+  - model: tf_efficientnetv2_s
+    checkpoint: ./artifacts/checkpoints/efficientnetv2_s_fold1.pt
+    weight: 0.358
+    image_size: 224
+    apply_clahe: true
+    tta_horizontal_flip: true
+  - model: tf_efficientnetv2_s
+    checkpoint: ./artifacts/checkpoints/efficientnetv2_s_fold2.pt
+    weight: 0.358
+    image_size: 224
+    apply_clahe: true
+    tta_horizontal_flip: true
+  - model: tf_efficientnetv2_s
+    checkpoint: ./artifacts/checkpoints/efficientnetv2_s_fold3.pt
+    weight: 0.358
+    image_size: 224
+    apply_clahe: true
+    tta_horizontal_flip: true
+  - model: tf_efficientnetv2_s
+    checkpoint: ./artifacts/checkpoints/efficientnetv2_s_fold4.pt
+    weight: 0.358
+    image_size: 224
+    apply_clahe: true
+    tta_horizontal_flip: true
+  - model: tf_efficientnetv2_s
+    checkpoint: ./artifacts/checkpoints/efficientnetv2_s_fold5.pt
+    weight: 0.358
+    image_size: 224
+    apply_clahe: true
+    tta_horizontal_flip: true
+  - model: densenet121
+    checkpoint: ./artifacts/checkpoints/densenet121_fold1.pt
+    weight: 0.244
+    image_size: 224
+    apply_clahe: true
+    tta_horizontal_flip: true
+  - model: densenet121
+    checkpoint: ./artifacts/checkpoints/densenet121_fold2.pt
+    weight: 0.244
+    image_size: 224
+    apply_clahe: true
+    tta_horizontal_flip: true
+  - model: densenet121
+    checkpoint: ./artifacts/checkpoints/densenet121_fold3.pt
+    weight: 0.244
+    image_size: 224
+    apply_clahe: true
+    tta_horizontal_flip: true
+  - model: densenet121
+    checkpoint: ./artifacts/checkpoints/densenet121_fold4.pt
+    weight: 0.244
+    image_size: 224
+    apply_clahe: true
+    tta_horizontal_flip: true
+  - model: densenet121
+    checkpoint: ./artifacts/checkpoints/densenet121_fold5.pt
+    weight: 0.244
+    image_size: 224
+    apply_clahe: true
+    tta_horizontal_flip: true
+  - model: convnext_tiny
+    checkpoint: ./artifacts/checkpoints/convnext_tiny_timm_recipe_fold1.pt
+    weight: 0.398
+    image_size: 224
+    apply_clahe: true
+    mean:
+    - 0.485
+    - 0.456
+    - 0.406
+    std:
+    - 0.229
+    - 0.224
+    - 0.225
+    interpolation: bicubic
+    crop_pct: 0.95
+    tta_variants:
+    - name: identity
+      crop_pct: 0.95
+    - name: hflip
+      crop_pct: 0.95
+  - model: convnext_tiny
+    checkpoint: ./artifacts/checkpoints/convnext_tiny_timm_recipe_fold2.pt
+    weight: 0.398
+    image_size: 224
+    apply_clahe: true
+    mean:
+    - 0.485
+    - 0.456
+    - 0.406
+    std:
+    - 0.229
+    - 0.224
+    - 0.225
+    interpolation: bicubic
+    crop_pct: 0.95
+    tta_variants:
+    - name: identity
+      crop_pct: 0.95
+    - name: hflip
+      crop_pct: 0.95
+  - model: convnext_tiny
+    checkpoint: ./artifacts/checkpoints/convnext_tiny_timm_recipe_fold3.pt
+    weight: 0.398
+    image_size: 224
+    apply_clahe: true
+    mean:
+    - 0.485
+    - 0.456
+    - 0.406
+    std:
+    - 0.229
+    - 0.224
+    - 0.225
+    interpolation: bicubic
+    crop_pct: 0.95
+    tta_variants:
+    - name: identity
+      crop_pct: 0.95
+    - name: hflip
+      crop_pct: 0.95
+  - model: convnext_tiny
+    checkpoint: ./artifacts/checkpoints/convnext_tiny_timm_recipe_fold4.pt
+    weight: 0.398
+    image_size: 224
+    apply_clahe: true
+    mean:
+    - 0.485
+    - 0.456
+    - 0.406
+    std:
+    - 0.229
+    - 0.224
+    - 0.225
+    interpolation: bicubic
+    crop_pct: 0.95
+    tta_variants:
+    - name: identity
+      crop_pct: 0.95
+    - name: hflip
+      crop_pct: 0.95
+  - model: convnext_tiny
+    checkpoint: ./artifacts/checkpoints/convnext_tiny_timm_recipe_fold5.pt
+    weight: 0.398
+    image_size: 224
+    apply_clahe: true
+    mean:
+    - 0.485
+    - 0.456
+    - 0.406
+    std:
+    - 0.229
+    - 0.224
+    - 0.225
+    interpolation: bicubic
+    crop_pct: 0.95
+    tta_variants:
+    - name: identity
+      crop_pct: 0.95
+    - name: hflip
+      crop_pct: 0.95
+  segmenter_checkpoint: null
+  segmenter_image_size: 256
+  gradcam_enabled: false
+  segmentation_enabled: false
+  allow_missing_visuals: true

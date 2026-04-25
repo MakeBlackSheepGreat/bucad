@@ -47,3 +47,50 @@ def test_resolution_only_classifier_config_keeps_baseline_augmentation() -> None
     assert config["data"]["augmentation"]["horizontal_flip"] is True
     assert "rotation_degrees" not in config["data"]["augmentation"]
     assert config["output"]["checkpoint_name"].startswith("efficientnetv2_s_256")
+
+
+def test_320_classifier_config_keeps_baseline_augmentation() -> None:
+    config = load_yaml("configs/classifier/efficientnetv2_s_320.yml")
+
+    assert config["model"]["name"] == "tf_efficientnetv2_s"
+    assert config["data"]["image_size"] == 320
+    assert config["data"]["augmentation"]["horizontal_flip"] is True
+    assert "rotation_degrees" not in config["data"]["augmentation"]
+    assert config["output"]["checkpoint_name"].startswith("efficientnetv2_s_320")
+
+
+def test_sensitive_classifier_config_enables_weighted_checkpoint_selection() -> None:
+    config = load_yaml("configs/classifier/efficientnetv2_s_sensitive.yml")
+
+    assert config["data"]["image_size"] == 224
+    assert config["training"]["class_weights"]["malignant"] > 1.0
+    assert config["training"]["checkpoint_strategy"] == "selected_threshold"
+    assert config["training"]["selection_threshold"] == 0.24
+    assert config["output"]["checkpoint_name"].startswith("efficientnetv2_s_sensitive")
+
+
+def test_balanced_sensitive_config_adds_specificity_constraint() -> None:
+    config = load_yaml("configs/classifier/efficientnetv2_s_sensitive_balanced.yml")
+
+    assert config["data"]["image_size"] == 224
+    assert config["training"]["class_weights"]["malignant"] > 1.0
+    assert config["training"]["min_specificity"] >= 0.85
+    assert config["output"]["checkpoint_name"].startswith("efficientnetv2_s_sensitive_balanced")
+
+
+def test_low_lr_seed_config_uses_best_threshold_selection() -> None:
+    config = load_yaml("configs/classifier/efficientnetv2_s_lr1e4_seed123.yml")
+
+    assert config["seed"] == 123
+    assert config["training"]["learning_rate"] == 0.0001
+    assert config["training"]["checkpoint_strategy"] == "youden"
+    assert config["output"]["checkpoint_name"].startswith("efficientnetv2_s_lr1e4_seed123")
+
+
+def test_densenet_config_matches_mixed_ensemble_plan() -> None:
+    config = load_yaml("configs/classifier/densenet121.yml")
+
+    assert config["model"]["name"] == "densenet121"
+    assert config["data"]["image_size"] == 224
+    assert config["training"]["fold_count"] == 5
+    assert config["output"]["checkpoint_name"] == "densenet121_fold{fold}.pt"

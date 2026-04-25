@@ -60,7 +60,7 @@ def threshold_sweep(
     thresholds: list[float] | np.ndarray | None = None,
 ) -> list[dict[str, Any]]:
     if thresholds is None:
-        thresholds = np.linspace(0.1, 0.9, 17)
+        thresholds = np.round(np.arange(0.1, 0.9001, 0.01), 2)
     rows: list[dict[str, Any]] = []
     for threshold in thresholds:
         metrics = classification_metrics(

@@ -1,0 +1,19 @@
+paths_config: configs/paths.local.yml
+seed: 42
+device: auto
+runtime:
+  classifier_model: swin_tiny_patch4_window7_224
+  classifier_pretrained: false
+  classifier_image_size: 224
+  classifier_apply_clahe: true
+  classifier_tta_horizontal_flip: true
+  default_threshold: 0.5
+  borderline_margin: 0.08
+  classifier_checkpoint: ./artifacts/checkpoints/swin_tiny_patch4_window7_224_fold1.pt
+  classifier_checkpoints: []
+  classifier_members: []
+  segmenter_checkpoint: null
+  segmenter_image_size: 256
+  gradcam_enabled: false
+  segmentation_enabled: false
+  allow_missing_visuals: true

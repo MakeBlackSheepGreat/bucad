@@ -21,7 +21,19 @@ def _risk_level(final_label: str, confidence_band: str) -> str:
     return "低风险"
 
 
-def _display_model_version(model_version: str) -> str:
+def _display_model_version(model_version: str, metadata: dict | None = None) -> str:
+    metadata = metadata or {}
+    display_name = metadata.get("ensemble_display_name")
+    if display_name:
+        return str(display_name)
+    if (
+        model_version.startswith("mixed-ensemble:")
+        and "convnext_tiny" in model_version
+        and "tf_efficientnetv2_s" in model_version
+    ):
+        return "ConvNeXt-Tiny 主模型 + EfficientNetV2-S 双模型集成"
+    if model_version.startswith("mixed-ensemble:") and "densenet121" in model_version:
+        return "EfficientNetV2-S + DenseNet121 混合集成"
     if model_version.startswith("ensemble:") and "efficientnetv2_s" in model_version:
         return "EfficientNetV2-S 五折集成"
     return model_version
@@ -45,7 +57,8 @@ def diagnosis_markdown(response: InferenceResponse) -> str:
     risk_class = "danger" if result.final_label == "malignant" else "safe"
     recommendation = escape(localize_recommendation(result.final_label, result.confidence_band))
     disclaimer = escape(localize_disclaimer(result.auxiliary_use_disclaimer))
-    model_version = escape(_display_model_version(result.model_version))
+    model_version = escape(_display_model_version(result.model_version, response.metadata))
+    decision_threshold = float(response.metadata.get("decision_threshold", 0.5))
 
     return f"""
 <div class="result-card">
@@ -68,7 +81,7 @@ def diagnosis_markdown(response: InferenceResponse) -> str:
     </div>
   </div>
   <div class="result-strip compact">
-    <span>阈值 <b>{0.25:.2f}</b></span>
+    <span>阈值 <b>{decision_threshold:.3f}</b></span>
     <span>置信度 <b>{confidence}</b></span>
     <span class="model-chip" title="{model_version}">模型 <b>{model_version}</b></span>
   </div>

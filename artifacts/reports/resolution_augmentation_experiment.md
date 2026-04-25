@@ -15,6 +15,7 @@ augmentation improves fold-1 validation behavior.
 | Baseline | `configs/classifier/efficientnetv2_s.yml` | 224 | horizontal flip |
 | Resolution only | `configs/classifier/efficientnetv2_s_256.yml` | 256 | horizontal flip |
 | Resolution + mild aug | `configs/classifier/efficientnetv2_s_256_aug.yml` | 256 | horizontal flip, rotation, brightness, contrast, scale crop |
+| Resolution 320 | `configs/classifier/efficientnetv2_s_320.yml` | 320 | horizontal flip |
 
 ## Fold-1 Results
 
@@ -23,6 +24,7 @@ augmentation improves fold-1 validation behavior.
 | 224 baseline | 0.9248 | 0.6148 | 0.9565 | 0.8453 |
 | 256 resolution only | 0.8994 | 0.7213 | 0.9328 | 0.8640 |
 | 256 mild augmentation | 0.8811 | 0.7541 | 0.8379 | 0.8107 |
+| 320 resolution only | 0.8903 | 0.7541 | 0.8735 | 0.8347 |
 
 ## Decision
 
@@ -32,6 +34,9 @@ augmentation improves fold-1 validation behavior.
 - The additional mild augmentation further increases sensitivity but reduces AUC,
   specificity, and accuracy, suggesting that the current augmentation strength is
   not a good final-model direction.
+- The `320` resolution-only run did not recover the AUC loss seen at `256`; it
+  improves sensitivity but reduces AUC, specificity, and accuracy versus the
+  frozen `224` baseline.
 - Keep the new configs and augmentation code for reproducible follow-up
   experiments, but keep `configs/inference/demo.yml` on the existing five-fold
   EfficientNetV2-S runtime ensemble.

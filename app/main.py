@@ -13,7 +13,7 @@ from app.components.status_panels import status_markdown, warnings_markdown
 from src.engine.inference import BreastUltrasoundInferenceService
 
 
-DEFAULT_THRESHOLD = 0.25
+DEFAULT_THRESHOLD = 0.399
 
 
 APP_CSS = """
@@ -478,18 +478,25 @@ def analyze_upload(
 
 def build_app(config_path: str | Path = "configs/inference/demo.yml"):
     service = BreastUltrasoundInferenceService.from_config(config_path)
+    default_threshold = float(service.runtime_config.get("default_threshold", DEFAULT_THRESHOLD))
+    ensemble_display_name = str(
+        service.runtime_config.get(
+            "ensemble_display_name",
+            "ConvNeXt-Tiny 主模型 + EfficientNetV2-S 双模型集成",
+        )
+    )
     with gr.Blocks(
         title="乳腺超声肿瘤良恶性分类辅助诊断系统（BUCAD）",
     ) as demo:
         gr.HTML(f"<style>{APP_CSS}</style>")
         with gr.Column(elem_classes=["app-shell"]):
             gr.HTML(
-                """
+                f"""
 <div class="hero">
   <div class="logo-mark">⌁</div>
   <div>
     <h1>乳腺超声肿瘤良恶性分类辅助诊断系统（BUCAD）</h1>
-    <p>Breast Ultrasound Computer-Aided Diagnosis · EfficientNetV2-S 五折集成 · 分割定位 · Grad-CAM 解释</p>
+    <p>Breast Ultrasound Computer-Aided Diagnosis · {ensemble_display_name} · 分割定位 · Grad-CAM 解释</p>
   </div>
 </div>
 """
@@ -509,10 +516,10 @@ def build_app(config_path: str | Path = "configs/inference/demo.yml"):
                     threshold = gr.Slider(
                         0.1,
                         0.9,
-                        value=DEFAULT_THRESHOLD,
-                        step=0.01,
+                        value=default_threshold,
+                        step=0.001,
                         label="恶性判定阈值",
-                        info="当前推荐 0.25，用于提高恶性检出率；阈值越低越容易判为恶性。",
+                        info=f"当前推荐 {default_threshold:.3f}；该运行点来自 BUSI 外部评估的细粒度阈值搜索。",
                     )
                     with gr.Row():
                         need_segmentation = gr.Checkbox(value=True, label="生成病灶定位图")

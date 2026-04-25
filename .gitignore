@@ -22,6 +22,7 @@ build/
 # Generated reports that should stay local
 artifacts/reports/*.csv
 artifacts/reports/*.json
+artifacts/reports/threshold_analysis_*.md
 artifacts/reports/documents/
 artifacts/reports/demo_single_image/
 artifacts/reports/visual_evidence/
@@ -61,6 +62,8 @@ __pycache__/
 htmlcov/
 artifacts/test-workspace/
 artifacts/pytest-tmp/
+.pytest_tmp/
+tmp/
 pytest-cache-files-*/
 tmp/pytest-bucad-*/
 

@@ -22,7 +22,9 @@ Date: 2026-04-24
 | --- | ---: | ---: | ---: | ---: | ---: |
 | Conventional metrics with flip TTA | 0.8997 | 0.6619 | 0.9382 | 0.8485 | 0.50 |
 | Selected high-sensitivity point with flip TTA | 0.8997 | 0.8476 | 0.8078 | 0.8207 | 0.25 |
-| Best Youden point with flip TTA | 0.8997 | 0.7810 | 0.8833 | 0.8501 | 0.35 |
+| High-sensitivity point with fine sweep | 0.8997 | 0.8524 | 0.8055 | 0.8207 | 0.24 |
+| Best Youden point with fine sweep | 0.8997 | 0.8000 | 0.8764 | 0.8516 | 0.33 |
+| Mixed EfficientNetV2-S + DenseNet121 ensemble | 0.9052 | 0.8095 | 0.8719 | 0.8516 | 0.27 |
 
 ## Remaining Formal Evidence
 

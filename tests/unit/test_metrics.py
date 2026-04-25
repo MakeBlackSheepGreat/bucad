@@ -24,3 +24,12 @@ def test_threshold_sweep_reports_youden_scores() -> None:
     assert len(rows) == 3
     assert all("youden_j" in row for row in rows)
     assert best["threshold"] == 0.5
+
+
+def test_default_threshold_sweep_uses_one_percent_steps() -> None:
+    rows = threshold_sweep([0, 1], [0.2, 0.8])
+
+    assert rows[0]["threshold"] == 0.1
+    assert rows[1]["threshold"] == 0.11
+    assert rows[-1]["threshold"] == 0.9
+    assert len(rows) == 81

@@ -32,7 +32,7 @@ runtime:
   - name: hflip
     crop_pct: 1.0
   primary_classifier_model: ConvNeXt-Tiny
-  ensemble_display_name: ConvNeXt-Tiny 主模型 + EfficientNetV2-S 辅助集成
+  ensemble_display_name: ConvNeXt-Tiny ??? + EfficientNetV2-S ????
   default_threshold: 0.399
   borderline_margin: 0.08
   classifier_checkpoint: null
@@ -165,6 +165,6 @@ runtime:
     - name: identity
   segmenter_checkpoint: null
   segmenter_image_size: 256
-  gradcam_enabled: true
-  segmentation_enabled: true
+  gradcam_enabled: false
+  segmentation_enabled: false
   allow_missing_visuals: true

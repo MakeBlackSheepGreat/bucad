@@ -1,0 +1,35 @@
+paths_config: configs/paths.local.yml
+task_type: classification
+seed: 42
+device: auto
+model:
+  name: tf_efficientnetv2_s
+  pretrained: true
+  in_chans: 3
+  num_classes: 2
+data:
+  image_size: 224
+  batch_size: 8
+  num_workers: 0
+  preprocess:
+    clahe: true
+  augmentation:
+    horizontal_flip: true
+    flip_probability: 0.5
+training:
+  epochs: 30
+  learning_rate: 0.0002
+  weight_decay: 0.0001
+  fold_count: 5
+  split_path: ./artifacts/reports/busbra_5fold_splits.csv
+  positive_class: malignant
+  class_weights:
+    benign: 1.0
+    malignant: 1.2
+  checkpoint_strategy: selected_threshold
+  selection_threshold: 0.24
+  sensitivity_weight: 0.25
+  min_specificity: 0.85
+output:
+  checkpoint_name: efficientnetv2_s_sensitive_balanced_fold{fold}.pt
+  report_name: train_cls_efficientnetv2_s_sensitive_balanced_fold{fold}.json

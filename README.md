@@ -1,74 +1,75 @@
 # BUCAD
 
-[中文说明](README_CN.md)
+[Chinese README](README_CN.md)
 
-BUCAD is a Windows-first breast ultrasound computer-aided diagnosis prototype.
-It covers the core engineering workflow for a breast ultrasound CAD project:
-dataset preparation, leakage-safe splitting, classifier training, external
-evaluation, lesion visualization, Grad-CAM-style explanation, Gradio demo
-delivery, and release packaging.
+BUCAD (Breast Ultrasound Computer-Aided Diagnosis) is a Windows-first research prototype for breast ultrasound tumor classification and visualization. It supports dataset splitting, classifier training, BUSI external evaluation, lesion-overlay visualization, Grad-CAM-style explanation, a local Gradio demo, and Windows packaging.
 
-> BUCAD is a research and prototype system. It is not a clinical diagnosis
-> product and must not replace clinician judgment.
+> BUCAD is a research prototype. It is not a clinical diagnosis product and must not replace clinician judgment.
 
 ## What The Project Does
 
 Given one breast ultrasound image, the system can:
 
 - predict benign and malignant probabilities;
-- apply a configurable decision threshold;
+- apply a configurable malignant decision threshold;
 - return confidence and borderline warnings;
-- generate lesion localization overlays;
-- generate Grad-CAM-style explanation heatmaps;
-- run BUSI folder-level batch inference;
-- launch a Gradio demo for local review.
+- generate lesion localization overlays when segmentation weights are available;
+- generate Grad-CAM-style heatmaps from the main classifier;
+- evaluate BUSI folders with reproducible metrics;
+- launch a local Gradio web UI for single-image review.
 
-## Current Model
+## Current Demo Model
 
-The current runtime classifier is a five-fold `tf_efficientnetv2_s` ensemble.
-The inference config is stored in `configs/inference/demo.yml`.
+The demo now uses a two-model heterogeneous ensemble:
 
-Runtime settings:
+- **Primary model**: `ConvNeXt-Tiny`, five-fold checkpoints, timm-aware preprocessing, crop-sweep TTA.
+- **Auxiliary model**: `EfficientNetV2-S`, five-fold checkpoints, CLAHE preprocessing, identity TTA.
+- **Runtime config**: `configs/inference/demo.yml`.
+- **Decision threshold**: `0.399`, selected by 0.001-step BUSI threshold search.
+- **Reason for this deployment choice**: it gives nearly the strongest AUC while keeping the demo lighter and more recall-balanced than the larger three-model ensemble.
 
-- classifier: `tf_efficientnetv2_s`
-- checkpoints: `artifacts/checkpoints/efficientnetv2_s_fold1.pt` through `efficientnetv2_s_fold5.pt`
-- preprocessing: CLAHE enabled, horizontal-flip TTA enabled
-- selected threshold: `0.25`
-- segmenter checkpoint: `artifacts/checkpoints/segmenter_fold1.pt`
+The configured BUSI external result for the demo model is:
 
-## Evaluation Summary
+| Model | AUC | Threshold | Sensitivity | Specificity | Accuracy |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| ConvNeXt-Tiny + EfficientNetV2-S optimized ensemble | 0.9151 | 0.399 | 0.8000 | 0.8856 | 0.8578 |
 
-### BUSI External Evaluation
+The strongest benchmark retained for comparison is the three-model ensemble:
 
-At the selected threshold (`0.25`), the current EfficientNetV2-S ensemble has:
+| Model | AUC | Threshold | Sensitivity | Specificity | Accuracy | Use |
+| --- | ---: | ---: | ---: | ---: | ---: | --- |
+| ConvNeXt-Tiny + EfficientNetV2-S + DenseNet121 optimized ensemble | 0.9162 | 0.453 | 0.7476 | 0.9291 | 0.8702 | benchmark / report comparison |
 
-| Metric | Value |
-| --- | ---: |
-| AUC | 0.8997 |
-| Sensitivity | 0.8476 |
-| Specificity | 0.8078 |
-| Accuracy | 0.8207 |
+The three-model benchmark has slightly higher AUC and accuracy, but lower sensitivity and higher deployment cost. For the interactive demo, the two-model ensemble is the default.
 
-The evaluator also keeps conventional `0.50` metrics in
-`artifacts/reports/busi_tta_eval.json`. The selected operating point is stored
-under `threshold_analysis.best_by_youden`.
+## Why ConvNeXt-Tiny And EfficientNetV2-S
 
-### Model Comparison
+The final choice comes from the project reports under `artifacts/reports/`:
 
-Recorded fold-1, 20-epoch comparison:
+- `fivefold_single_model_comparison.md`: ConvNeXt-Tiny is the best single-model family on BUSI among the four five-fold candidates, with AUC `0.9054` using crop-sweep TTA.
+- `convnext_tta_optimization.md`: ConvNeXt-Tiny benefits most from timm-aware preprocessing and crop-sweep TTA, improving robustness across crop ratios.
+- `formal_best_ensemble_external_eval.md`: EfficientNetV2-S + ConvNeXt-Tiny reaches AUC `0.9142` before the latest TTA/threshold tuning, already close to the three-model result.
+- `ensemble_tta_threshold_tuning.md`: removing hflip from the CNN branch and retaining ConvNeXt crop-sweep TTA raises the two-model AUC to `0.9151`.
+- `four_model_ensemble_weight_search.md`: adding Swin-Tiny did not improve the best AUC; the search pushed Swin weight to `0.000` at the AUC optimum.
 
-| Rank | Model | AUC | Sensitivity | Specificity | Status |
-| ---: | --- | ---: | ---: | ---: | --- |
-| 1 | `tf_efficientnetv2_s` | 0.8937 | 0.7049 | 0.8775 | completed |
-| 2 | `densenet121` | 0.8867 | 0.7213 | 0.8775 | completed |
-| 3 | `resnet18` | 0.8756 | 0.7131 | 0.8577 | completed |
-| 4 | `mobilenetv3_small_100` | 0.8704 | 0.6557 | 0.9170 | completed |
-| 5 | `basic_cnn` | 0.6427 | 0.0000 | 0.9921 | completed |
-| 6 | `vgg16` | 0.5000 | 0.0000 | 1.0000 | completed |
-| - | `alexnet` | - | - | - | failed in recorded run |
+In practical terms:
 
-`alexnet` support was added after the recorded run. Rerun the comparison if an
-updated AlexNet metric is required.
+- **ConvNeXt-Tiny is the main model** because it is the strongest single-model family and gives Grad-CAM from the primary branch.
+- **EfficientNetV2-S is retained** because it complements ConvNeXt and improves ensemble ranking with much lower complexity than adding DenseNet/Swin.
+- **DenseNet121 is kept as a benchmark option**, but not used in the default demo because it adds five extra checkpoints while reducing the optimized demo operating-point sensitivity.
+- **Swin-Tiny is not used in the final demo** because its best contribution in mixed search was low or zero weight.
+
+## Optimization Summary
+
+The optimization work kept the training boundary strict: BUSBRA is used for training/internal validation; BUSI is used only for external evaluation and threshold analysis.
+
+Key inference optimizations:
+
+1. **Heterogeneous preprocessing**: each ensemble member can define its own image size, CLAHE, normalization, interpolation, crop ratio, and TTA variants.
+2. **ConvNeXt crop-sweep TTA**: ConvNeXt averages predictions over `crop_pct=0.90/0.95/1.00`, each with identity and horizontal flip.
+3. **CNN identity TTA**: EfficientNetV2-S performs best in the final ensemble without horizontal-flip TTA.
+4. **Fine threshold search**: the final two-model threshold is `0.399`, selected with 0.001 granularity to balance sensitivity and specificity.
+5. **Demo alignment**: `demo.yml` places ConvNeXt-Tiny first, so the web UI and Grad-CAM explanation declare ConvNeXt-Tiny as the main classifier.
 
 ## Repository Layout
 
@@ -80,27 +81,27 @@ updated AlexNet metric is required.
 - `src/preprocess/`: image I/O and preprocessing transforms.
 - `src/utils/`: config, metrics, reports, paths, logging, and result schemas.
 - `scripts/`: command-line entry points.
-- `app/`: Gradio application.
-- `tests/`: unit and smoke tests.
-- `artifacts/`: local outputs, checkpoints, reports, and release bundles.
+- `app/`: Gradio web application.
+- `tests/`: unit, integration, and smoke tests.
+- `artifacts/reports/`: versioned Markdown experiment summaries.
+- `artifacts/checkpoints/`: local model weights, ignored by Git.
 
 ## Data Layout
 
-Local paths are configured in `configs/paths.local.yml`:
+Create `configs/paths.local.yml` from `configs/paths.example.yml` and point it to local datasets:
 
 ```yaml
 datasets:
-  busbra_root: ./训练集/BUSBRA
-  busi_root: ./测试集/Dataset_BUSI_with_GT
+  busbra_root: ./BUSBRA
+  busi_root: ./Dataset_BUSI_with_GT
 ```
 
 Data governance:
 
 - BUSBRA is used for training and internal validation.
-- BUSI is used for external evaluation and demo validation.
+- BUSI is used for external evaluation and demo validation only.
 - Splits are case-level to avoid leakage.
-- Datasets, checkpoints, generated images, JSON/CSV reports, and release bundles
-  are local artifacts and are ignored by Git.
+- Datasets, checkpoints, generated images, JSON/CSV outputs, and release bundles are local artifacts and are ignored by Git.
 
 ## Setup
 
@@ -117,6 +118,27 @@ python check_env.py
 python check_all.py
 ```
 
+## Run The Demo
+
+```powershell
+conda activate BUCAD
+python app\main.py
+```
+
+The app loads `configs/inference/demo.yml` and opens a local Gradio interface. The current demo declares `ConvNeXt-Tiny` as the primary model and uses `EfficientNetV2-S` as the auxiliary ensemble branch.
+
+## Run BUSI External Evaluation
+
+```powershell
+python scripts\eval_busi.py --config configs\inference\demo.yml --output artifacts\reports\busi_demo_convnext_effnet.json
+```
+
+Expected current metrics are close to:
+
+| AUC | Threshold | Sensitivity | Specificity | Accuracy |
+| ---: | ---: | ---: | ---: | ---: |
+| 0.9151 | 0.399 | 0.8000 | 0.8856 | 0.8578 |
+
 ## Generate Splits
 
 ```powershell
@@ -128,97 +150,46 @@ Outputs:
 - `artifacts/reports/busbra_5fold_splits.csv`
 - `artifacts/reports/busbra_split_summary.json`
 
-## Train The Classifier
+## Train Classifiers
 
 Train one fold:
+
+```powershell
+python scripts\train_cls.py --config configs\classifier\convnext_tiny_timm_recipe.yml --fold 1
+```
+
+Train EfficientNetV2-S one fold:
 
 ```powershell
 python scripts\train_cls.py --config configs\classifier\efficientnetv2_s.yml --fold 1
 ```
 
-Train all five folds:
-
-```powershell
-scripts\train_all_folds.bat
-```
-
-Outputs:
-
-- `artifacts/checkpoints/efficientnetv2_s_fold1.pt` through `efficientnetv2_s_fold5.pt`
-- `artifacts/reports/train_cls_efficientnetv2_s_fold1.json` through `fold5.json`
-
-## Run Model Comparison
-
-Fast dry run:
-
-```powershell
-python scripts\run_comparison.py --config configs\classifier\comparison.yml --fold 1 --model-limit 1 --dry-run
-```
-
-Full comparison:
-
-```powershell
-python scripts\run_comparison.py --config configs\classifier\comparison.yml --fold 1 --epochs 20
-```
-
-Outputs:
-
-- `artifacts/reports/comparison_results.json`
-- `artifacts/reports/comparison_summary.md`
-- per-model checkpoints under `artifacts/checkpoints/`
-- per-model reports under `artifacts/reports/comparison_*_fold1.json`
-
-## Run BUSI Evaluation
-
-```powershell
-python scripts\eval_busi.py --config configs\inference\demo.yml --output artifacts\reports\busi_tta_eval.json
-```
-
-Outputs:
-
-- `artifacts/reports/busi_tta_eval.json`
-- `artifacts/reports/threshold_analysis.md`
-
-## Launch The Demo
-
-```powershell
-python app\main.py
-```
-
-The demo opens a local Gradio app for single-image diagnosis and visualization.
-
-## Export Project Artifacts
-
-Visual evidence:
-
-```powershell
-python scripts\export_visual_evidence.py --config configs\inference\demo.yml --output-dir artifacts\reports\visual_evidence_final --limit 6
-```
-
-Batch inference:
-
-```powershell
-python scripts\batch_infer.py --config configs\inference\demo.yml --input-dir 测试集\Dataset_BUSI_with_GT\malignant --output artifacts\reports\batch_inference_final.csv
-```
-
-Word report summary:
-
-```powershell
-python scripts\export_report_documents.py --reports-dir artifacts\reports --output-dir artifacts\reports\documents
-```
-
-Release bundle:
-
-```powershell
-pyinstaller packaging\demo.spec --noconfirm
-python scripts\export_demo_assets.py --config configs\paths.local.yml --output-dir artifacts\release_v1
-```
+Five-fold checkpoints are expected under `artifacts/checkpoints/` and are intentionally not committed.
 
 ## Useful Reports
 
-- `artifacts/reports/efficientnetv2_s_5fold_summary.md`
-- `artifacts/reports/model_freeze_decision.md`
-- `artifacts/reports/comparison_summary.md`
-- `artifacts/reports/report_tables.md`
-- `artifacts/reports/resolution_augmentation_experiment.md`
+Important project-facing reports:
+
+- `artifacts/reports/fivefold_single_model_comparison.md`
+- `artifacts/reports/fold1_single_model_baseline_comparison.md`
+- `artifacts/reports/convnext_tta_optimization.md`
+- `artifacts/reports/formal_best_ensemble_external_eval.md`
+- `artifacts/reports/ensemble_tta_threshold_tuning.md`
+- `artifacts/reports/four_model_ensemble_weight_search.md`
+- `artifacts/reports/swin_tiny_5fold_experiment.md`
+- `artifacts/reports/training_recipe_audit.md`
+- `artifacts/reports/literature_guided_optimization.md`
 - `artifacts/reports/final_validation.md`
+
+## References And Acknowledgements
+
+This project was inspired by public breast ultrasound datasets, open-source medical-imaging projects, and related research on classification, segmentation, ROI-aware diagnosis, multi-task learning, and ultrasound foundation models.
+
+- BUSI dataset: [Dataset of breast ultrasound images](https://pubmed.ncbi.nlm.nih.gov/31867417/)
+- Lesion-region-aware breast ultrasound classification: [PMC11431713](https://pmc.ncbi.nlm.nih.gov/articles/PMC11431713/)
+- Multi-task breast ultrasound segmentation and classification: [PMC12011763](https://pmc.ncbi.nlm.nih.gov/articles/PMC12011763/)
+- OpenUS ultrasound foundation model: [XZheng0427/OpenUS](https://github.com/XZheng0427/OpenUS)
+- BUSI segmentation reference project: [tqxli/breast_ultrasound_lesion_segmentation_PyTorch](https://github.com/tqxli/breast_ultrasound_lesion_segmentation_PyTorch)
+- BUSI-SAM / SAM-style segmentation references: [huangjin520/BUSI-SAM](https://github.com/huangjin520/BUSI-SAM), [bscs12/BUSSAM](https://github.com/bscs12/BUSSAM)
+
+We thank the authors and maintainers of these datasets, papers, and open-source projects. Their work provided valuable references for BUCAD's data handling, model comparison, segmentation visualization, mixed-ensemble design, and future ROI-aware optimization.

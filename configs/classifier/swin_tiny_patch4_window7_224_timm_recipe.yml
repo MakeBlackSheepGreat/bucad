@@ -1,0 +1,35 @@
+paths_config: configs/paths.local.yml
+task_type: classification
+seed: 42
+device: auto
+model:
+  name: swin_tiny_patch4_window7_224
+  pretrained: true
+  in_chans: 3
+  num_classes: 2
+data:
+  image_size: 224
+  batch_size: 8
+  num_workers: 0
+  preprocess:
+    clahe: true
+    use_timm_data_config: true
+  augmentation:
+    horizontal_flip: true
+    flip_probability: 0.5
+training:
+  epochs: 30
+  learning_rate: 0.00005
+  weight_decay: 0.05
+  class_weights: balanced
+  checkpoint_strategy: best_auc
+  scheduler:
+    name: warmup_cosine
+    warmup_epochs: 3
+    min_lr: 0.000001
+  fold_count: 5
+  split_path: ./artifacts/reports/busbra_5fold_splits.csv
+  positive_class: malignant
+output:
+  checkpoint_name: swin_tiny_patch4_window7_224_timm_recipe_fold{fold}.pt
+  report_name: train_cls_swin_tiny_patch4_window7_224_timm_recipe_fold{fold}.json

@@ -20,6 +20,7 @@ from src.models.segmenter import load_segmenter
 from src.explain.gradcam import generate_gradcam_map
 from src.explain.overlay import render_heatmap_overlay, render_mask_overlay
 from src.preprocess.io import cv2, ensure_three_channels, read_image, validate_image_array
+from src.preprocess.roi import crop_to_mask_bbox
 from src.preprocess.transforms import prepare_classifier_input
 from src.utils.config import load_project_config
 from src.utils.metrics import best_threshold_by_youden, classification_metrics, threshold_sweep
@@ -314,11 +315,12 @@ class BreastUltrasoundInferenceService:
             tensors.append(tensor)
         return tensors
 
-    def _predict_classification(self, image: np.ndarray) -> tuple[float, float]:
-        if self.classifier_predictor is not None:
-            benign, malignant = self.classifier_predictor(image)
-            return float(benign), float(malignant)
-
+    def _predict_classifier_ensemble_on_image(
+        self,
+        image: np.ndarray,
+        *,
+        member_weight_overrides: dict[str, float] | None = None,
+    ) -> tuple[float, float]:
         member_configs = self._resolved_classifier_member_configs()
         if not member_configs:
             raise ClassificationUnavailableError("No classifier checkpoint is configured.")
@@ -362,11 +364,107 @@ class BreastUltrasoundInferenceService:
             batch = torch.stack(input_tensors)
             model = member["model_instance"]
             weight = float(member.get("weight", 1.0))
+            if member_weight_overrides:
+                weight = float(member_weight_overrides.get(str(member.get("model")), weight))
             tta_probs = classifier_probabilities(model, batch, device=device)
             ensemble_probs.append(np.mean(tta_probs, axis=0) * weight)
             weights.append(weight)
         probs = np.sum(np.asarray(ensemble_probs, dtype=np.float32), axis=0) / float(sum(weights))
         return float(probs[0]), float(probs[1])
+
+    def _roi_enhancement_config(self) -> dict[str, Any] | None:
+        config = self.runtime_config.get("roi_enhancement")
+        if not isinstance(config, dict) or not bool(config.get("enabled", False)):
+            return None
+        stacker = config.get("stacker")
+        if not isinstance(stacker, dict):
+            return None
+        return config
+
+    @staticmethod
+    def _stacker_features(full_probability: float, roi_probability: float, feature_mode: str) -> np.ndarray:
+        values = np.asarray([full_probability, roi_probability], dtype=np.float64)
+        if feature_mode == "logit":
+            clipped = np.clip(values, 1e-6, 1.0 - 1e-6)
+            values = np.log(clipped / (1.0 - clipped))
+        return values
+
+    def _apply_roi_stacker(
+        self,
+        *,
+        full_probability: float,
+        roi_probability: float,
+        stacker: dict[str, Any],
+    ) -> float:
+        feature_mode = str(stacker.get("feature_mode", "probability"))
+        features = self._stacker_features(full_probability, roi_probability, feature_mode)
+        mean = np.asarray(stacker.get("scaler_mean", [0.0, 0.0]), dtype=np.float64)
+        scale = np.asarray(stacker.get("scaler_scale", [1.0, 1.0]), dtype=np.float64)
+        coef = np.asarray(stacker.get("coef", [1.0, 0.0]), dtype=np.float64)
+        if mean.shape != (2,) or scale.shape != (2,) or coef.shape != (2,):
+            raise ClassificationUnavailableError("ROI stacker parameters must contain two feature values.")
+        scaled = (features - mean) / np.maximum(scale, 1e-6)
+        logit = float(np.dot(coef, scaled) + float(stacker.get("intercept", 0.0)))
+        probability = 1.0 / (1.0 + float(np.exp(-logit)))
+        return float(np.clip(probability, 0.0, 1.0))
+
+    def _predict_roi_enhanced_classification(
+        self,
+        image: np.ndarray,
+        *,
+        full_benign_probability: float,
+        full_malignant_probability: float,
+        config: dict[str, Any],
+    ) -> tuple[float, float]:
+        mask = (
+            self.segmenter_predictor(image)
+            if self.segmenter_predictor is not None
+            else self._predict_segmentation(image)
+        )
+        roi_image = crop_to_mask_bbox(
+            image,
+            mask,
+            threshold=float(config.get("mask_threshold", 0.5)),
+            margin_ratio=float(config.get("margin_ratio", 0.35)),
+            largest_component=bool(config.get("largest_component", False)),
+        )
+        raw_weight_overrides = config.get("classifier_weight_overrides", {})
+        member_weight_overrides = (
+            {str(key): float(value) for key, value in raw_weight_overrides.items()}
+            if isinstance(raw_weight_overrides, dict) and raw_weight_overrides
+            else None
+        )
+        _, roi_malignant_probability = self._predict_classifier_ensemble_on_image(
+            roi_image,
+            member_weight_overrides=member_weight_overrides,
+        )
+        malignant_probability = self._apply_roi_stacker(
+            full_probability=full_malignant_probability,
+            roi_probability=roi_malignant_probability,
+            stacker=config["stacker"],
+        )
+        return 1.0 - malignant_probability, malignant_probability
+
+    def _predict_classification(self, image: np.ndarray) -> tuple[float, float]:
+        if self.classifier_predictor is not None:
+            benign, malignant = self.classifier_predictor(image)
+            return float(benign), float(malignant)
+
+        full_benign, full_malignant = self._predict_classifier_ensemble_on_image(image)
+        roi_config = self._roi_enhancement_config()
+        if roi_config is None:
+            return full_benign, full_malignant
+        try:
+            return self._predict_roi_enhanced_classification(
+                image,
+                full_benign_probability=full_benign,
+                full_malignant_probability=full_malignant,
+                config=roi_config,
+            )
+        except BucadError:
+            if bool(roi_config.get("fallback_to_full", True)):
+                return full_benign, full_malignant
+            raise
 
     def _attach_optional_visuals(
         self,

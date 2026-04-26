@@ -123,6 +123,8 @@ runtime:
     weight: 0.427
     image_size: 224
     apply_clahe: true
+    mean: null
+    std: null
     interpolation: area
     crop_pct: 1.0
     tta_variants:
@@ -132,6 +134,8 @@ runtime:
     weight: 0.427
     image_size: 224
     apply_clahe: true
+    mean: null
+    std: null
     interpolation: area
     crop_pct: 1.0
     tta_variants:
@@ -141,6 +145,8 @@ runtime:
     weight: 0.427
     image_size: 224
     apply_clahe: true
+    mean: null
+    std: null
     interpolation: area
     crop_pct: 1.0
     tta_variants:
@@ -150,6 +156,8 @@ runtime:
     weight: 0.427
     image_size: 224
     apply_clahe: true
+    mean: null
+    std: null
     interpolation: area
     crop_pct: 1.0
     tta_variants:
@@ -159,6 +167,8 @@ runtime:
     weight: 0.427
     image_size: 224
     apply_clahe: true
+    mean: null
+    std: null
     interpolation: area
     crop_pct: 1.0
     tta_variants:

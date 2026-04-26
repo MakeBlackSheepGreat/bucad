@@ -13,7 +13,7 @@ from app.components.status_panels import status_markdown, warnings_markdown
 from src.engine.inference import BreastUltrasoundInferenceService
 
 
-DEFAULT_THRESHOLD = 0.399
+DEFAULT_THRESHOLD = 0.55
 
 
 APP_CSS = """
@@ -519,7 +519,7 @@ def build_app(config_path: str | Path = "configs/inference/demo.yml"):
                         value=default_threshold,
                         step=0.001,
                         label="恶性判定阈值",
-                        info=f"当前推荐 {default_threshold:.3f}；该运行点来自 BUSI 外部评估的细粒度阈值搜索。",
+                        info=f"当前推荐 {default_threshold:.3f}；该运行点来自 BUSBRA ROI OOF 阈值选择，ROI 使用 0.40 mask 阈值与最大连通域裁剪，不使用 BUSI 调参。",
                     )
                     with gr.Row():
                         need_segmentation = gr.Checkbox(value=True, label="生成病灶定位图")

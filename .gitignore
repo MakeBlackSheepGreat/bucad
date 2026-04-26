@@ -22,6 +22,7 @@ build/
 # Generated reports that should stay local
 artifacts/reports/*.csv
 artifacts/reports/*.json
+artifacts/reports/roi_oof_scan_cache/
 artifacts/reports/threshold_analysis_*.md
 artifacts/reports/documents/
 artifacts/reports/demo_single_image/

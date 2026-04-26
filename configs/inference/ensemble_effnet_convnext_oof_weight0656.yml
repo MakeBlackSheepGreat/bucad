@@ -32,15 +32,15 @@ runtime:
   - name: hflip
     crop_pct: 1.0
   primary_classifier_model: ConvNeXt-Tiny
-  ensemble_display_name: ConvNeXt-Tiny + EfficientNetV2-S weak-fold retrain (retrain_conv4_eff5)
-  default_threshold: 0.399
+  ensemble_display_name: ConvNeXt-Tiny OOF??0.656 + EfficientNetV2-S OOF??0.344
+  default_threshold: 0.327
   borderline_margin: 0.08
   classifier_checkpoint: null
   classifier_checkpoints: []
   classifier_members:
   - model: convnext_tiny
     checkpoint: ./artifacts/checkpoints/convnext_tiny_timm_recipe_fold1.pt
-    weight: 0.573
+    weight: 0.656
     image_size: 224
     apply_clahe: true
     mean:
@@ -56,7 +56,7 @@ runtime:
     tta_variants: *id001
   - model: convnext_tiny
     checkpoint: ./artifacts/checkpoints/convnext_tiny_timm_recipe_fold2.pt
-    weight: 0.573
+    weight: 0.656
     image_size: 224
     apply_clahe: true
     mean:
@@ -72,7 +72,7 @@ runtime:
     tta_variants: *id001
   - model: convnext_tiny
     checkpoint: ./artifacts/checkpoints/convnext_tiny_timm_recipe_fold3.pt
-    weight: 0.573
+    weight: 0.656
     image_size: 224
     apply_clahe: true
     mean:
@@ -87,8 +87,8 @@ runtime:
     crop_pct: 0.95
     tta_variants: *id001
   - model: convnext_tiny
-    checkpoint: ./artifacts/checkpoints/convnext_tiny_timm_recipe_seed123_fold4.pt
-    weight: 0.573
+    checkpoint: ./artifacts/checkpoints/convnext_tiny_timm_recipe_fold4.pt
+    weight: 0.656
     image_size: 224
     apply_clahe: true
     mean:
@@ -104,7 +104,7 @@ runtime:
     tta_variants: *id001
   - model: convnext_tiny
     checkpoint: ./artifacts/checkpoints/convnext_tiny_timm_recipe_fold5.pt
-    weight: 0.573
+    weight: 0.656
     image_size: 224
     apply_clahe: true
     mean:
@@ -120,7 +120,7 @@ runtime:
     tta_variants: *id001
   - model: tf_efficientnetv2_s
     checkpoint: ./artifacts/checkpoints/efficientnetv2_s_fold1.pt
-    weight: 0.427
+    weight: 0.344
     image_size: 224
     apply_clahe: true
     mean: null
@@ -131,7 +131,7 @@ runtime:
     - name: identity
   - model: tf_efficientnetv2_s
     checkpoint: ./artifacts/checkpoints/efficientnetv2_s_fold2.pt
-    weight: 0.427
+    weight: 0.344
     image_size: 224
     apply_clahe: true
     mean: null
@@ -142,7 +142,7 @@ runtime:
     - name: identity
   - model: tf_efficientnetv2_s
     checkpoint: ./artifacts/checkpoints/efficientnetv2_s_fold3.pt
-    weight: 0.427
+    weight: 0.344
     image_size: 224
     apply_clahe: true
     mean: null
@@ -153,7 +153,7 @@ runtime:
     - name: identity
   - model: tf_efficientnetv2_s
     checkpoint: ./artifacts/checkpoints/efficientnetv2_s_fold4.pt
-    weight: 0.427
+    weight: 0.344
     image_size: 224
     apply_clahe: true
     mean: null
@@ -163,8 +163,8 @@ runtime:
     tta_variants:
     - name: identity
   - model: tf_efficientnetv2_s
-    checkpoint: ./artifacts/checkpoints/efficientnetv2_s_bestauc_seed123_fold5.pt
-    weight: 0.427
+    checkpoint: ./artifacts/checkpoints/efficientnetv2_s_fold5.pt
+    weight: 0.344
     image_size: 224
     apply_clahe: true
     mean: null

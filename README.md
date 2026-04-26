@@ -98,6 +98,84 @@ Key inference optimizations:
 7. **OOF threshold selection**: the final ROI Area Gate threshold is `0.510`, selected from training-set out-of-fold evidence.
 8. **Demo alignment**: `demo.yml` places ConvNeXt-Tiny first, so the web UI and Grad-CAM explanation declare ConvNeXt-Tiny as the main classifier.
 
+## Why These Mainline Optimizations Are Used
+
+The current demo is not a collection of arbitrary tricks. Each retained optimization addresses a concrete failure mode observed during BUSBRA internal validation or BUSI locked external review. Failed alternatives are kept in experiment reports, but they are not part of `configs/inference/demo.yml`.
+
+### Five-Fold Classifier Ensembles
+
+Both ConvNeXt-Tiny and EfficientNetV2-S are deployed as five-fold ensembles. This is used because the BUSBRA training set is not large enough for a single split to represent every lesion appearance, BI-RADS distribution, acquisition condition, and benign/malignant boundary case. A single fold can overfit its own validation split or miss a subset of appearances. Averaging five fold checkpoints reduces variance and makes the probability estimate less dependent on one split.
+
+The effect is most important for external validation: the BUSI dataset has a different acquisition distribution from BUSBRA, so fold diversity helps the final model avoid being too tied to one internal validation subset.
+
+### ConvNeXt-Tiny As The Primary Branch
+
+ConvNeXt-Tiny is the primary branch because the timm-aware recipe produced the strongest and most stable main classifier behavior among lightweight deployable candidates. The early non-timm-aware ConvNeXt run failed badly, which showed that this model family is sensitive to preprocessing. After aligning the training and inference recipe with timm-style normalization, interpolation, crop behavior, balanced class weights, and best-AUC checkpoint selection, ConvNeXt-Tiny became the best default branch for malignant ranking and Grad-CAM explanation.
+
+Its role in the mainline is to protect Recall/Sensitivity. In the BUSI branch reports, ConvNeXt-Tiny crop-sweep alone reaches better malignant detection than EfficientNetV2-S alone, but it still misses more malignant cases than the final ROI-gated ensemble. This is why ConvNeXt is kept as the main model rather than as a small auxiliary member.
+
+### EfficientNetV2-S As The Auxiliary Branch
+
+EfficientNetV2-S is retained because it has a different error profile from ConvNeXt-Tiny. On BUSI, EfficientNetV2-S alone is conservative: it has high Specificity (`0.9314`) but low Sensitivity (`0.6619`). That is not acceptable as the only classifier, but it is useful inside an ensemble because it can pull down some ConvNeXt false-positive probabilities on benign images.
+
+The final two-family weight ratio, ConvNeXt `0.573` and EfficientNet `0.427`, keeps ConvNeXt dominant while using EfficientNet as a stabilizer. Heavier model-zoo candidates with DenseNet, ConvNeXt-Small, and Swin were tested later, but their internal OOF gains did not transfer to BUSI, so the default demo remains the simpler two-family line.
+
+### ConvNeXt Crop-Sweep TTA
+
+ConvNeXt uses six test-time views: crop ratios `0.90`, `0.95`, and `1.00`, each with identity and horizontal flip. This is kept because breast ultrasound lesion scale and position vary substantially. A single center crop can either remove useful context or include too much irrelevant background. Crop-sweep TTA lets the model vote across slightly different fields of view.
+
+Horizontal flip is valid here because left/right orientation is not itself the disease label. It improves robustness to acquisition direction without changing the benign/malignant semantics. EfficientNet TTA was tested separately, but the internal gain was too small for the extra inference cost, so EfficientNet remains identity-only in the mainline.
+
+### CLAHE And Model-Specific Preprocessing
+
+CLAHE is applied because ultrasound images often have low contrast and local speckle patterns. Local contrast enhancement can make lesion boundaries and internal echoes easier for CNN features to separate. At the same time, preprocessing must remain model-specific: ConvNeXt uses ImageNet mean/std, bicubic interpolation, and timm crop settings, while EfficientNetV2-S keeps its simpler area-resize branch.
+
+The reason for allowing heterogeneous preprocessing is practical: forcing all model families through one normalization path previously produced weaker results. Each model branch is allowed to use the preprocessing recipe that matched its training.
+
+### ROI Segmentation Guidance
+
+The ROI branch exists because full-image classifiers can be distracted by black borders, text overlays, probe artifacts, large background regions, and normal tissue texture. The segmenter estimates a lesion mask, crops the lesion-centered ROI, and sends that crop through the same classifier ensemble. This adds a second view focused on the suspected lesion instead of the whole ultrasound frame.
+
+The ROI branch is not treated as a replacement for full-image classification. It is a correction signal. Full images preserve global context and avoid segmenter failure cases; ROI images emphasize lesion morphology. The final model uses both.
+
+### Largest-Connected-Component ROI Cropping
+
+The segmenter can produce small disconnected mask fragments. The runtime keeps the largest connected component before cropping because the largest component is more likely to correspond to the real lesion, while small fragments often come from speckle noise or irrelevant tissue. This reduces unstable ROI crops and makes the ROI classifier see a more consistent lesion-centered field.
+
+The retained ROI parameters are `mask_threshold=0.40`, `margin_ratio=0.35`, and largest connected component enabled. The margin is important: an overly tight crop can cut off boundary features, posterior acoustic patterns, or surrounding tissue context; an overly loose crop degenerates toward full-image inference.
+
+### Full-Image And ROI Logistic Stacker
+
+The final malignant probability is not a simple average of full-image and ROI predictions. It uses a lightweight logistic stacker trained on BUSBRA out-of-fold predictions. The stacker receives the full-image probability and ROI probability in logit space. This matters because raw probabilities from full-image and ROI views are not calibrated the same way.
+
+The learned coefficients make the full-image score the stronger signal and use ROI as an auxiliary correction. This reflects the observed error pattern: ROI helps many cases, but blindly trusting ROI can push benign samples over the malignant threshold. A learned stacker is therefore safer than a hand-written average.
+
+### ROI Area Quality Gate
+
+The ROI quality gate is one of the main stability protections in the demo. It falls back to full-image prediction when the ROI area ratio is below `0.08` or above `0.75`.
+
+This is necessary because ROI quality is not guaranteed at inference time. A very small ROI may mean the lesion was missed or only a tiny noisy component survived thresholding. A very large ROI may mean the mask covers most of the image and no longer provides a focused lesion view. In both cases, using ROI can make the classifier worse. The gate avoids letting unreliable segmentation dominate the final probability.
+
+Internal OOF error analysis showed that many false positives came from ROI/stacker pushing benign samples above threshold. The area gate is a direct response to that mechanism: use ROI when it looks plausible, otherwise trust the full-image branch.
+
+### Threshold `0.51`
+
+The default decision threshold is `0.51`, not simply `0.50`, because the final operating point was selected from internal out-of-fold evidence and then confirmed by locked BUSI evaluation. On the latest BUSI baseline, the best Youden threshold is also `0.51`.
+
+The threshold is chosen to preserve malignant recall while keeping false positives controlled. This is a screening-style medical-imaging task: missing malignant cases is more damaging than producing some additional benign false positives. The current threshold gives BUSI Sensitivity `0.8667` with Specificity `0.8467`.
+
+### Borderline Margin And Explainability
+
+The `borderline_margin=0.08` setting supports the demo interface. It helps mark cases near the decision threshold as less certain instead of presenting every output as equally decisive. This does not improve AUC directly, but it makes the system more appropriate as a computer-aided diagnosis prototype.
+
+Grad-CAM and segmentation overlays are also retained for the same reason. They do not change the classification score, but they make the result inspectable: users can see the lesion region and classifier attention rather than only a benign/malignant number.
+
+### Why Failed Optimizations Are Not Merged
+
+Several plausible improvements were tested but rejected: five-fold segmenters, model-zoo stacking, hard-sample weighting, ConvNeXt seed diversity, weight soups, soft ROI gating, EfficientNet TTA, CutMix, light regularization, and 320-input retraining. Some improved BUSBRA OOF metrics, but they either failed on the locked BUSI review or did not beat the original fold-level internal screen.
+
+This is why the mainline is intentionally conservative. A method is only merged when it improves the deployable external result without causing a serious drop in the competition-critical metrics. The current `demo.yml` keeps the best validated balance of AUC, Sensitivity, Specificity, F1-Score, runtime cost, and demo explainability.
+
 ## Metric Definitions
 
 Project reports and README benchmark tables include the following metrics:

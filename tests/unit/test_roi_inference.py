@@ -200,3 +200,15 @@ def test_roi_stack_probability_can_blend_with_full_probability() -> None:
     stacked_probability = 1.0 / (1.0 + math.exp(-0.7))
     expected = 0.5 * stacked_probability + 0.5 * 0.2
     assert math.isclose(malignant_probability, expected, rel_tol=1e-6)
+
+
+def test_segmenter_checkpoint_list_takes_precedence_over_single_checkpoint() -> None:
+    service = BreastUltrasoundInferenceService(
+        {
+            "segmenter_checkpoint": "single.pt",
+            "segmenter_checkpoints": ["fold1.pt", "fold2.pt"],
+        }
+    )
+
+    assert service._resolved_segmenter_checkpoints() == ["fold1.pt", "fold2.pt"]
+    assert service._resolved_segmenter_checkpoint() == "fold1.pt"

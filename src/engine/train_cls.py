@@ -94,6 +94,124 @@ def _class_weights(train_manifest: pd.DataFrame, positive_weight: float | None):
     return torch.tensor([1.0, float(positive_weight)], dtype=torch.float32)
 
 
+def _load_sample_weights(config_path: str | Path | None, *, weight_column: str) -> dict[str, float]:
+    if config_path is None:
+        return {}
+    path = Path(config_path)
+    if not path.exists():
+        raise FileNotFoundError(f"Sample weight file not found: {path}")
+    frame = pd.read_csv(path)
+    if "sample_id" not in frame.columns or weight_column not in frame.columns:
+        raise ValueError(
+            f"Sample weight file must contain sample_id and {weight_column!r} columns: {path}"
+        )
+    weights: dict[str, float] = {}
+    for row in frame.itertuples(index=False):
+        value = float(getattr(row, weight_column))
+        weights[str(getattr(row, "sample_id"))] = max(0.0, value)
+    return weights
+
+
+def _batch_sample_weights(
+    sample_ids: list[str],
+    sample_weights: dict[str, float],
+    *,
+    device: str,
+):
+    require_dependency("torch", torch)
+    if not sample_weights:
+        return None
+    values = [float(sample_weights.get(str(sample_id), 1.0)) for sample_id in sample_ids]
+    return torch.tensor(values, dtype=torch.float32, device=device)
+
+
+def _classification_loss(
+    logits,
+    labels,
+    *,
+    class_weights,
+    sample_weights,
+    label_smoothing: float,
+    loss_name: str,
+    focal_gamma: float,
+):
+    if loss_name == "focal":
+        per_sample_loss = torch.nn.functional.cross_entropy(
+            logits,
+            labels,
+            weight=class_weights,
+            label_smoothing=label_smoothing,
+            reduction="none",
+        )
+        probabilities = torch.softmax(logits, dim=1)
+        pt = probabilities.gather(1, labels.unsqueeze(1)).squeeze(1).clamp(1e-6, 1.0)
+        per_sample_loss = ((1.0 - pt) ** float(focal_gamma)) * per_sample_loss
+    else:
+        per_sample_loss = torch.nn.functional.cross_entropy(
+            logits,
+            labels,
+            weight=class_weights,
+            label_smoothing=label_smoothing,
+            reduction="none",
+        )
+    if sample_weights is not None:
+        per_sample_loss = per_sample_loss * sample_weights
+        denominator = sample_weights.sum().clamp_min(1e-6)
+        return per_sample_loss.sum() / denominator
+    return per_sample_loss.mean()
+
+
+def _rand_bbox(width: int, height: int, lam: float) -> tuple[int, int, int, int]:
+    cut_ratio = math.sqrt(max(0.0, 1.0 - float(lam)))
+    cut_width = int(width * cut_ratio)
+    cut_height = int(height * cut_ratio)
+    center_x = int(np.random.randint(width))
+    center_y = int(np.random.randint(height))
+    x1 = int(np.clip(center_x - cut_width // 2, 0, width))
+    y1 = int(np.clip(center_y - cut_height // 2, 0, height))
+    x2 = int(np.clip(center_x + cut_width // 2, 0, width))
+    y2 = int(np.clip(center_y + cut_height // 2, 0, height))
+    return x1, y1, x2, y2
+
+
+def _maybe_apply_mix_augmentation(
+    images,
+    labels,
+    sample_weights,
+    *,
+    mixup_alpha: float,
+    cutmix_alpha: float,
+    mix_probability: float,
+):
+    if max(float(mixup_alpha), float(cutmix_alpha)) <= 0.0:
+        return images, labels, None, 1.0, sample_weights, None
+    if images.shape[0] < 2 or np.random.random() >= float(mix_probability):
+        return images, labels, None, 1.0, sample_weights, None
+
+    use_cutmix = False
+    if cutmix_alpha > 0.0 and mixup_alpha > 0.0:
+        use_cutmix = bool(np.random.random() < 0.5)
+    elif cutmix_alpha > 0.0:
+        use_cutmix = True
+    alpha = float(cutmix_alpha if use_cutmix else mixup_alpha)
+    lam = float(np.random.beta(alpha, alpha))
+    indices = torch.randperm(images.shape[0], device=images.device)
+    labels_b = labels[indices]
+    weights_b = sample_weights[indices] if sample_weights is not None else None
+
+    if use_cutmix:
+        mixed = images.clone()
+        _, _, height, width = mixed.shape
+        x1, y1, x2, y2 = _rand_bbox(width, height, lam)
+        mixed[:, :, y1:y2, x1:x2] = images[indices, :, y1:y2, x1:x2]
+        patch_area = max(0, x2 - x1) * max(0, y2 - y1)
+        lam = 1.0 - float(patch_area) / float(max(1, width * height))
+        return mixed, labels, labels_b, lam, sample_weights, weights_b
+
+    mixed = lam * images + (1.0 - lam) * images[indices]
+    return mixed, labels, labels_b, lam, sample_weights, weights_b
+
+
 def _pretrained_data_settings(model, preprocess_cfg: dict[str, Any]) -> dict[str, Any]:
     if not bool(preprocess_cfg.get("use_timm_data_config", False)):
         return {}
@@ -296,9 +414,20 @@ def run_classifier_training(
         class_weights = _class_weights(train_manifest, positive_weight=float(positive_weight))
     if class_weights is not None:
         class_weights = class_weights.to(device=device)
-    criterion = torch.nn.CrossEntropyLoss(
-        weight=class_weights,
-        label_smoothing=float(training_cfg.get("label_smoothing", 0.0)),
+    label_smoothing = float(training_cfg.get("label_smoothing", 0.0))
+    loss_name = str(training_cfg.get("loss", "cross_entropy")).lower()
+    focal_gamma = float(training_cfg.get("focal_gamma", 2.0))
+    mixup_alpha = float(training_cfg.get("mixup_alpha", 0.0))
+    cutmix_alpha = float(training_cfg.get("cutmix_alpha", 0.0))
+    mix_probability = float(training_cfg.get("mix_probability", 0.0))
+    sample_weight_path = training_cfg.get("sample_weight_path")
+    if sample_weight_path is not None:
+        sample_weight_path = Path(sample_weight_path)
+        if not sample_weight_path.is_absolute():
+            sample_weight_path = (paths.project_root / sample_weight_path).resolve()
+    sample_weights = _load_sample_weights(
+        sample_weight_path,
+        weight_column=str(training_cfg.get("sample_weight_column", "sample_weight")),
     )
 
     epochs = int(epochs_override or training_cfg.get("epochs", 5))
@@ -325,9 +454,58 @@ def run_classifier_training(
         for batch in train_loader:
             images = batch["image"].to(device=device, dtype=torch.float32)
             labels = batch["label"].to(device=device)
+            batch_weights = _batch_sample_weights(
+                [str(value) for value in batch["sample_id"]],
+                sample_weights,
+                device=device,
+            )
+            (
+                images,
+                labels_a,
+                labels_b,
+                mix_lambda,
+                weights_a,
+                weights_b,
+            ) = _maybe_apply_mix_augmentation(
+                images,
+                labels,
+                batch_weights,
+                mixup_alpha=mixup_alpha,
+                cutmix_alpha=cutmix_alpha,
+                mix_probability=mix_probability,
+            )
             optimizer.zero_grad()
             logits = model(images)
-            loss = criterion(logits, labels)
+            if labels_b is None:
+                loss = _classification_loss(
+                    logits,
+                    labels_a,
+                    class_weights=class_weights,
+                    sample_weights=weights_a,
+                    label_smoothing=label_smoothing,
+                    loss_name=loss_name,
+                    focal_gamma=focal_gamma,
+                )
+            else:
+                loss_a = _classification_loss(
+                    logits,
+                    labels_a,
+                    class_weights=class_weights,
+                    sample_weights=weights_a,
+                    label_smoothing=label_smoothing,
+                    loss_name=loss_name,
+                    focal_gamma=focal_gamma,
+                )
+                loss_b = _classification_loss(
+                    logits,
+                    labels_b,
+                    class_weights=class_weights,
+                    sample_weights=weights_b,
+                    label_smoothing=label_smoothing,
+                    loss_name=loss_name,
+                    focal_gamma=focal_gamma,
+                )
+                loss = float(mix_lambda) * loss_a + (1.0 - float(mix_lambda)) * loss_b
             loss.backward()
             optimizer.step()
             losses.append(float(loss.item()))
@@ -435,7 +613,14 @@ def run_classifier_training(
         "preprocess_settings": preprocess_settings,
         "scheduler": scheduler_cfg,
         "class_weights": class_weights.detach().cpu().tolist() if class_weights is not None else None,
-        "label_smoothing": float(training_cfg.get("label_smoothing", 0.0)),
+        "label_smoothing": label_smoothing,
+        "loss": loss_name,
+        "focal_gamma": focal_gamma if loss_name == "focal" else None,
+        "mixup_alpha": mixup_alpha,
+        "cutmix_alpha": cutmix_alpha,
+        "mix_probability": mix_probability,
+        "sample_weight_path": str(sample_weight_path) if sample_weight_path is not None else None,
+        "sample_weight_count": len(sample_weights),
         "min_specificity": min_specificity,
         "epoch_reports": epoch_reports,
         "train_size": int(len(train_manifest)),

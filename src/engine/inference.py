@@ -61,6 +61,12 @@ def _resolve_runtime_checkpoint_paths(runtime_config: dict[str, Any], *, project
         resolved["classifier_members"] = members
     if "segmenter_checkpoint" in resolved:
         resolved["segmenter_checkpoint"] = resolve_checkpoint(resolved.get("segmenter_checkpoint"))
+    if isinstance(resolved.get("segmenter_checkpoints"), list):
+        resolved["segmenter_checkpoints"] = [
+            resolve_checkpoint(checkpoint)
+            for checkpoint in resolved["segmenter_checkpoints"]
+            if checkpoint
+        ]
     return resolved
 
 
@@ -91,6 +97,7 @@ class BreastUltrasoundInferenceService:
         self._classifier_models = None
         self._classifier_members = None
         self._segmenter_model = None
+        self._segmenter_models = None
 
     @classmethod
     def from_config(cls, config_path: str | Path) -> "BreastUltrasoundInferenceService":
@@ -210,13 +217,20 @@ class BreastUltrasoundInferenceService:
             return [str(self.paths.default_classifier_ckpt)]
         return []
 
-    def _resolved_segmenter_checkpoint(self) -> str | None:
+    def _resolved_segmenter_checkpoints(self) -> list[str]:
+        checkpoint_list = self.runtime_config.get("segmenter_checkpoints")
+        if isinstance(checkpoint_list, list) and checkpoint_list:
+            return [str(checkpoint) for checkpoint in checkpoint_list if checkpoint]
         checkpoint = self.runtime_config.get("segmenter_checkpoint")
         if checkpoint:
-            return str(checkpoint)
+            return [str(checkpoint)]
         if self.paths is not None and self.paths.default_segmenter_ckpt.exists():
-            return str(self.paths.default_segmenter_ckpt)
-        return None
+            return [str(self.paths.default_segmenter_ckpt)]
+        return []
+
+    def _resolved_segmenter_checkpoint(self) -> str | None:
+        checkpoints = self._resolved_segmenter_checkpoints()
+        return checkpoints[0] if checkpoints else None
 
     def _model_identifier(self) -> str:
         members = self._resolved_classifier_member_configs()
@@ -391,17 +405,21 @@ class BreastUltrasoundInferenceService:
         ensemble_probs = []
         weights = []
         for member in self._classifier_members:
+            weight = float(member.get("weight", 1.0))
+            if member_weight_overrides:
+                weight = float(member_weight_overrides.get(str(member.get("model")), weight))
+            if weight <= 0.0:
+                continue
             input_tensors = self._classifier_input_tensors(image, member)
             if not input_tensors or not hasattr(input_tensors[0], "unsqueeze"):
                 raise ClassificationUnavailableError("Torch tensor conversion failed for classifier input.")
             batch = torch.stack(input_tensors)
             model = member["model_instance"]
-            weight = float(member.get("weight", 1.0))
-            if member_weight_overrides:
-                weight = float(member_weight_overrides.get(str(member.get("model")), weight))
             tta_probs = classifier_probabilities(model, batch, device=device)
             ensemble_probs.append(np.mean(tta_probs, axis=0) * weight)
             weights.append(weight)
+        if not weights:
+            raise ClassificationUnavailableError("No classifier member has a positive weight.")
         probs = np.sum(np.asarray(ensemble_probs, dtype=np.float32), axis=0) / float(sum(weights))
         return float(probs[0]), float(probs[1])
 
@@ -603,12 +621,12 @@ class BreastUltrasoundInferenceService:
             response.status = "partial"
 
     def _predict_segmentation(self, image: np.ndarray) -> np.ndarray:
-        checkpoint = self._resolved_segmenter_checkpoint()
-        if not checkpoint or not self.runtime_config.get("segmentation_enabled", True):
+        checkpoints = self._resolved_segmenter_checkpoints()
+        if not checkpoints or not self.runtime_config.get("segmentation_enabled", True):
             raise OptionalOutputUnavailableError("Segmentation weights are not available.")
         if torch is None:
             raise OptionalOutputUnavailableError("Torch is not available for segmentation.")
-        if self._segmenter_model is None:
+        if self._segmenter_models is None:
             model_config = {
                 "architecture": "unet",
                 "encoder_name": "resnet18",
@@ -616,21 +634,30 @@ class BreastUltrasoundInferenceService:
                 "in_channels": 3,
                 "classes": 1,
             }
-            self._segmenter_model = load_segmenter(
-                model_config,
-                checkpoint_path=checkpoint,
-                map_location="cpu",
-            )
-            self._segmenter_model.eval()
+            self._segmenter_models = []
+            for checkpoint in checkpoints:
+                model = load_segmenter(
+                    model_config,
+                    checkpoint_path=checkpoint,
+                    map_location="cpu",
+                )
+                model.eval()
+                self._segmenter_models.append(model)
+            self._segmenter_model = self._segmenter_models[0] if self._segmenter_models else None
         input_tensor = prepare_classifier_input(
             image, int(self.runtime_config.get("segmenter_image_size", 256))
         )
         if not hasattr(input_tensor, "unsqueeze"):
             raise OptionalOutputUnavailableError("Torch tensor conversion failed for segmentation.")
+        masks = []
         with torch.no_grad():
-            logits = self._segmenter_model(input_tensor.unsqueeze(0).to(dtype=torch.float32))
-            mask = torch.sigmoid(logits)[0, 0].cpu().numpy()
-        return mask
+            batch = input_tensor.unsqueeze(0).to(dtype=torch.float32)
+            for model in self._segmenter_models:
+                logits = model(batch)
+                masks.append(torch.sigmoid(logits)[0, 0].cpu().numpy())
+        if not masks:
+            raise OptionalOutputUnavailableError("Segmentation weights are not available.")
+        return np.mean(np.asarray(masks, dtype=np.float32), axis=0)
 
     def _predict_explanation(self, image: np.ndarray) -> np.ndarray:
         if not self.runtime_config.get("gradcam_enabled", True):

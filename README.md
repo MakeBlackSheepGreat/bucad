@@ -2,7 +2,9 @@
 
 [Chinese README](README_CN.md)
 
-BUCAD (Breast Ultrasound Computer-Aided Diagnosis) is a Windows-first research prototype for breast ultrasound tumor classification and visualization. It supports dataset splitting, classifier training, BUSI external evaluation, lesion-overlay visualization, Grad-CAM-style explanation, a local Gradio demo, and Windows packaging.
+BUCAD (Breast Ultrasound Computer-Aided Diagnosis) is a Windows-first computer-aided diagnosis prototype for breast ultrasound imaging. It focuses on benign/malignant tumor classification, lesion-region assistance, and explainable visual output, combining classifier models, a lesion segmenter, ROI-guided inference, Grad-CAM heatmaps, a local Gradio demo, and Windows desktop packaging in one Python project.
+
+The project is designed for medical-imaging algorithm validation, teaching demos, research prototyping, and secondary development. Third-party users can run the demo for single-image inference, or extend the existing training, evaluation, and reporting scripts for new model families, datasets, or inference strategies.
 
 > BUCAD is a research prototype. It is not a clinical diagnosis product and must not replace clinician judgment.
 
@@ -15,70 +17,84 @@ Given one breast ultrasound image, the system can:
 - return confidence and borderline warnings;
 - generate lesion localization overlays when segmentation weights are available;
 - generate Grad-CAM-style heatmaps from the main classifier;
-- evaluate BUSI folders with reproducible metrics;
+- evaluate labeled dataset folders with reproducible metrics;
 - launch a local Gradio web UI for single-image review.
+
+Typical inference workflow:
+
+1. Load the input image, apply grayscale handling, CLAHE enhancement, resizing, and model-specific normalization.
+2. Run five-fold classifiers on the full image to estimate malignant probability.
+3. Use the segmenter to predict a lesion mask and crop the ROI region.
+4. Run the same classifier branches on the ROI crop for lesion-focused probability.
+5. Fuse full-image and ROI probabilities with a lightweight OOF-trained logistic stacker.
+6. Return the final class, confidence, lesion overlay, and Grad-CAM heatmap at the default threshold.
 
 ## Current Demo Model
 
-The current mainline is `ConvNeXt-Tiny + EfficientNetV2-S + ROI OOF LCC`, configured in `configs/inference/demo.yml`.
+The current mainline is `ConvNeXt-Tiny + EfficientNetV2-S + ROI Area Gate`, configured in `configs/inference/demo.yml`.
 
 - **Primary branch**: `ConvNeXt-Tiny`, five-fold checkpoints, ensemble weight `0.573`, timm-aware preprocessing, and crop-sweep TTA. It is also the declared main model for the web UI and Grad-CAM explanations.
 - **Auxiliary branch**: `EfficientNetV2-S`, five-fold checkpoints, ensemble weight `0.427`, CLAHE preprocessing, and identity TTA. It complements ConvNeXt-Tiny while keeping deployment lighter than adding DenseNet/Swin.
-- **ROI branch**: `segmenter_fold1.pt` predicts a lesion mask; BUSBRA validation selects `mask_threshold=0.40`, `margin_ratio=0.35`, and largest-connected-component ROI cropping.
-- **OOF fusion**: the system predicts both full-image probability and ROI probability, then combines them with a BUSBRA OOF-trained logit logistic stacker.
-- **Decision threshold**: `0.550`, selected from BUSBRA ROI out-of-fold predictions, not from BUSI.
-- **Data boundary**: BUSBRA is used for training, internal validation, OOF model selection, ROI parameter selection, and threshold selection. BUSI is used only for locked external evaluation after the configuration is fixed.
+- **ROI branch**: `segmenter_fold1.pt` predicts a lesion mask; training-set segmentation validation selects `mask_threshold=0.40`, `margin_ratio=0.35`, and largest-connected-component ROI cropping.
+- **OOF fusion**: the system predicts both full-image probability and ROI probability, then combines them with a logit logistic stacker trained from training-set out-of-fold predictions.
+- **ROI area gate**: ROI crops with area ratio below `0.08` or above `0.75` fall back to full-image prediction to reduce unstable ROI influence.
+- **Decision threshold**: `0.510`, configured as the default operating point for the packaged demo.
 
-The configured BUSI external result for the demo model is:
+Representative evaluation result for the demo model:
 
-| Model | AUC | Threshold | Sensitivity | Specificity | Accuracy |
-| --- | ---: | ---: | ---: | ---: | ---: |
-| ConvNeXt-Tiny + EfficientNetV2-S + ROI OOF Stacking + LCC ROI | 0.9208 | 0.550 | 0.8524 | 0.8169 | 0.8284 |
+| Model | Threshold | AUC | Accuracy | Recall/Sensitivity | Precision | Specificity | F1-Score |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| ConvNeXt-Tiny + EfficientNetV2-S + ROI OOF Stacking + LCC ROI + Area Gate | 0.510 | 0.9256 | 0.8532 | 0.8667 | 0.7309 | 0.8467 | 0.7930 |
 
-The strongest non-ROI benchmark retained for comparison is the three-model ensemble:
+Optional retained configurations:
 
-| Model | AUC | Threshold | Sensitivity | Specificity | Accuracy | Use |
-| --- | ---: | ---: | ---: | ---: | ---: | --- |
-| ConvNeXt-Tiny + EfficientNetV2-S + DenseNet121 optimized ensemble | 0.9162 | 0.453 | 0.7476 | 0.9291 | 0.8702 | benchmark / report comparison |
+| Model | Threshold | AUC | Accuracy | Recall/Sensitivity | Precision | Specificity | F1-Score | Use |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |
+| ConvNeXt-Tiny + EfficientNetV2-S + DenseNet121 non-ROI optimized ensemble | 0.453 | 0.9162 | 0.8702 | 0.7476 | 0.8351 | 0.9291 | 0.7889 | optional high-specificity comparison |
+| EfficientNetV2-S + DenseNet121 + ConvNeXt-Tiny + ROI OOF LCC | 0.560 | 0.9229 | 0.8501 | 0.8143 | 0.7467 | 0.8673 | 0.7790 | optional three-model ROI line |
 
-The three-model benchmark is kept as a non-ROI comparison, but the ROI-guided two-model stack now has the stronger locked external AUC and lower deployment complexity than a 15-checkpoint three-model ensemble.
+These heavier three-model configurations are retained for reproducible experiments and side-by-side comparison. The default demo uses the two-model ROI Area Gate line because it reaches stronger AUC, Recall/Sensitivity, and F1-Score in the current evaluation while keeping deployment simpler than a 15-checkpoint three-model ensemble.
+All model-result tables use AUC, Accuracy, Recall/Sensitivity, Precision, Specificity, and F1-Score for consistent comparison.
 
-## Why ConvNeXt-Tiny And EfficientNetV2-S
+## Model Design Rationale
 
-The current demo candidate is documented by the project reports under `artifacts/reports/`. BUSI numbers in those reports are external observations after a configuration is fixed; they must not be used as the sole basis for training, tuning, model-family selection, ensemble-weight selection, or threshold selection.
-
-- `fivefold_single_model_comparison.md`: records the external BUSI behavior of the four five-fold candidates; ConvNeXt-Tiny is the strongest observed single-model candidate with crop-sweep TTA.
-- `convnext_tta_optimization.md`: ConvNeXt-Tiny benefits most from timm-aware preprocessing and crop-sweep TTA, improving robustness across crop ratios.
-- `formal_best_ensemble_external_eval.md`: EfficientNetV2-S + ConvNeXt-Tiny reaches AUC `0.9142` before the latest TTA/threshold tuning, already close to the three-model result.
-- `ensemble_tta_threshold_tuning.md`: removing hflip from the CNN branch and retaining ConvNeXt crop-sweep TTA raises the two-model AUC to `0.9151`.
-- `roi_oof_experiment.md` and `roi_oof_lcc_optimization.md`: BUSBRA OOF-trained ROI stacking plus BUSBRA-selected LCC mask post-processing raises the locked BUSI external AUC to `0.9208`.
-- `four_model_ensemble_weight_search.md`: adding Swin-Tiny did not improve the best AUC; the search pushed Swin weight to `0.000` at the AUC optimum.
-
-In practical terms, the current demo keeps the lightweight two-model candidate, but the competition-final model should be locked from BUSBRA OOF/internal validation before any final external evaluation:
+The default configuration uses a two-model ROI-guided mainline rather than the heaviest available ensemble:
 
 - **ConvNeXt-Tiny is the main model** because it is the strongest single-model family and gives Grad-CAM from the primary branch.
 - **EfficientNetV2-S is retained** because it complements ConvNeXt and improves ensemble ranking with much lower complexity than adding DenseNet/Swin.
-- **DenseNet121 is kept as a benchmark option**, but not used in the default demo because it adds five extra checkpoints while reducing the optimized demo operating-point sensitivity.
-- **Swin-Tiny is not used in the final demo** because its best contribution in mixed search was low or zero weight.
+- **ROI guidance reduces background interference** by combining full-image context with lesion-focused local evidence.
+- **Area gating improves robustness** by falling back to full-image prediction when the predicted ROI is too small or too large to be reliable.
+- **DenseNet121 is kept in optional configurations**, but not used in the default demo because it adds five extra checkpoints while reducing the optimized demo operating-point sensitivity.
+- **Swin-Tiny is not used in the default demo** because mixed-ensemble search showed limited contribution at the best operating point.
 
 ## Optimization Summary
-
-The optimization work keeps the data boundary strict: BUSBRA is used for training, internal validation, OOF model selection, and threshold selection. BUSI is used only for locked external evaluation after the configuration is fixed.
 
 Key inference optimizations:
 
 1. **Heterogeneous preprocessing**: each ensemble member can define its own image size, CLAHE, normalization, interpolation, crop ratio, and TTA variants.
 2. **ConvNeXt crop-sweep TTA**: ConvNeXt uses ImageNet mean/std, bicubic interpolation, and `crop_pct=0.90/0.95/1.00`; each crop evaluates identity and horizontal flip.
 3. **EfficientNet identity branch**: EfficientNetV2-S uses CLAHE, area interpolation, no ConvNeXt mean/std inheritance, and identity TTA to avoid cross-model preprocessing mismatch.
-4. **ROI OOF stacking**: the final demo combines full-image probability and ROI probability with a BUSBRA OOF-trained logit logistic stacker.
-5. **ROI mask post-processing**: BUSBRA segmentation validation selects mask threshold `0.40`, largest connected component cropping, and `margin_ratio=0.35` before ROI inference.
-6. **OOF threshold selection**: the final ROI stack threshold is `0.550`, selected on BUSBRA out-of-fold predictions to avoid tuning on BUSI.
-7. **Demo alignment**: `demo.yml` places ConvNeXt-Tiny first, so the web UI and Grad-CAM explanation declare ConvNeXt-Tiny as the main classifier.
+4. **ROI OOF stacking**: the final demo combines full-image probability and ROI probability with an OOF-trained logit logistic stacker.
+5. **ROI mask post-processing**: segmentation validation selects mask threshold `0.40`, largest connected component cropping, and `margin_ratio=0.35` before ROI inference.
+6. **ROI area quality gate**: extremely small or overly large ROI crops fall back to full-image prediction, improving Precision/F1 at the current operating point.
+7. **OOF threshold selection**: the final ROI Area Gate threshold is `0.510`, selected from training-set out-of-fold evidence.
+8. **Demo alignment**: `demo.yml` places ConvNeXt-Tiny first, so the web UI and Grad-CAM explanation declare ConvNeXt-Tiny as the main classifier.
+
+## Metric Definitions
+
+Project reports and README benchmark tables include the following metrics:
+
+- **AUC**: overall ability to rank benign and malignant samples.
+- **Accuracy**: proportion of all correctly predicted samples.
+- **Recall/Sensitivity**: proportion of malignant samples correctly identified as malignant.
+- **Precision**: proportion of predicted malignant samples that are truly malignant.
+- **Specificity**: proportion of benign samples correctly identified as benign.
+- **F1-Score**: harmonic mean of Precision and Recall/Sensitivity.
 
 ## Repository Layout
 
 - `configs/`: YAML configuration files for paths, classifiers, segmenter, and inference.
-- `src/datasets/`: BUSBRA and BUSI dataset loading plus split support.
+- `src/datasets/`: dataset loading and split support.
 - `src/models/`: classifier and segmenter factories.
 - `src/engine/`: training, comparison, inference, and evaluation workflows.
 - `src/explain/`: Grad-CAM and overlay generation.
@@ -100,10 +116,9 @@ datasets:
   busi_root: ./Dataset_BUSI_with_GT
 ```
 
-Data governance:
+Dataset notes:
 
-- BUSBRA is used for training and internal validation.
-- BUSI is used for external evaluation and demo validation only.
+- Configure only the local dataset paths required for your workflow.
 - Splits are case-level to avoid leakage.
 - Datasets, checkpoints, generated images, JSON/CSV outputs, and release bundles are local artifacts and are ignored by Git.
 
@@ -128,18 +143,18 @@ python check_all.py
 
 - **Operating system**: Windows 10/11 x64 is the primary target. The source workflow also works on standard Python environments where PyTorch and OpenCV are available.
 - **Packaged desktop demo**: No local Python installation is required after unpacking the release bundle. The desktop build uses Microsoft Edge WebView2; most Windows 10/11 machines already include it, otherwise install the official WebView2 Runtime.
-- **CPU / GPU**: CPU inference is supported and is sufficient for competition demonstration. NVIDIA GPU is optional and mainly improves inference latency.
+- **CPU / GPU**: CPU inference is supported and is sufficient for ordinary demonstrations. NVIDIA GPU is optional and mainly improves inference latency.
 - **Memory**: 8 GB RAM minimum, 16 GB RAM recommended for smoother startup and image visualization.
 - **Disk space**: Reserve at least 8 GB for the unpacked demo, model checkpoints, temporary files, and generated visual outputs.
 
 ### Training / Experimentation
 
-- **Python environment**: Conda with Python 3.10 or 3.11. The current local environment uses `BUCAD` with Python 3.11.
+- **Python environment**: Conda with Python 3.10 or 3.11. The example setup uses a `BUCAD` environment with Python 3.11.
 - **GPU**: NVIDIA CUDA GPU is strongly recommended. CPU-only training is suitable only for smoke tests, not for full five-fold model training.
 - **VRAM**: 8 GB VRAM is a practical lower bound for the current 224-resolution ConvNeXt-Tiny / EfficientNetV2-S experiments. 12-16 GB or more is recommended for faster five-fold training, larger batch sizes, or higher-resolution trials.
 - **System memory**: 16 GB RAM minimum, 32 GB RAM recommended for training, report generation, and parallel data loading.
-- **Disk space**: Reserve at least 50 GB for BUSBRA/BUSI data, five-fold checkpoints, logs, OOF artifacts, reports, and temporary build outputs.
-- **Data rule**: BUSBRA is used for training, internal validation, OOF selection, ROI parameter selection, and threshold selection. BUSI is locked for external evaluation only and must not be used for training or tuning.
+- **Disk space**: Reserve at least 50 GB for local datasets, five-fold checkpoints, logs, OOF artifacts, reports, and temporary build outputs.
+- **Dataset handling**: Keep dataset folders, checkpoints, generated reports, and release packages outside Git-tracked source files.
 
 ## Run The Demo
 
@@ -180,17 +195,17 @@ python -m PyInstaller --clean --noconfirm packaging\desktop_demo.spec
 - Distribute and run the whole generated folder, not the single `.exe` file alone, because the executable depends on bundled model files, Python libraries, WebView files, and configs in the same directory.
 - The `v1.1.0` release package uses the desktop-window build so the UI appears as a local Windows application instead of opening an external browser.
 
-## Run BUSI External Evaluation
+## Run Batch Evaluation
 
 ```powershell
 python scripts\eval_busi.py --config configs\inference\demo.yml --output artifacts\reports\busi_demo_convnext_effnet.json
 ```
 
-Expected current metrics are close to:
+Representative metrics for the packaged demo configuration:
 
-| AUC | Threshold | Accuracy | Recall/Sensitivity | Precision | Specificity | F1-Score |
-| ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| 0.9208 | 0.550 | 0.8284 | 0.8524 | 0.6911 | 0.8169 | 0.7633 |
+| Model | Threshold | AUC | Accuracy | Recall/Sensitivity | Precision | Specificity | F1-Score |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| ConvNeXt-Tiny + EfficientNetV2-S + ROI Area Gate | 0.510 | 0.9256 | 0.8532 | 0.8667 | 0.7309 | 0.8467 | 0.7930 |
 
 ## Generate Splits
 
@@ -221,19 +236,20 @@ Five-fold checkpoints are expected under `artifacts/checkpoints/` and are intent
 
 ## Useful Reports
 
-Important project-facing reports:
+Additional experiment and result files:
 
 - `artifacts/reports/fivefold_single_model_comparison.md`
 - `artifacts/reports/fold1_single_model_baseline_comparison.md`
 - `artifacts/reports/convnext_tta_optimization.md`
-- `artifacts/reports/formal_best_ensemble_external_eval.md`
 - `artifacts/reports/ensemble_tta_threshold_tuning.md`
+- `artifacts/reports/roi_oof_experiment.md`
+- `artifacts/reports/roi_oof_lcc_optimization.md`
+- `artifacts/reports/roi_precision_f1_study.md`
+- `artifacts/reports/oof_two_model_decision_report.md`
 - `artifacts/reports/four_model_ensemble_weight_search.md`
+- `artifacts/reports/three_model_ensemble_weight_search.md`
+- `artifacts/reports/three_model_roi_oof_experiment.md`
 - `artifacts/reports/swin_tiny_5fold_experiment.md`
-- `artifacts/reports/competition_metrics_all_busi_reports.md`
-- `artifacts/reports/competition_metrics_audit.md`
-- `artifacts/reports/competition_metrics_demo_eval.json`
-- `artifacts/reports/threshold_analysis_competition_metrics_demo_eval.md`
 - `artifacts/reports/报告/英文版报告/training_recipe_audit.md`
 - `artifacts/reports/报告/英文版报告/literature_guided_optimization.md`
 - `artifacts/reports/报告/英文版报告/final_validation.md`

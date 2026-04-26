@@ -56,16 +56,34 @@ Optional retained configurations:
 These heavier three-model configurations are retained for reproducible experiments and side-by-side comparison. The default demo uses the two-model ROI Area Gate line because it reaches stronger AUC, Recall/Sensitivity, and F1-Score in the current evaluation while keeping deployment simpler than a 15-checkpoint three-model ensemble.
 All model-result tables use AUC, Accuracy, Recall/Sensitivity, Precision, Specificity, and F1-Score for consistent comparison.
 
-## Model Design Rationale
+## Model Selection Rationale
 
-The default configuration uses a two-model ROI-guided mainline rather than the heaviest available ensemble:
+BUCAD first screened multiple single-model candidates with native or recommended inference protocols, then selected the most promising model families for five-fold training, TTA, OOF, ROI, and mixed-ensemble experiments.
 
-- **ConvNeXt-Tiny is the main model** because it is the strongest single-model family and gives Grad-CAM from the primary branch.
-- **EfficientNetV2-S is retained** because it complements ConvNeXt and improves ensemble ranking with much lower complexity than adding DenseNet/Swin.
-- **ROI guidance reduces background interference** by combining full-image context with lesion-focused local evidence.
-- **Area gating improves robustness** by falling back to full-image prediction when the predicted ROI is too small or too large to be reliable.
-- **DenseNet121 is kept in optional configurations**, but not used in the default demo because it adds five extra checkpoints while reducing the optimized demo operating-point sensitivity.
-- **Swin-Tiny is not used in the default demo** because mixed-ensemble search showed limited contribution at the best operating point.
+| Model | Threshold | AUC | Accuracy | Recall/Sensitivity | Precision | Specificity | F1-Score | Note |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |
+| ConvNeXt-Small timm recipe fold1 | 0.50 | 0.8947 | 0.8284 | 0.7667 | 0.7220 | 0.8581 | 0.7436 | later upgrade check, not default |
+| ConvNeXt-Tiny timm recipe fold1 | 0.50 | 0.8943 | 0.8423 | 0.7762 | 0.7477 | 0.8741 | 0.7617 | ConvNeXt recommended recipe |
+| DenseNet121 fold1 | 0.50 | 0.8766 | 0.8083 | 0.4571 | 0.9057 | 0.9771 | 0.6076 | high Precision/Specificity reference |
+| Swin-Tiny timm recipe fold1 | 0.50 | 0.8729 | 0.8300 | 0.7048 | 0.7551 | 0.8902 | 0.7291 | Transformer-style candidate |
+| EfficientNetV2-S fold1 | 0.50 | 0.8609 | 0.7465 | 0.8333 | 0.5757 | 0.7048 | 0.6809 | CNN candidate |
+| EfficientNetV2-S main fold1 | 0.50 | 0.8483 | 0.8099 | 0.6714 | 0.7231 | 0.8764 | 0.6963 | later five-fold branch fold1 |
+| ResNet18 fold1 | 0.50 | 0.8480 | 0.7991 | 0.7714 | 0.6639 | 0.8124 | 0.7137 | ResNet baseline |
+| MobileNetV3-Small fold1 | 0.50 | 0.8431 | 0.7543 | 0.7143 | 0.6024 | 0.7735 | 0.6536 | lightweight baseline |
+| Swin-Tiny initial fold1 | 0.50 | 0.8242 | 0.6754 | 0.8714 | 0.5000 | 0.5812 | 0.6354 | early non-timm-aware recipe |
+| Early ResNet18 classifier fold1 | 0.50 | 0.7543 | 0.7450 | 0.6429 | 0.6000 | 0.7941 | 0.6207 | early baseline |
+| Basic CNN fold1 | 0.50 | 0.7327 | 0.6754 | 0.0429 | 0.5000 | 0.9794 | 0.0789 | non-pretrained CNN baseline |
+| ConvNeXt-Tiny initial fold1 | 0.50 | 0.5996 | 0.6754 | 0.0000 | 0.0000 | 1.0000 | 0.0000 | early non-timm-aware recipe |
+| VGG16 fold1 | 0.50 | 0.5000 | 0.6754 | 0.0000 | 0.0000 | 1.0000 | 0.0000 | VGG baseline |
+
+Based on the screening, `EfficientNetV2-S`, `DenseNet121`, `ConvNeXt-Tiny`, and `Swin-Tiny` became the four main BUCAD candidate families:
+
+- **ConvNeXt-Tiny is the main model** because the timm-aware recipe fixed the early ConvNeXt preprocessing failure and produced stable single-fold and five-fold behavior.
+- **EfficientNetV2-S is retained** because it shows strong Recall/Sensitivity and complements ConvNeXt-Tiny in mixed ensembles.
+- **DenseNet121 is kept in optional configurations** because it provides high Precision/Specificity, but its default operating-point Recall/Sensitivity is weaker than the final two-model ROI mainline.
+- **Swin-Tiny entered the candidate pool** because the recommended recipe clearly improved over the initial Swin run, but later weight searches showed limited contribution at the best default demo point.
+- **ConvNeXt-Small remains a later upgrade reference** because its single-fold AUC is competitive, but its five-fold and ensemble benefit did not justify replacing the current mainline.
+- **ROI and OOF define the final mainline**: the final demo is selected after five-fold, TTA, OOF, ROI cropping, and deployment-complexity comparison, not from single-model screening alone.
 
 ## Optimization Summary
 
@@ -240,6 +258,7 @@ Additional experiment and result files:
 
 - `artifacts/reports/fivefold_single_model_comparison.md`
 - `artifacts/reports/fold1_single_model_baseline_comparison.md`
+- `artifacts/reports/native_single_model_retest.md`
 - `artifacts/reports/convnext_tta_optimization.md`
 - `artifacts/reports/ensemble_tta_threshold_tuning.md`
 - `artifacts/reports/roi_oof_experiment.md`

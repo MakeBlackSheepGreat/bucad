@@ -54,16 +54,34 @@ BUCAD（Breast Ultrasound Computer-Aided Diagnosis）是一个面向乳腺超声
 这些更重的三模型方案作为可选配置保留，便于复现实验和横向比较。默认 demo 采用两模型 ROI Area Gate 主线，因为它在当前评估中具有更高的 AUC、Recall/Sensitivity 和 F1-Score，同时部署复杂度低于 15 个 checkpoint 的三模型集成。
 项目中的模型结果表统一采用 AUC、Accuracy、Recall/Sensitivity、Precision、Specificity 和 F1-Score，便于不同配置之间进行一致比较。
 
-## 模型设计思路
+## 模型选择思路
 
-当前默认配置选择两模型 ROI 主线，而不是直接使用更大的三模型集成，主要基于以下工程取舍：
+项目最初并不是直接指定最终模型，而是先用统一流程筛选多个单模型候选，再从中选择更有潜力的模型家族做五折训练、TTA、OOF、ROI 和混合集成实验。单折原生/推荐协议重测结果如下：
 
-- **ConvNeXt-Tiny 做主模型**：它在轻量级模型中具有较强的图像特征提取能力，并且适合配合 timm 推荐预处理、crop-sweep TTA 和 Grad-CAM 可解释性输出。
-- **EfficientNetV2-S 做辅助分支**：它与 ConvNeXt-Tiny 的错误分布不同，能够在不显著增加部署复杂度的情况下改善集成稳定性。
-- **ROI 引导降低背景干扰**：完整图像保留全局组织结构，ROI 裁剪强调病灶区域；二者融合能兼顾全局上下文和局部病灶细节。
-- **面积质量门控增强鲁棒性**：当分割 mask 过小或过大时，ROI 裁剪往往不稳定，系统会回退到完整图预测，减少异常 ROI 对最终结果的影响。
-- **DenseNet121 保留为可选配置**：三模型方案在 Precision 或 Specificity 上有参考价值，但需要更多 checkpoint，且当前默认运行点下 Sensitivity 不如两模型主线。
-- **Swin-Tiny 不进入默认 demo**：混合集成测试中它对当前最优运行点贡献有限，因此不纳入默认部署配置。
+| 模型 | 阈值 | AUC | Accuracy | Recall/Sensitivity | Precision | Specificity | F1-Score | 说明 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |
+| ConvNeXt-Small timm recipe fold1 | 0.50 | 0.8947 | 0.8284 | 0.7667 | 0.7220 | 0.8581 | 0.7436 | 后续升级验证，不进入默认主线 |
+| ConvNeXt-Tiny timm recipe fold1 | 0.50 | 0.8943 | 0.8423 | 0.7762 | 0.7477 | 0.8741 | 0.7617 | ConvNeXt 推荐配方 |
+| DenseNet121 fold1 | 0.50 | 0.8766 | 0.8083 | 0.4571 | 0.9057 | 0.9771 | 0.6076 | 高 Precision/Specificity 参考 |
+| Swin-Tiny timm recipe fold1 | 0.50 | 0.8729 | 0.8300 | 0.7048 | 0.7551 | 0.8902 | 0.7291 | Transformer 风格候选 |
+| EfficientNetV2-S fold1 | 0.50 | 0.8609 | 0.7465 | 0.8333 | 0.5757 | 0.7048 | 0.6809 | CNN 主候选 |
+| EfficientNetV2-S main fold1 | 0.50 | 0.8483 | 0.8099 | 0.6714 | 0.7231 | 0.8764 | 0.6963 | 后续五折分支的 fold1 |
+| ResNet18 fold1 | 0.50 | 0.8480 | 0.7991 | 0.7714 | 0.6639 | 0.8124 | 0.7137 | ResNet baseline |
+| MobileNetV3-Small fold1 | 0.50 | 0.8431 | 0.7543 | 0.7143 | 0.6024 | 0.7735 | 0.6536 | 轻量 baseline |
+| Swin-Tiny initial fold1 | 0.50 | 0.8242 | 0.6754 | 0.8714 | 0.5000 | 0.5812 | 0.6354 | 早期非 timm-aware 配方 |
+| Early ResNet18 classifier fold1 | 0.50 | 0.7543 | 0.7450 | 0.6429 | 0.6000 | 0.7941 | 0.6207 | 早期 baseline |
+| Basic CNN fold1 | 0.50 | 0.7327 | 0.6754 | 0.0429 | 0.5000 | 0.9794 | 0.0789 | 非预训练轻量 baseline |
+| ConvNeXt-Tiny initial fold1 | 0.50 | 0.5996 | 0.6754 | 0.0000 | 0.0000 | 1.0000 | 0.0000 | 早期非 timm-aware 配方 |
+| VGG16 fold1 | 0.50 | 0.5000 | 0.6754 | 0.0000 | 0.0000 | 1.0000 | 0.0000 | VGG baseline |
+
+基于上述筛选，项目选择 `EfficientNetV2-S`、`DenseNet121`、`ConvNeXt-Tiny` 和 `Swin-Tiny` 作为 BUCAD 后续重点实验的四个候选模型家族：
+
+- **ConvNeXt-Tiny 做主模型**：timm-aware 配方显著修复早期 ConvNeXt 训练/预处理问题，单折和五折表现稳定，且适合配合 crop-sweep TTA 与 Grad-CAM 可解释性输出。
+- **EfficientNetV2-S 做辅助分支**：单折 Recall/Sensitivity 较高，与 ConvNeXt-Tiny 的错误分布不同，进入集成后能提升整体稳定性。
+- **DenseNet121 保留为可选配置**：单折 Precision 和 Specificity 很高，适合作为高特异性参考和三模型可选配置，但默认运行点下 Recall/Sensitivity 不如两模型 ROI 主线。
+- **Swin-Tiny 进入候选但不进入默认 demo**：Swin-Tiny 在推荐配方下明显优于初始版本，具备结构互补性；后续混合集成权重搜索显示它对当前最优运行点贡献有限，因此不纳入默认部署配置。
+- **ConvNeXt-Small 作为后续升级验证**：单折 AUC 很接近 ConvNeXt-Tiny，但五折和集成收益不足以替代当前主线，因此保留为研究参考。
+- **ROI 与 OOF 是最终主线差异点**：最终 demo 没有停留在单模型筛选结果，而是在四模型筛选基础上继续比较五折、TTA、OOF、ROI 裁剪和部署复杂度，最终收敛到 `ConvNeXt-Tiny + EfficientNetV2-S + ROI Area Gate`。
 
 ## 推理与优化流程
 
@@ -238,6 +256,7 @@ python scripts\train_cls.py --config configs\classifier\efficientnetv2_s.yml --f
 
 - `artifacts/reports/fivefold_single_model_comparison.md`
 - `artifacts/reports/fold1_single_model_baseline_comparison.md`
+- `artifacts/reports/native_single_model_retest.md`
 - `artifacts/reports/convnext_tta_optimization.md`
 - `artifacts/reports/ensemble_tta_threshold_tuning.md`
 - `artifacts/reports/roi_oof_experiment.md`

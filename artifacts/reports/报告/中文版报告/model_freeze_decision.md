@@ -41,3 +41,6 @@
 - 强 baseline：`densenet121` AUC `0.8867`，`resnet18` AUC `0.8756`，`mobilenetv3_small_100` AUC `0.8704`。
 - `alexnet` 在记录运行中失败，并已记录在 `artifacts/reports/comparison_results.json`；之后为未来重跑加入了 torchvision fallback。
 - 结论：已完成的对比支持 EfficientNetV2-S freeze decision。
+## 比赛指标完整性说明
+
+比赛统一指标集为 AUC、Accuracy、Recall/Sensitivity、Precision、Specificity 和 F1-Score。如果历史归档表中 Precision 或 F1-Score 显示 `-`，说明原始摘要未保留可反推该值的 confusion matrix 或原始概率。锁定 BUSI 运行点结果以 `artifacts/reports/competition_metrics_all_busi_reports.md` 作为完整指标来源。

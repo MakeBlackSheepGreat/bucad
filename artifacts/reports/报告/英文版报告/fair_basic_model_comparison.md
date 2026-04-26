@@ -29,15 +29,15 @@ comparison run.
 
 ## Strict Fold-1 Basic Comparison
 
-| Rank | Model | AUC | Sensitivity | Specificity | Accuracy | Basic Finding |
-| ---: | --- | ---: | ---: | ---: | ---: | --- |
-| 1 | EfficientNetV2-S | 0.8937 | 0.7049 | 0.8775 | 0.8213 | Best AUC among strict single-model baselines |
-| 2 | DenseNet121 | 0.8867 | 0.7213 | 0.8775 | 0.8267 | Very close to EfficientNet, slightly higher sensitivity and accuracy |
-| 3 | ResNet18 | 0.8756 | 0.7131 | 0.8577 | 0.8107 | Stable and lightweight strong baseline |
-| 4 | MobileNetV3-Small | 0.8704 | 0.6557 | 0.9170 | 0.8320 | Best accuracy/specificity among compact baselines, lower sensitivity |
-| 5 | Basic CNN | 0.6427 | 0.0000 | 0.9921 | 0.6693 | Too weak; almost no malignant recall at threshold 0.50 |
-| 6 | VGG16 | 0.5000 | 0.0000 | 1.0000 | 0.6747 | Failed to learn useful discrimination in this run |
-| - | AlexNet | - | - | - | - | Recorded run failed before fallback support was added |
+| Rank | Model | AUC | Sensitivity | Precision | F1-Score | Specificity | Accuracy | Basic Finding |
+| ---: | --- | ---: | ---: | ---: | ---: | ---: | ---: | --- |
+| 1 | EfficientNetV2-S | 0.8937 | 0.7049 | - | - | 0.8775 | 0.8213 | Best AUC among strict single-model baselines |
+| 2 | DenseNet121 | 0.8867 | 0.7213 | - | - | 0.8775 | 0.8267 | Very close to EfficientNet, slightly higher sensitivity and accuracy |
+| 3 | ResNet18 | 0.8756 | 0.7131 | - | - | 0.8577 | 0.8107 | Stable and lightweight strong baseline |
+| 4 | MobileNetV3-Small | 0.8704 | 0.6557 | - | - | 0.9170 | 0.8320 | Best accuracy/specificity among compact baselines, lower sensitivity |
+| 5 | Basic CNN | 0.6427 | 0.0000 | - | - | 0.9921 | 0.6693 | Too weak; almost no malignant recall at threshold 0.50 |
+| 6 | VGG16 | 0.5000 | 0.0000 | - | - | 1.0000 | 0.6747 | Failed to learn useful discrimination in this run |
+| - | AlexNet | - | - | - | - | - | - | Recorded run failed before fallback support was added |
 
 ## Interpretation
 
@@ -65,10 +65,10 @@ useful for screening, but they are not part of the strict original comparison
 table because they were launched separately and, in the Swin case, used a
 different learning rate.
 
-| Model | AUC | Sensitivity | Specificity | Accuracy | Difference From Strict Rule | Finding |
-| --- | ---: | ---: | ---: | ---: | --- | --- |
-| Swin-Tiny | 0.7950 | 0.8852 | 0.5020 | 0.6267 | lr=0.0001, separate run | High sensitivity but many false positives; not worth five-fold under this recipe |
-| ConvNeXt-Tiny | 0.4519 | 0.0000 | 1.0000 | 0.6747 | separate run | Collapsed to all-benign prediction at threshold 0.50 |
+| Model | AUC | Sensitivity | Precision | F1-Score | Specificity | Accuracy | Difference From Strict Rule | Finding |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | --- | --- |
+| Swin-Tiny | 0.7950 | 0.8852 | - | - | 0.5020 | 0.6267 | lr=0.0001, separate run | High sensitivity but many false positives; not worth five-fold under this recipe |
+| ConvNeXt-Tiny | 0.4519 | 0.0000 | - | - | 1.0000 | 0.6747 | separate run | Collapsed to all-benign prediction at threshold 0.50 |
 
 These results do not mean Transformer or ConvNeXt families can never work. They
 only show that the current quick recipes are not competitive with the existing

@@ -111,3 +111,92 @@ def test_roi_enhanced_classification_can_override_roi_member_weights() -> None:
         None,
         {"convnext_tiny": 0.54, "tf_efficientnetv2_s": 0.46},
     ]
+
+
+def test_roi_quality_gate_falls_back_to_full_probability() -> None:
+    mask = np.ones((32, 32), dtype=np.float32)
+    service = BreastUltrasoundInferenceService(
+        {
+            "roi_enhancement": {
+                "enabled": True,
+                "margin_ratio": 0.0,
+                "mask_threshold": 0.5,
+                "quality_gate": {
+                    "enabled": True,
+                    "max_area_ratio": 0.75,
+                    "fallback_to_full": True,
+                },
+                "stacker": {
+                    "feature_mode": "probability",
+                    "scaler_mean": [0.0, 0.0],
+                    "scaler_scale": [1.0, 1.0],
+                    "coef": [0.0, 1.0],
+                    "intercept": 0.0,
+                },
+            }
+        },
+        segmenter_predictor=lambda _: mask,
+    )
+    calls = 0
+
+    def predictor(
+        image: np.ndarray,
+        *,
+        member_weight_overrides: dict[str, float] | None = None,
+    ) -> tuple[float, float]:
+        nonlocal calls
+        calls += 1
+        return 0.8, 0.2
+
+    service._predict_classifier_ensemble_on_image = predictor  # type: ignore[method-assign]
+
+    benign_probability, malignant_probability = service._predict_classification(
+        np.full((32, 32), 128, dtype=np.uint8)
+    )
+
+    assert calls == 1
+    assert math.isclose(benign_probability, 0.8, rel_tol=1e-6)
+    assert math.isclose(malignant_probability, 0.2, rel_tol=1e-6)
+
+
+def test_roi_stack_probability_can_blend_with_full_probability() -> None:
+    mask = np.zeros((32, 32), dtype=np.float32)
+    mask[8:24, 8:24] = 1.0
+    service = BreastUltrasoundInferenceService(
+        {
+            "roi_enhancement": {
+                "enabled": True,
+                "margin_ratio": 0.0,
+                "mask_threshold": 0.5,
+                "roi_stack_blend_weight": 0.5,
+                "stacker": {
+                    "feature_mode": "probability",
+                    "scaler_mean": [0.0, 0.0],
+                    "scaler_scale": [1.0, 1.0],
+                    "coef": [0.0, 1.0],
+                    "intercept": 0.0,
+                },
+            }
+        },
+        segmenter_predictor=lambda _: mask,
+    )
+    calls = 0
+
+    def predictor(
+        image: np.ndarray,
+        *,
+        member_weight_overrides: dict[str, float] | None = None,
+    ) -> tuple[float, float]:
+        nonlocal calls
+        calls += 1
+        return (0.8, 0.2) if calls == 1 else (0.3, 0.7)
+
+    service._predict_classifier_ensemble_on_image = predictor  # type: ignore[method-assign]
+
+    _, malignant_probability = service._predict_classification(
+        np.full((32, 32), 128, dtype=np.uint8)
+    )
+
+    stacked_probability = 1.0 / (1.0 + math.exp(-0.7))
+    expected = 0.5 * stacked_probability + 0.5 * 0.2
+    assert math.isclose(malignant_probability, expected, rel_tol=1e-6)

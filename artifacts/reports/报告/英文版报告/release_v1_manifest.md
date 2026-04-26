@@ -13,3 +13,6 @@ Release directory: `C:\Users\876762330\Desktop\Agent\artifacts\release_v1`
 | `configs/paths.example.yml` | 382 | `b27c65a4d5aab47e6c9db863e57f25ac48aead321925d00bb725e7016c8a41c9` |
 | `configs/paths.local.yml` | 382 | `b27c65a4d5aab47e6c9db863e57f25ac48aead321925d00bb725e7016c8a41c9` |
 | `configs/segmenter/unet.yml` | 487 | `071508dde3ac86ffd42ceca39df319c349a00bd8972dc6ff8e66d5f1af34ac22` |
+## Competition Metric Completeness Note
+
+This archived file is a figure or release manifest, not a model evaluation table. The official competition metric set for BUSI operating-point reports is AUC, Accuracy, Recall/Sensitivity, Precision, Specificity, and F1-Score. Use rtifacts/reports/competition_metrics_all_busi_reports.md for complete metric values.

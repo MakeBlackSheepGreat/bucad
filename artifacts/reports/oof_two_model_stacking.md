@@ -19,11 +19,11 @@
 
 ## OOF 融合结果
 
-| 方案 | 特征 | CV AUC | OOF阈值 | BUSI AUC | BUSI@OOF阈值 Sens | BUSI@OOF阈值 Spec | BUSI@OOF阈值 Acc | BUSI最佳Youden阈值 | BUSI最佳Youden Sens | BUSI最佳Youden Spec |
-| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| current_crop_sweep | eff_identity + conv_crop_sweep | 0.9245 | 0.31 | 0.9130 | 0.9429 | 0.5629 | 0.6862 | 0.45 | 0.8619 | 0.8192 |
-| auc_hflip | eff_identity + conv_hflip | 0.9249 | 0.33 | 0.9134 | 0.9333 | 0.6041 | 0.7110 | 0.45 | 0.7810 | 0.8947 |
-| multi_view | eff_identity + conv_crop_sweep + conv_hflip | 0.9249 | 0.46 | 0.9138 | 0.9429 | 0.5744 | 0.6940 | 0.66 | 0.7952 | 0.8810 |
+| 方案 | 特征 | CV AUC | OOF阈值 | BUSI AUC | BUSI@OOF阈值 Sens | Precision | F1-Score | BUSI@OOF阈值 Spec | BUSI@OOF阈值 Acc | BUSI最佳Youden阈值 | BUSI最佳Youden Sens | BUSI最佳Youden Spec |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| current_crop_sweep | eff_identity + conv_crop_sweep | 0.9245 | 0.31 | 0.9130 | 0.9429 | - | - | 0.5629 | 0.6862 | 0.45 | 0.8619 | 0.8192 |
+| auc_hflip | eff_identity + conv_hflip | 0.9249 | 0.33 | 0.9134 | 0.9333 | - | - | 0.6041 | 0.7110 | 0.45 | 0.7810 | 0.8947 |
+| multi_view | eff_identity + conv_crop_sweep + conv_hflip | 0.9249 | 0.46 | 0.9138 | 0.9429 | - | - | 0.5744 | 0.6940 | 0.66 | 0.7952 | 0.8810 |
 
 ## 外部混淆矩阵
 

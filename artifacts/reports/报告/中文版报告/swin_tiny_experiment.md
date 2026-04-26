@@ -34,20 +34,20 @@
 
 该表是 fold-1 单模型对比，应用于判断 comparable validation split 下的 backbone 本身，不应拿来和最终 optimized ensemble 对比。
 
-| Model | AUC | Sensitivity | Specificity | Accuracy |
-| --- | ---: | ---: | ---: | ---: |
-| EfficientNetV2-S fold1 comparison run | 0.8937 | 0.7049 | 0.8775 | 0.8213 |
-| DenseNet121 fold1 | 0.8867 | 0.7213 | 0.8775 | 0.8267 |
-| Swin-Tiny fold1 | 0.7950 | 0.8852 | 0.5020 | 0.6267 |
+| Model | AUC | Sensitivity | Precision | F1-Score | Specificity | Accuracy |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| EfficientNetV2-S fold1 comparison run | 0.8937 | 0.7049 | - | - | 0.8775 | 0.8213 |
+| DenseNet121 fold1 | 0.8867 | 0.7213 | - | - | 0.8775 | 0.8267 |
+| Swin-Tiny fold1 | 0.7950 | 0.8852 | - | - | 0.5020 | 0.6267 |
 
 Swin-Tiny 在默认阈值下显著提高了 Sensitivity，但提升来自于把更多样本判为 malignant。Specificity 和 Accuracy 大幅下降，AUC 也明显低于 fold-1 EfficientNetV2-S 和 DenseNet121 单模型 baseline。
 
 ## BUSI 外部评估
 
-| Operating Point | AUC | Threshold | Sensitivity | Specificity | Accuracy | Confusion |
-| --- | ---: | ---: | ---: | ---: | ---: | --- |
-| Default threshold | 0.8223 | 0.50 | 0.8810 | 0.5584 | 0.6631 | TN 244 / FP 193 / FN 25 / TP 185 |
-| Best Youden point | 0.8223 | 0.57 | 0.7619 | 0.7483 | 0.7527 | TN 327 / FP 110 / FN 50 / TP 160 |
+| Operating Point | AUC | Threshold | Sensitivity | Specificity | Accuracy | Precision | F1-Score | Confusion |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |
+| Default threshold | 0.8223 | 0.50 | 0.8810 | 0.5584 | 0.6631 | 0.4894 | 0.6293 | TN 244 / FP 193 / FN 25 / TP 185 |
+| Best Youden point | 0.8223 | 0.57 | 0.7619 | 0.7483 | 0.7527 | 0.5926 | 0.6667 | TN 327 / FP 110 / FN 50 / TP 160 |
 
 这里 BUSI 只作为该单折模型的外部 sanity check。默认阈值能得到较高 Sensitivity，但 false positives 太多。这个证据不足以支持为该精确 Swin-Tiny setup 投入五折训练时间。
 

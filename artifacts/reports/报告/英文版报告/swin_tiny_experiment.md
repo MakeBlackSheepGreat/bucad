@@ -41,11 +41,11 @@ This table is a fold-1 single-model comparison. It should be used to judge the
 backbone itself under a comparable validation split, not to compare against the
 final optimized ensemble.
 
-| Model | AUC | Sensitivity | Specificity | Accuracy |
-| --- | ---: | ---: | ---: | ---: |
-| EfficientNetV2-S fold1 comparison run | 0.8937 | 0.7049 | 0.8775 | 0.8213 |
-| DenseNet121 fold1 | 0.8867 | 0.7213 | 0.8775 | 0.8267 |
-| Swin-Tiny fold1 | 0.7950 | 0.8852 | 0.5020 | 0.6267 |
+| Model | AUC | Sensitivity | Precision | F1-Score | Specificity | Accuracy |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| EfficientNetV2-S fold1 comparison run | 0.8937 | 0.7049 | - | - | 0.8775 | 0.8213 |
+| DenseNet121 fold1 | 0.8867 | 0.7213 | - | - | 0.8775 | 0.8267 |
+| Swin-Tiny fold1 | 0.7950 | 0.8852 | - | - | 0.5020 | 0.6267 |
 
 Swin-Tiny strongly increases sensitivity at the default threshold, but the gain
 comes from predicting many more samples as malignant. Specificity and accuracy
@@ -54,10 +54,10 @@ single-model baselines.
 
 ## BUSI External Evaluation
 
-| Operating Point | AUC | Threshold | Sensitivity | Specificity | Accuracy | Confusion |
-| --- | ---: | ---: | ---: | ---: | ---: | --- |
-| Default threshold | 0.8223 | 0.50 | 0.8810 | 0.5584 | 0.6631 | TN 244 / FP 193 / FN 25 / TP 185 |
-| Best Youden point | 0.8223 | 0.57 | 0.7619 | 0.7483 | 0.7527 | TN 327 / FP 110 / FN 50 / TP 160 |
+| Operating Point | AUC | Threshold | Sensitivity | Specificity | Accuracy | Precision | F1-Score | Confusion |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |
+| Default threshold | 0.8223 | 0.50 | 0.8810 | 0.5584 | 0.6631 | 0.4894 | 0.6293 | TN 244 / FP 193 / FN 25 / TP 185 |
+| Best Youden point | 0.8223 | 0.57 | 0.7619 | 0.7483 | 0.7527 | 0.5926 | 0.6667 | TN 327 / FP 110 / FN 50 / TP 160 |
 
 BUSI is used here only as an external sanity check for this single fold. The
 default threshold gives high sensitivity, but it produces too many false

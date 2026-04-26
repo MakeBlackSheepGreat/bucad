@@ -96,3 +96,6 @@ The earlier results are not useless, but they should be labeled correctly:
 
 The next serious step is to implement a timm-aware training recipe and rerun
 fold1 for the strongest existing and new candidate backbones.
+## Competition Metric Completeness Note
+
+The official competition metric set is AUC, Accuracy, Recall/Sensitivity, Precision, Specificity, and F1-Score. If an old archived table shows `-` for Precision or F1-Score, the historical summary did not preserve the confusion matrix or raw probabilities needed to reconstruct that value. For locked BUSI operating-point results, use `artifacts/reports/competition_metrics_all_busi_reports.md` as the complete metric source.

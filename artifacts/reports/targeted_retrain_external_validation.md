@@ -58,13 +58,13 @@
 
 ## BUSI 集成外部验证
 
-| 方案 | 配置 | AUC | 阈值 | Sensitivity | Specificity | Accuracy | 混淆矩阵 |
-| --- | --- | ---: | ---: | ---: | ---: | ---: | --- |
-| 当前主线 | `configs/inference/ensemble_effnet_convnext_optimized.yml` | 0.9151 | 0.399 | 0.8000 | 0.8856 | 0.8578 | TN 387 / FP 50 / FN 42 / TP 168 |
-| 只替换 ConvNeXt fold4 | `configs/inference/ensemble_effnet_convnext_retrain_conv4.yml` | 0.8712 | 0.399 | 0.7571 | 0.8398 | 0.8130 | TN 367 / FP 70 / FN 51 / TP 159 |
-| 只替换 EfficientNet fold5 | `configs/inference/ensemble_effnet_convnext_retrain_eff5.yml` | 0.8708 | 0.399 | 0.7762 | 0.8558 | 0.8300 | TN 374 / FP 63 / FN 47 / TP 163 |
-| 同时替换两个弱折 | `configs/inference/ensemble_effnet_convnext_retrain_conv4_eff5.yml` | 0.8701 | 0.399 | 0.7524 | 0.8581 | 0.8238 | TN 375 / FP 62 / FN 52 / TP 158 |
-| hflip 候选同时替换两个弱折 | `configs/inference/ensemble_effnet_convnext_hflip_weight0511_retrain_conv4_eff5.yml` | 0.9140 | 0.385 | 0.7571 | 0.8970 | 0.8516 | TN 392 / FP 45 / FN 51 / TP 159 |
+| 方案 | 配置 | AUC | 阈值 | Sensitivity | Specificity | Accuracy | Precision | F1-Score | 混淆矩阵 |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |
+| 当前主线 | `configs/inference/ensemble_effnet_convnext_optimized.yml` | 0.9151 | 0.399 | 0.8000 | 0.8856 | 0.8578 | 0.7706 | 0.7850 | TN 387 / FP 50 / FN 42 / TP 168 |
+| 只替换 ConvNeXt fold4 | `configs/inference/ensemble_effnet_convnext_retrain_conv4.yml` | 0.8712 | 0.399 | 0.7571 | 0.8398 | 0.8130 | 0.6943 | 0.7244 | TN 367 / FP 70 / FN 51 / TP 159 |
+| 只替换 EfficientNet fold5 | `configs/inference/ensemble_effnet_convnext_retrain_eff5.yml` | 0.8708 | 0.399 | 0.7762 | 0.8558 | 0.8300 | 0.7212 | 0.7477 | TN 374 / FP 63 / FN 47 / TP 163 |
+| 同时替换两个弱折 | `configs/inference/ensemble_effnet_convnext_retrain_conv4_eff5.yml` | 0.8701 | 0.399 | 0.7524 | 0.8581 | 0.8238 | 0.7182 | 0.7349 | TN 375 / FP 62 / FN 52 / TP 158 |
+| hflip 候选同时替换两个弱折 | `configs/inference/ensemble_effnet_convnext_hflip_weight0511_retrain_conv4_eff5.yml` | 0.9140 | 0.385 | 0.7571 | 0.8970 | 0.8516 | 0.7794 | 0.7681 | TN 392 / FP 45 / FN 51 / TP 159 |
 
 集成结果进一步确认：重训弱折不适合并入当前主线。
 

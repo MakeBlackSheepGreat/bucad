@@ -20,7 +20,7 @@ from src.models.segmenter import load_segmenter
 from src.explain.gradcam import generate_gradcam_map
 from src.explain.overlay import render_heatmap_overlay, render_mask_overlay
 from src.preprocess.io import cv2, ensure_three_channels, read_image, validate_image_array
-from src.preprocess.roi import crop_to_mask_bbox
+from src.preprocess.roi import crop_to_mask_bbox, expand_bbox, mask_bbox
 from src.preprocess.transforms import prepare_classifier_input
 from src.utils.config import load_project_config
 from src.utils.metrics import best_threshold_by_youden, classification_metrics, threshold_sweep
@@ -441,6 +441,64 @@ class BreastUltrasoundInferenceService:
         probability = 1.0 / (1.0 + float(np.exp(-logit)))
         return float(np.clip(probability, 0.0, 1.0))
 
+    @staticmethod
+    def _roi_area_ratio(mask: np.ndarray | None, config: dict[str, Any]) -> tuple[float, bool]:
+        if mask is None:
+            return 1.0, True
+        threshold = float(config.get("mask_threshold", 0.5))
+        largest_component = bool(config.get("largest_component", False))
+        min_mask_area_ratio = float(config.get("min_mask_area_ratio", 0.001))
+        bbox = mask_bbox(
+            mask,
+            threshold=threshold,
+            min_area_ratio=min_mask_area_ratio,
+            largest_component=largest_component,
+        )
+        if bbox is None:
+            return 1.0, True
+        x1, y1, x2, y2 = expand_bbox(
+            bbox,
+            image_shape=mask.shape,
+            margin_ratio=float(config.get("margin_ratio", 0.35)),
+            square=True,
+        )
+        area = max(1, (x2 - x1) * (y2 - y1))
+        total = max(1, int(mask.shape[0]) * int(mask.shape[1]))
+        return float(area / total), False
+
+    @staticmethod
+    def _roi_area_gate_config(config: dict[str, Any]) -> dict[str, Any] | None:
+        gate = config.get("quality_gate")
+        if not isinstance(gate, dict):
+            gate = {}
+        min_area = gate.get("min_area_ratio", config.get("min_roi_area_ratio"))
+        max_area = gate.get("max_area_ratio", config.get("max_roi_area_ratio"))
+        if min_area is None and max_area is None:
+            return None
+        return {
+            "enabled": bool(gate.get("enabled", True)),
+            "min_area_ratio": None if min_area is None else float(min_area),
+            "max_area_ratio": None if max_area is None else float(max_area),
+            "fallback_to_full": bool(gate.get("fallback_to_full", True)),
+        }
+
+    def _should_fallback_roi_by_area(
+        self,
+        mask: np.ndarray | None,
+        config: dict[str, Any],
+    ) -> bool:
+        gate = self._roi_area_gate_config(config)
+        if gate is None or not gate["enabled"] or not gate["fallback_to_full"]:
+            return False
+        area_ratio, used_fallback = self._roi_area_ratio(mask, config)
+        if used_fallback:
+            return True
+        min_area = gate["min_area_ratio"]
+        max_area = gate["max_area_ratio"]
+        if min_area is not None and area_ratio < min_area:
+            return True
+        return bool(max_area is not None and area_ratio > max_area)
+
     def _predict_roi_enhanced_classification(
         self,
         image: np.ndarray,
@@ -454,6 +512,8 @@ class BreastUltrasoundInferenceService:
             if self.segmenter_predictor is not None
             else self._predict_segmentation(image)
         )
+        if self._should_fallback_roi_by_area(mask, config):
+            return full_benign_probability, full_malignant_probability
         roi_image = crop_to_mask_bbox(
             image,
             mask,
@@ -476,6 +536,13 @@ class BreastUltrasoundInferenceService:
             roi_probability=roi_malignant_probability,
             stacker=config["stacker"],
         )
+        blend_weight = float(config.get("roi_stack_blend_weight", 1.0))
+        if blend_weight < 1.0:
+            blend_weight = float(np.clip(blend_weight, 0.0, 1.0))
+            malignant_probability = (
+                blend_weight * malignant_probability
+                + (1.0 - blend_weight) * full_malignant_probability
+            )
         return 1.0 - malignant_probability, malignant_probability
 
     def _predict_classification(self, image: np.ndarray) -> tuple[float, float]:

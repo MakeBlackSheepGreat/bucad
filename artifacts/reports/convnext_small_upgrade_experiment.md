@@ -20,28 +20,28 @@
 
 ## 训练结果
 
-| 模型 | fold | 内部验证 AUC | Sensitivity | Specificity | Accuracy | 备注 |
-| --- | ---: | ---: | ---: | ---: | ---: | --- |
-| ConvNeXt-Tiny timm recipe | 1 | 0.9259 | 0.7213 | 0.9328 | 0.8640 | 已有基准 |
-| ConvNeXt-Small timm recipe | 1 | 0.9118 | 0.7295 | 0.9091 | 0.8507 | 本轮新增 |
+| 模型 | fold | 内部验证 AUC | Sensitivity | Precision | F1-Score | Specificity | Accuracy | 备注 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |
+| ConvNeXt-Tiny timm recipe | 1 | 0.9259 | 0.7213 | - | - | 0.9328 | 0.8640 | 已有基准 |
+| ConvNeXt-Small timm recipe | 1 | 0.9118 | 0.7295 | - | - | 0.9091 | 0.8507 | 本轮新增 |
 
 训练观察：ConvNeXt-Small 在后半程训练损失接近 0，说明参数量增大后更容易记忆训练集，存在过拟合风险。
 
 ## BUSI 外部评估
 
-| 模型 | TTA | AUC | 阈值 | Sensitivity | Specificity | Accuracy | 混淆矩阵 |
-| --- | --- | ---: | ---: | ---: | ---: | ---: | --- |
-| ConvNeXt-Tiny fold1 | hflip | 0.8943 | 0.50 | 0.7762 | 0.8741 | 0.8423 | TN 382 / FP 55 / FN 47 / TP 163 |
-| ConvNeXt-Tiny fold1 | crop-sweep | 0.8953 | 0.50 | 0.7952 | 0.8696 | 0.8454 | TN 380 / FP 57 / FN 43 / TP 167 |
-| ConvNeXt-Small fold1 | hflip | 0.8947 | 0.50 | 0.7667 | 0.8581 | 0.8284 | TN 375 / FP 62 / FN 49 / TP 161 |
-| ConvNeXt-Small fold1 | crop-sweep | 0.8991 | 0.50 | 0.7857 | 0.8673 | 0.8408 | TN 379 / FP 58 / FN 45 / TP 165 |
+| 模型 | TTA | AUC | 阈值 | Sensitivity | Specificity | Accuracy | Precision | F1-Score | 混淆矩阵 |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |
+| ConvNeXt-Tiny fold1 | hflip | 0.8943 | 0.50 | 0.7762 | 0.8741 | 0.8423 | 0.7477 | 0.7617 | TN 382 / FP 55 / FN 47 / TP 163 |
+| ConvNeXt-Tiny fold1 | crop-sweep | 0.8953 | 0.50 | 0.7952 | 0.8696 | 0.8454 | 0.7455 | 0.7696 | TN 380 / FP 57 / FN 43 / TP 167 |
+| ConvNeXt-Small fold1 | hflip | 0.8947 | 0.50 | 0.7667 | 0.8581 | 0.8284 | 0.7220 | 0.7436 | TN 375 / FP 62 / FN 49 / TP 161 |
+| ConvNeXt-Small fold1 | crop-sweep | 0.8991 | 0.50 | 0.7857 | 0.8673 | 0.8408 | 0.7399 | 0.7621 | TN 379 / FP 58 / FN 45 / TP 165 |
 
 ## Youden 运行点
 
-| 模型 | TTA | AUC | 推荐阈值 | Sensitivity | Specificity | Accuracy | Youden J |
-| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| ConvNeXt-Tiny fold1 | crop-sweep | 0.8953 | 0.49 | 0.7952 | 0.8719 | 0.8470 | 0.6671 |
-| ConvNeXt-Small fold1 | crop-sweep | 0.8991 | 0.28 | 0.8381 | 0.8284 | 0.8315 | 0.6665 |
+| 模型 | TTA | AUC | 推荐阈值 | Sensitivity | Precision | F1-Score | Specificity | Accuracy | Youden J |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| ConvNeXt-Tiny fold1 | crop-sweep | 0.8953 | 0.49 | 0.7952 | - | - | 0.8719 | 0.8470 | 0.6671 |
+| ConvNeXt-Small fold1 | crop-sweep | 0.8991 | 0.28 | 0.8381 | - | - | 0.8284 | 0.8315 | 0.6665 |
 
 ## 结论
 

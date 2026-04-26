@@ -83,3 +83,6 @@ fold4 并非只对 ConvNeXt-Tiny 异常偏低；EfficientNetV2-S 和 DenseNet121
 1. 保留 fold4 参与五折集成，不应在没有正式规则的情况下丢弃。
 2. 如果需要进一步确认，可只用不同 seed 重训 ConvNeXt fold4，观察 AUC 是否仍接近 `0.887` 或回升到 `0.91` 以上。
 3. 如果 fold4 在不同 seed 下仍然偏低，应把它当作困难验证子集用于错误案例分析，而不是作为放弃 ConvNeXt 的理由。
+## 比赛指标完整性说明
+
+比赛统一指标集为 AUC、Accuracy、Recall/Sensitivity、Precision、Specificity 和 F1-Score。如果历史归档表中 Precision 或 F1-Score 显示 `-`，说明原始摘要未保留可反推该值的 confusion matrix 或原始概率。锁定 BUSI 运行点结果以 `artifacts/reports/competition_metrics_all_busi_reports.md` 作为完整指标来源。

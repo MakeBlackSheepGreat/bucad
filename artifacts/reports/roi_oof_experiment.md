@@ -38,3 +38,6 @@
 - 加入 BUSBRA 分割验证选择出的 `mask_threshold=0.40` 和最大连通域后处理后，当前主线 AUC 提升到 `0.9208`，Sensitivity 提升到 `0.8524`。
 - segmenter ROI 的中位面积占比偏大，说明当前不是“紧贴病灶”的精细裁剪，而是带较多上下文的病灶区域引导。
 - 当前 ROI OOF 配置已按 BUSBRA OOF 固定参数和阈值，并完成 BUSI 锁定外部复核；由于 LCC ROI 后处理后的 AUC 和 Sensitivity 均高于上一版 ROI 主线，已合并为当前 demo 主线。
+## Competition Metric Completeness Note
+
+The official competition metric set is AUC, Accuracy, Recall/Sensitivity, Precision, Specificity, and F1-Score. If an old archived table shows `-` for Precision or F1-Score, the historical summary did not preserve the confusion matrix or raw probabilities needed to reconstruct that value. For locked BUSI operating-point results, use `artifacts/reports/competition_metrics_all_busi_reports.md` as the complete metric source.

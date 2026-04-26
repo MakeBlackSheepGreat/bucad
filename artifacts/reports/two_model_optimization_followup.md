@@ -15,18 +15,18 @@
 
 当前 Demo 使用的是 ConvNeXt-Tiny 五折 crop-sweep TTA + EfficientNetV2-S 五折 identity TTA：
 
-| 方案 | 配置 | AUC | 阈值 | Sensitivity | Specificity | Accuracy | 混淆矩阵 |
-| --- | --- | ---: | ---: | ---: | ---: | ---: | --- |
-| 当前两模型正式方案 | `configs/inference/ensemble_effnet_convnext_optimized.yml` | 0.9151 | 0.399 | 0.8000 | 0.8856 | 0.8578 | TN 387 / FP 50 / FN 42 / TP 168 |
+| 方案 | 配置 | AUC | 阈值 | Sensitivity | Specificity | Accuracy | Precision | F1-Score | 混淆矩阵 |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |
+| 当前两模型正式方案 | `configs/inference/ensemble_effnet_convnext_optimized.yml` | 0.9151 | 0.399 | 0.8000 | 0.8856 | 0.8578 | 0.7706 | 0.7850 | TN 387 / FP 50 / FN 42 / TP 168 |
 
 这个基准已经处在比较稳定的位置，后续优化不能只看单一 AUC，还要看是否牺牲敏感性。
 
 ## 补齐的单模型外部评估
 
-| 单模型方案 | 报告 | AUC | 默认阈值 Sensitivity | 默认阈值 Specificity | 默认阈值 Accuracy | Youden 推荐阈值 |
-| --- | --- | ---: | ---: | ---: | ---: | ---: |
-| EfficientNetV2-S 五折 identity | `artifacts/reports/busi_efficientnetv2_s_5fold_identity.json` | 0.8982 | 0.6619 | 0.9314 | 0.8439 | 0.39 |
-| EfficientNetV2-S 五折 hflip | `artifacts/reports/busi_efficientnetv2_s_5fold_hflip.json` | 0.8997 | 0.6810 | 0.9291 | 0.8485 | 0.36 |
+| 单模型方案 | 报告 | AUC | 默认阈值 Sensitivity | Precision | F1-Score | 默认阈值 Specificity | 默认阈值 Accuracy | Youden 推荐阈值 |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| EfficientNetV2-S 五折 identity | `artifacts/reports/busi_efficientnetv2_s_5fold_identity.json` | 0.8982 | 0.6619 | - | - | 0.9314 | 0.8439 | 0.39 |
+| EfficientNetV2-S 五折 hflip | `artifacts/reports/busi_efficientnetv2_s_5fold_hflip.json` | 0.8997 | 0.6810 | - | - | 0.9291 | 0.8485 | 0.36 |
 
 EfficientNetV2-S 单独看时 hflip 略好，但在两模型集成里，identity 与 ConvNeXt 的互补性更好。
 
@@ -43,21 +43,21 @@ EfficientNetV2-S 单独看时 hflip 略好，但在两模型集成里，identity
 
 ## 实跑候选结果
 
-| 方案 | 配置 | AUC | 阈值 | Sensitivity | Specificity | Accuracy | 混淆矩阵 | 主要变化 |
-| --- | --- | ---: | ---: | ---: | ---: | ---: | --- | --- |
-| 当前两模型正式方案 | `configs/inference/ensemble_effnet_convnext_optimized.yml` | 0.9151 | 0.399 | 0.8000 | 0.8856 | 0.8578 | TN 387 / FP 50 / FN 42 / TP 168 | 当前 Demo 基准 |
-| 保守微调候选 | `configs/inference/ensemble_effnet_convnext_crop_sweep_weight0569.yml` | 0.9152 | 0.399 | 0.8000 | 0.8856 | 0.8578 | TN 387 / FP 50 / FN 42 / TP 168 | 只把 ConvNeXt 权重从 0.573 微调到 0.569，收益极小 |
-| AUC/特异性候选 | `configs/inference/ensemble_effnet_convnext_hflip_weight0511.yml` | 0.9159 | 0.385 | 0.7905 | 0.8947 | 0.8609 | TN 391 / FP 46 / FN 44 / TP 166 | AUC、Specificity、Accuracy 提升，但 Sensitivity 下降 |
+| 方案 | 配置 | AUC | 阈值 | Sensitivity | Specificity | Accuracy | Precision | F1-Score | 混淆矩阵 | 主要变化 |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- | --- |
+| 当前两模型正式方案 | `configs/inference/ensemble_effnet_convnext_optimized.yml` | 0.9151 | 0.399 | 0.8000 | 0.8856 | 0.8578 | 0.7706 | 0.7850 | TN 387 / FP 50 / FN 42 / TP 168 | 当前 Demo 基准 |
+| 保守微调候选 | `configs/inference/ensemble_effnet_convnext_crop_sweep_weight0569.yml` | 0.9152 | 0.399 | 0.8000 | 0.8856 | 0.8578 | 0.7706 | 0.7850 | TN 387 / FP 50 / FN 42 / TP 168 | 只把 ConvNeXt 权重从 0.573 微调到 0.569，收益极小 |
+| AUC/特异性候选 | `configs/inference/ensemble_effnet_convnext_hflip_weight0511.yml` | 0.9159 | 0.385 | 0.7905 | 0.8947 | 0.8609 | 0.7830 | 0.7867 | TN 391 / FP 46 / FN 44 / TP 166 | AUC、Specificity、Accuracy 提升，但 Sensitivity 下降 |
 
 ## 阈值取舍
 
 `configs/inference/ensemble_effnet_convnext_hflip_weight0511.yml` 的关键阈值点如下：
 
-| 阈值 | Sensitivity | Specificity | Accuracy | Youden J | 混淆矩阵 |
-| ---: | ---: | ---: | ---: | ---: | --- |
-| 0.385 | 0.7905 | 0.8947 | 0.8609 | 0.6852 | TN 391 / FP 46 / FN 44 / TP 166 |
-| 0.395 | 0.7857 | 0.8993 | 0.8624 | 0.6850 | TN 393 / FP 44 / FN 45 / TP 165 |
-| 0.400 | 0.7810 | 0.9016 | 0.8624 | 0.6826 | TN 394 / FP 43 / FN 46 / TP 164 |
+| 阈值 | Sensitivity | Specificity | Accuracy | Youden J | Precision | F1-Score | 混淆矩阵 |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |
+| 0.385 | 0.7905 | 0.8947 | 0.8609 | 0.6852 | 0.7830 | 0.7867 | TN 391 / FP 46 / FN 44 / TP 166 |
+| 0.395 | 0.7857 | 0.8993 | 0.8624 | 0.6850 | 0.7895 | 0.7876 | TN 393 / FP 44 / FN 45 / TP 165 |
+| 0.400 | 0.7810 | 0.9016 | 0.8624 | 0.6826 | 0.7923 | 0.7866 | TN 394 / FP 43 / FN 46 / TP 164 |
 
 如果展示目标是“更少误报、更高准确率”，AUC/特异性候选更好；如果展示目标是“尽量不漏诊”，当前 crop-sweep 主线更合适。
 

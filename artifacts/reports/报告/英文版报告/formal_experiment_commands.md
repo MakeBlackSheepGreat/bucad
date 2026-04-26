@@ -99,3 +99,6 @@ Expected evidence:
 - `artifacts/reports/batch_inference_final.csv`
 - `artifacts/reports/release_v1_manifest.md`
 - `artifacts/reports/documents/bucad_report_summary.docx`
+## Competition Metric Completeness Note
+
+The official competition metric set is AUC, Accuracy, Recall/Sensitivity, Precision, Specificity, and F1-Score. If an old archived table shows `-` for Precision or F1-Score, the historical summary did not preserve the confusion matrix or raw probabilities needed to reconstruct that value. For locked BUSI operating-point results, use `artifacts/reports/competition_metrics_all_busi_reports.md` as the complete metric source.

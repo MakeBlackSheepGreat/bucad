@@ -38,16 +38,16 @@ does not prove ConvNeXt is fundamentally unsuitable.
 
 ## Fold-1 Single-Model Comparison
 
-| Model | AUC | Sensitivity | Specificity | Accuracy |
-| --- | ---: | ---: | ---: | ---: |
-| EfficientNetV2-S | 0.8937 | 0.7049 | 0.8775 | 0.8213 |
-| DenseNet121 | 0.8867 | 0.7213 | 0.8775 | 0.8267 |
-| ResNet18 | 0.8756 | 0.7131 | 0.8577 | 0.8107 |
-| MobileNetV3-Small | 0.8704 | 0.6557 | 0.9170 | 0.8320 |
-| Swin-Tiny | 0.7950 | 0.8852 | 0.5020 | 0.6267 |
-| Basic CNN | 0.6427 | 0.0000 | 0.9921 | 0.6693 |
-| VGG16 | 0.5000 | 0.0000 | 1.0000 | 0.6747 |
-| ConvNeXt-Tiny | 0.4519 | 0.0000 | 1.0000 | 0.6747 |
+| Model | AUC | Sensitivity | Precision | F1-Score | Specificity | Accuracy |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| EfficientNetV2-S | 0.8937 | 0.7049 | - | - | 0.8775 | 0.8213 |
+| DenseNet121 | 0.8867 | 0.7213 | - | - | 0.8775 | 0.8267 |
+| ResNet18 | 0.8756 | 0.7131 | - | - | 0.8577 | 0.8107 |
+| MobileNetV3-Small | 0.8704 | 0.6557 | - | - | 0.9170 | 0.8320 |
+| Swin-Tiny | 0.7950 | 0.8852 | - | - | 0.5020 | 0.6267 |
+| Basic CNN | 0.6427 | 0.0000 | - | - | 0.9921 | 0.6693 |
+| VGG16 | 0.5000 | 0.0000 | - | - | 1.0000 | 0.6747 |
+| ConvNeXt-Tiny | 0.4519 | 0.0000 | - | - | 1.0000 | 0.6747 |
 
 Under the current training recipe, ConvNeXt-Tiny does not learn a useful
 malignant decision boundary. The final checkpoint predicts all validation
@@ -57,10 +57,10 @@ threshold.
 
 ## BUSI External Sanity Check
 
-| Operating Point | AUC | Threshold | Sensitivity | Specificity | Accuracy | Confusion |
-| --- | ---: | ---: | ---: | ---: | ---: | --- |
-| Default threshold | 0.6012 | 0.50 | 0.0000 | 1.0000 | 0.6754 | TN 437 / FP 0 / FN 210 / TP 0 |
-| Best sweep point | 0.6012 | 0.10 | 1.0000 | 0.0000 | 0.3246 | TN 0 / FP 437 / FN 0 / TP 210 |
+| Operating Point | AUC | Threshold | Sensitivity | Specificity | Accuracy | Precision | F1-Score | Confusion |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |
+| Default threshold | 0.6012 | 0.50 | 0.0000 | 1.0000 | 0.6754 | 0.0000 | 0.0000 | TN 437 / FP 0 / FN 210 / TP 0 |
+| Best sweep point | 0.6012 | 0.10 | 1.0000 | 0.0000 | 0.3246 | 0.3246 | 0.4901 | TN 0 / FP 437 / FN 0 / TP 210 |
 
 The BUSI probabilities are poorly calibrated for normal threshold use. At
 threshold 0.50 the model predicts all samples as benign; at the lowest swept

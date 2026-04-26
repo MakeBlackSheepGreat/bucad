@@ -29,11 +29,11 @@
 
 ## 逻辑回归 Stacking 结果
 
-| 方案 | 特征 | OOF CV AUC | BUSI AUC | BUSI@0.5 Sens | BUSI@0.5 Spec | BUSI@0.5 Acc | 评价 |
-| --- | --- | ---: | ---: | ---: | ---: | ---: | --- |
-| `current_crop_sweep` | `eff_identity + conv_crop_sweep` | 0.9245 | 0.9130 | 0.7762 | 0.8970 | 0.8578 | 外部 AUC 低于主线 |
-| `auc_hflip` | `eff_identity + conv_hflip` | 0.9249 | 0.9134 | 0.6857 | 0.9428 | 0.8594 | 过度偏向特异性，敏感性下降明显 |
-| `multi_view` | `eff_identity + conv_crop_sweep + conv_hflip` | 0.9249 | 0.9138 | 0.9286 | 0.6339 | 0.7295 | 校准偏移严重，不能作为默认方案 |
+| 方案 | 特征 | OOF CV AUC | BUSI AUC | BUSI@0.5 Sens | Precision | F1-Score | BUSI@0.5 Spec | BUSI@0.5 Acc | 评价 |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |
+| `current_crop_sweep` | `eff_identity + conv_crop_sweep` | 0.9245 | 0.9130 | 0.7762 | - | - | 0.8970 | 0.8578 | 外部 AUC 低于主线 |
+| `auc_hflip` | `eff_identity + conv_hflip` | 0.9249 | 0.9134 | 0.6857 | - | - | 0.9428 | 0.8594 | 过度偏向特异性，敏感性下降明显 |
+| `multi_view` | `eff_identity + conv_crop_sweep + conv_hflip` | 0.9249 | 0.9138 | 0.9286 | - | - | 0.6339 | 0.7295 | 校准偏移严重，不能作为默认方案 |
 
 逻辑回归 Stacking 在 BUSBRA OOF 上表现不错，但迁移到 BUSI 后 AUC 低于当前主线 `0.9151`。这说明 BUSBRA 与 BUSI 存在分布差异，融合器学到的概率校准关系没有稳定迁移。
 
@@ -50,11 +50,11 @@
 
 ## 与当前主线对比
 
-| 方案 | 权重来源 | BUSI AUC | 阈值 | Sensitivity | Specificity | Accuracy | 混淆矩阵 |
-| --- | --- | ---: | ---: | ---: | ---: | ---: | --- |
-| 当前 Demo 主线 | 早前权重搜索 + crop-sweep | 0.9151 | 0.399 | 0.8000 | 0.8856 | 0.8578 | TN 387 / FP 50 / FN 42 / TP 168 |
-| OOF 静态权重候选 | BUSBRA OOF + hflip | 0.9158 | BUSI分析阈值 0.40 | 0.7857 | 0.8993 | 0.8624 | TN 393 / FP 44 / FN 45 / TP 165 |
-| 上轮 hflip 候选 | BUSI 直接权重搜索 + hflip | 0.9159 | 0.385 | 0.7905 | 0.8947 | 0.8609 | TN 391 / FP 46 / FN 44 / TP 166 |
+| 方案 | 权重来源 | BUSI AUC | 阈值 | Sensitivity | Specificity | Accuracy | Precision | F1-Score | 混淆矩阵 |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |
+| 当前 Demo 主线 | 早前权重搜索 + crop-sweep | 0.9151 | 0.399 | 0.8000 | 0.8856 | 0.8578 | 0.7706 | 0.7850 | TN 387 / FP 50 / FN 42 / TP 168 |
+| OOF 静态权重候选 | BUSBRA OOF + hflip | 0.9158 | BUSI分析阈值 0.40 | 0.7857 | 0.8993 | 0.8624 | 0.7895 | 0.7876 | TN 393 / FP 44 / FN 45 / TP 165 |
+| 上轮 hflip 候选 | BUSI 直接权重搜索 + hflip | 0.9159 | 0.385 | 0.7905 | 0.8947 | 0.8609 | 0.7830 | 0.7867 | TN 391 / FP 46 / FN 44 / TP 166 |
 
 ## 结论
 

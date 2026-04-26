@@ -32,8 +32,8 @@ runtime:
   - name: hflip
     crop_pct: 1.0
   primary_classifier_model: ConvNeXt-Tiny
-  ensemble_display_name: ConvNeXt-Tiny + EfficientNetV2-S + ROI OOF LCC
-  default_threshold: 0.55
+  ensemble_display_name: ConvNeXt-Tiny + EfficientNetV2-S + ROI Area Gate
+  default_threshold: 0.51
   borderline_margin: 0.08
   classifier_checkpoint: null
   classifier_checkpoints: []
@@ -196,3 +196,9 @@ runtime:
       - 0.9337465177659563
       intercept: -0.867107931216447
     largest_component: true
+    quality_gate:
+      enabled: true
+      min_area_ratio: 0.08
+      max_area_ratio: 0.75
+      fallback_to_full: true
+    roi_stack_blend_weight: 1.0

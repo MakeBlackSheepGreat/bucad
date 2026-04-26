@@ -55,3 +55,6 @@
 - 2026-04-24：EfficientNetV2-S T059 五折完成，mean AUC `0.8946`，BUSI ensemble AUC `0.8955`，Youden threshold `0.25`。
 - 2026-04-24：T060 完整对比完成，7 个配置模型中 `tf_efficientnetv2_s` 以 AUC `0.8937` 排名第一；`alexnet` 在记录运行中失败。
 - 2026-04-24：修复 comparison dry-run 隔离、加入 AlexNet 构建支持、更新 Windows pytest temp 目录策略；`check_all.py` 完成 `26 passed in 9.74s`。
+## 比赛指标完整性说明
+
+比赛统一指标集为 AUC、Accuracy、Recall/Sensitivity、Precision、Specificity 和 F1-Score。如果历史归档表中 Precision 或 F1-Score 显示 `-`，说明原始摘要未保留可反推该值的 confusion matrix 或原始概率。锁定 BUSI 运行点结果以 `artifacts/reports/competition_metrics_all_busi_reports.md` 作为完整指标来源。

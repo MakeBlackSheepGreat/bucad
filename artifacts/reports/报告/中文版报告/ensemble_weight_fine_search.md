@@ -13,9 +13,9 @@
 
 ## 最佳结果
 
-| DenseNet 权重 | AUC | Best Threshold | Sensitivity | Specificity | Accuracy |
-| ---: | ---: | ---: | ---: | ---: | ---: |
-| 0.63 | 0.9052 | 0.27 | 0.8095 | 0.8719 | 0.8516 |
+| DenseNet 权重 | AUC | Best Threshold | Sensitivity | Precision | F1-Score | Specificity | Accuracy |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 0.63 | 0.9052 | 0.27 | 0.8095 | - | - | 0.8719 | 0.8516 |
 
 ## Top AUC 权重
 

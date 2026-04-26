@@ -70,3 +70,6 @@ conda run -n BUCAD python scripts\export_report_documents.py --reports-dir artif
 ```
 
 期望证据：`visual_evidence_final/README.md`、`batch_inference_final.csv`、`release_v1_manifest.md` 和 `bucad_report_summary.docx`。
+## 比赛指标完整性说明
+
+比赛统一指标集为 AUC、Accuracy、Recall/Sensitivity、Precision、Specificity 和 F1-Score。如果历史归档表中 Precision 或 F1-Score 显示 `-`，说明原始摘要未保留可反推该值的 confusion matrix 或原始概率。锁定 BUSI 运行点结果以 `artifacts/reports/competition_metrics_all_busi_reports.md` 作为完整指标来源。

@@ -26,11 +26,11 @@
 
 ## 结果
 
-| Runtime Candidate | AUC | Threshold | Sensitivity | Specificity | Accuracy |
-| --- | ---: | ---: | ---: | ---: | ---: |
-| EfficientNetV2-S five-fold + TTA | 0.8997 | 0.33 | 0.8000 | 0.8764 | 0.8516 |
-| EfficientNetV2-S + DenseNet121 mixed ensemble, DenseNet weight 0.50 | 0.9050 | 0.28 | 0.8095 | 0.8696 | 0.8501 |
-| EfficientNetV2-S + DenseNet121 mixed ensemble, DenseNet weight 0.63 | 0.9052 | 0.27 | 0.8095 | 0.8719 | 0.8516 |
+| Runtime Candidate | AUC | Threshold | Sensitivity | Precision | F1-Score | Specificity | Accuracy |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| EfficientNetV2-S five-fold + TTA | 0.8997 | 0.33 | 0.8000 | - | - | 0.8764 | 0.8516 |
+| EfficientNetV2-S + DenseNet121 mixed ensemble, DenseNet weight 0.50 | 0.9050 | 0.28 | 0.8095 | - | - | 0.8696 | 0.8501 |
+| EfficientNetV2-S + DenseNet121 mixed ensemble, DenseNet weight 0.63 | 0.9052 | 0.27 | 0.8095 | - | - | 0.8719 | 0.8516 |
 
 ## 决策
 

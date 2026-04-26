@@ -24,3 +24,6 @@ Date: 2026-04-24
 | F18 | `006_benign_(103)` | `artifacts/reports/visual_evidence_final/006_benign_(103)/explanation.png` | Grad-CAM-style explanation heatmap |
 
 Use these figure IDs when assembling the report and defense slides.
+## Competition Metric Completeness Note
+
+This archived file is a figure or release manifest, not a model evaluation table. The official competition metric set for BUSI operating-point reports is AUC, Accuracy, Recall/Sensitivity, Precision, Specificity, and F1-Score. Use rtifacts/reports/competition_metrics_all_busi_reports.md for complete metric values.

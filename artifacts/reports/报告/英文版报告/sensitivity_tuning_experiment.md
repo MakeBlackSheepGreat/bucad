@@ -17,11 +17,11 @@ without using BUSI for training.
 
 ## Fold-1 Validation Results
 
-| Experiment | Best Epoch | AUC | Sensitivity @0.50 | Specificity @0.50 | Accuracy @0.50 | Sensitivity @0.24 | Specificity @0.24 | Accuracy @0.24 |
-| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| Baseline | - | 0.9248 | 0.6148 | 0.9565 | 0.8453 | - | - | - |
-| Sensitive | 18 | 0.8922 | 0.9016 | 0.7075 | 0.7707 | 0.9262 | 0.6482 | 0.7387 |
-| Balanced sensitive | 27 | 0.9170 | 0.7541 | 0.8775 | 0.8373 | 0.8033 | 0.8696 | 0.8480 |
+| Experiment | Best Epoch | AUC | Sensitivity @0.50 | Precision | F1-Score | Specificity @0.50 | Accuracy @0.50 | Sensitivity @0.24 | Specificity @0.24 | Accuracy @0.24 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Baseline | - | 0.9248 | 0.6148 | - | - | 0.9565 | 0.8453 | - | - | - |
+| Sensitive | 18 | 0.8922 | 0.9016 | - | - | 0.7075 | 0.7707 | 0.9262 | 0.6482 | 0.7387 |
+| Balanced sensitive | 27 | 0.9170 | 0.7541 | - | - | 0.8775 | 0.8373 | 0.8033 | 0.8696 | 0.8480 |
 
 ## Decision
 

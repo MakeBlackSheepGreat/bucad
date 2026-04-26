@@ -6,13 +6,13 @@
 
 ## 各折指标
 
-| Fold | AUC | Sensitivity | Specificity | Accuracy | Checkpoint |
-| ---: | ---: | ---: | ---: | ---: | --- |
-| 1 | 0.9248 | 0.6148 | 0.9565 | 0.8453 | `C:/Users/876762330/Desktop/Agent/artifacts/checkpoints/efficientnetv2_s_fold1.pt` |
-| 2 | 0.8988 | 0.7521 | 0.8386 | 0.8107 | `C:/Users/876762330/Desktop/Agent/artifacts/checkpoints/efficientnetv2_s_fold2.pt` |
-| 3 | 0.9077 | 0.6612 | 0.9016 | 0.8240 | `C:/Users/876762330/Desktop/Agent/artifacts/checkpoints/efficientnetv2_s_fold3.pt` |
-| 4 | 0.8891 | 0.6230 | 0.9289 | 0.8293 | `C:/Users/876762330/Desktop/Agent/artifacts/checkpoints/efficientnetv2_s_fold4.pt` |
-| 5 | 0.8523 | 0.6116 | 0.9016 | 0.8080 | `C:/Users/876762330/Desktop/Agent/artifacts/checkpoints/efficientnetv2_s_fold5.pt` |
+| Fold | AUC | Sensitivity | Precision | F1-Score | Specificity | Accuracy | Checkpoint |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |
+| 1 | 0.9248 | 0.6148 | - | - | 0.9565 | 0.8453 | `C:/Users/876762330/Desktop/Agent/artifacts/checkpoints/efficientnetv2_s_fold1.pt` |
+| 2 | 0.8988 | 0.7521 | - | - | 0.8386 | 0.8107 | `C:/Users/876762330/Desktop/Agent/artifacts/checkpoints/efficientnetv2_s_fold2.pt` |
+| 3 | 0.9077 | 0.6612 | - | - | 0.9016 | 0.8240 | `C:/Users/876762330/Desktop/Agent/artifacts/checkpoints/efficientnetv2_s_fold3.pt` |
+| 4 | 0.8891 | 0.6230 | - | - | 0.9289 | 0.8293 | `C:/Users/876762330/Desktop/Agent/artifacts/checkpoints/efficientnetv2_s_fold4.pt` |
+| 5 | 0.8523 | 0.6116 | - | - | 0.9016 | 0.8080 | `C:/Users/876762330/Desktop/Agent/artifacts/checkpoints/efficientnetv2_s_fold5.pt` |
 
 ## 内部验证均值
 

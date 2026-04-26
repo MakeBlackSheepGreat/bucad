@@ -48,4 +48,6 @@ Date: 2026-04-24
 - Strong baselines: `densenet121` AUC `0.8867`, `resnet18` AUC `0.8756`, `mobilenetv3_small_100` AUC `0.8704`.
 - `alexnet` failed during the recorded run and is documented in `artifacts/reports/comparison_results.json`; torchvision fallback support was added afterward for future reruns.
 - Conclusion: the completed comparison supports the EfficientNetV2-S freeze decision.
+## Competition Metric Completeness Note
 
+The official competition metric set is AUC, Accuracy, Recall/Sensitivity, Precision, Specificity, and F1-Score. If an old archived table shows `-` for Precision or F1-Score, the historical summary did not preserve the confusion matrix or raw probabilities needed to reconstruct that value. For locked BUSI operating-point results, use `artifacts/reports/competition_metrics_all_busi_reports.md` as the complete metric source.

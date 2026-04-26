@@ -19,12 +19,12 @@
 
 ## Fold-1 结果
 
-| Experiment | AUC | Sensitivity | Specificity | Accuracy |
-| --- | ---: | ---: | ---: | ---: |
-| 224 baseline | 0.9248 | 0.6148 | 0.9565 | 0.8453 |
-| 256 resolution only | 0.8994 | 0.7213 | 0.9328 | 0.8640 |
-| 256 mild augmentation | 0.8811 | 0.7541 | 0.8379 | 0.8107 |
-| 320 resolution only | 0.8903 | 0.7541 | 0.8735 | 0.8347 |
+| Experiment | AUC | Sensitivity | Precision | F1-Score | Specificity | Accuracy |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| 224 baseline | 0.9248 | 0.6148 | - | - | 0.9565 | 0.8453 |
+| 256 resolution only | 0.8994 | 0.7213 | - | - | 0.9328 | 0.8640 |
+| 256 mild augmentation | 0.8811 | 0.7541 | - | - | 0.8379 | 0.8107 |
+| 320 resolution only | 0.8903 | 0.7541 | - | - | 0.8735 | 0.8347 |
 
 ## 决策
 

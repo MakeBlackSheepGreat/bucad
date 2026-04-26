@@ -24,34 +24,34 @@ Optimize ConvNeXt-Tiny as a possible new main classifier, then compare it agains
 
 ## BUSBRA Five-Fold Internal Validation
 
-| Fold | Best Epoch | AUC | Sensitivity | Specificity | Accuracy |
-| ---: | ---: | ---: | ---: | ---: | ---: |
-| 1 | 13 | 0.9259 | 0.7213 | 0.9328 | 0.8640 |
-| 2 | 3 | 0.9301 | 0.9008 | 0.7913 | 0.8267 |
-| 3 | 30 | 0.9469 | 0.8099 | 0.9173 | 0.8827 |
-| 4 | 14 | 0.8875 | 0.7623 | 0.8577 | 0.8267 |
-| 5 | 10 | 0.9158 | 0.6777 | 0.9331 | 0.8507 |
-| Mean | - | 0.9212 | 0.7744 | 0.8864 | 0.8501 |
+| Fold | Best Epoch | AUC | Sensitivity | Precision | F1-Score | Specificity | Accuracy |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 1 | 13 | 0.9259 | 0.7213 | - | - | 0.9328 | 0.8640 |
+| 2 | 3 | 0.9301 | 0.9008 | - | - | 0.7913 | 0.8267 |
+| 3 | 30 | 0.9469 | 0.8099 | - | - | 0.9173 | 0.8827 |
+| 4 | 14 | 0.8875 | 0.7623 | - | - | 0.8577 | 0.8267 |
+| 5 | 10 | 0.9158 | 0.6777 | - | - | 0.9331 | 0.8507 |
+| Mean | - | 0.9212 | 0.7744 | - | - | 0.8864 | 0.8501 |
 
 The five-fold internal result is stable enough to treat ConvNeXt-Tiny as a serious main-model candidate. Fold 4 is weaker than the others, but the mean AUC remains above 0.91.
 
 ## BUSI External Evaluation: Default Threshold 0.50
 
-| Model/System | AUC | Threshold | Sensitivity | Specificity | Accuracy | Confusion | Note |
-| --- | ---: | ---: | ---: | ---: | ---: | --- | --- |
-| ConvNeXt-Tiny fold1 | 0.8926 | 0.5000 | 0.7762 | 0.8696 | 0.8393 | TN 380 / FP 57 / FN 47 / TP 163 | single fold |
-| ConvNeXt-Tiny 5-fold ensemble | 0.9044 | 0.5000 | 0.7524 | 0.8947 | 0.8485 | TN 391 / FP 46 / FN 52 / TP 158 | new main-model candidate |
-| EfficientNetV2-S 5-fold + TTA | 0.8997 | 0.5000 | 0.6619 | 0.9382 | 0.8485 | TN 410 / FP 27 / FN 71 / TP 139 | existing ensemble baseline |
-| EfficientNetV2-S + DenseNet121 mixed ensemble | 0.9052 | 0.5000 | 0.5810 | 0.9542 | 0.8331 | TN 417 / FP 20 / FN 88 / TP 122 | current runtime baseline |
+| Model/System | AUC | Threshold | Sensitivity | Specificity | Accuracy | Precision | F1-Score | Confusion | Note |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- | --- |
+| ConvNeXt-Tiny fold1 | 0.8926 | 0.5000 | 0.7762 | 0.8696 | 0.8393 | 0.7409 | 0.7581 | TN 380 / FP 57 / FN 47 / TP 163 | single fold |
+| ConvNeXt-Tiny 5-fold ensemble | 0.9044 | 0.5000 | 0.7524 | 0.8947 | 0.8485 | 0.7745 | 0.7633 | TN 391 / FP 46 / FN 52 / TP 158 | new main-model candidate |
+| EfficientNetV2-S 5-fold + TTA | 0.8997 | 0.5000 | 0.6619 | 0.9382 | 0.8485 | 0.8373 | 0.7394 | TN 410 / FP 27 / FN 71 / TP 139 | existing ensemble baseline |
+| EfficientNetV2-S + DenseNet121 mixed ensemble | 0.9052 | 0.5000 | 0.5810 | 0.9542 | 0.8331 | 0.8592 | 0.6932 | TN 417 / FP 20 / FN 88 / TP 122 | current runtime baseline |
 
 ## BUSI External Evaluation: Best Youden Operating Point
 
-| Model/System | AUC | Threshold | Sensitivity | Specificity | Accuracy | Confusion | Note |
-| --- | ---: | ---: | ---: | ---: | ---: | --- | --- |
-| ConvNeXt-Tiny fold1 | 0.8926 | 0.5400 | 0.7667 | 0.8879 | 0.8485 | TN 388 / FP 49 / FN 49 / TP 161 | single fold |
-| ConvNeXt-Tiny 5-fold ensemble | 0.9044 | 0.4400 | 0.7762 | 0.8741 | 0.8423 | TN 382 / FP 55 / FN 47 / TP 163 | new main-model candidate |
-| EfficientNetV2-S 5-fold + TTA | 0.8997 | 0.3300 | 0.8000 | 0.8764 | 0.8516 | TN 383 / FP 54 / FN 42 / TP 168 | existing ensemble baseline |
-| EfficientNetV2-S + DenseNet121 mixed ensemble | 0.9052 | 0.2700 | 0.8095 | 0.8719 | 0.8516 | TN 381 / FP 56 / FN 40 / TP 170 | current runtime baseline |
+| Model/System | AUC | Threshold | Sensitivity | Specificity | Accuracy | Precision | F1-Score | Confusion | Note |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- | --- |
+| ConvNeXt-Tiny fold1 | 0.8926 | 0.5400 | 0.7667 | 0.8879 | 0.8485 | 0.7667 | 0.7667 | TN 388 / FP 49 / FN 49 / TP 161 | single fold |
+| ConvNeXt-Tiny 5-fold ensemble | 0.9044 | 0.4400 | 0.7762 | 0.8741 | 0.8423 | 0.7477 | 0.7617 | TN 382 / FP 55 / FN 47 / TP 163 | new main-model candidate |
+| EfficientNetV2-S 5-fold + TTA | 0.8997 | 0.3300 | 0.8000 | 0.8764 | 0.8516 | 0.7568 | 0.7778 | TN 383 / FP 54 / FN 42 / TP 168 | existing ensemble baseline |
+| EfficientNetV2-S + DenseNet121 mixed ensemble | 0.9052 | 0.2700 | 0.8095 | 0.8719 | 0.8516 | 0.7522 | 0.7798 | TN 381 / FP 56 / FN 40 / TP 170 | current runtime baseline |
 
 ## Interpretation
 

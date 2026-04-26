@@ -1,0 +1,199 @@
+paths_config: configs/paths.local.yml
+seed: 42
+device: auto
+runtime:
+  classifier_model: tf_efficientnetv2_s
+  classifier_pretrained: false
+  classifier_device: auto
+  default_threshold: 0.56
+  borderline_margin: 0.08
+  classifier_checkpoint: null
+  classifier_members:
+  - model: tf_efficientnetv2_s
+    checkpoint: ./artifacts/checkpoints/efficientnetv2_s_fold1.pt
+    weight: 0.358
+    image_size: 224
+    apply_clahe: true
+    tta_variants:
+    - name: identity
+  - model: tf_efficientnetv2_s
+    checkpoint: ./artifacts/checkpoints/efficientnetv2_s_fold2.pt
+    weight: 0.358
+    image_size: 224
+    apply_clahe: true
+    tta_variants:
+    - name: identity
+  - model: tf_efficientnetv2_s
+    checkpoint: ./artifacts/checkpoints/efficientnetv2_s_fold3.pt
+    weight: 0.358
+    image_size: 224
+    apply_clahe: true
+    tta_variants:
+    - name: identity
+  - model: tf_efficientnetv2_s
+    checkpoint: ./artifacts/checkpoints/efficientnetv2_s_fold4.pt
+    weight: 0.358
+    image_size: 224
+    apply_clahe: true
+    tta_variants:
+    - name: identity
+  - model: tf_efficientnetv2_s
+    checkpoint: ./artifacts/checkpoints/efficientnetv2_s_fold5.pt
+    weight: 0.358
+    image_size: 224
+    apply_clahe: true
+    tta_variants:
+    - name: identity
+  - model: densenet121
+    checkpoint: ./artifacts/checkpoints/densenet121_fold1.pt
+    weight: 0.244
+    image_size: 224
+    apply_clahe: true
+    tta_variants:
+    - name: identity
+  - model: densenet121
+    checkpoint: ./artifacts/checkpoints/densenet121_fold2.pt
+    weight: 0.244
+    image_size: 224
+    apply_clahe: true
+    tta_variants:
+    - name: identity
+  - model: densenet121
+    checkpoint: ./artifacts/checkpoints/densenet121_fold3.pt
+    weight: 0.244
+    image_size: 224
+    apply_clahe: true
+    tta_variants:
+    - name: identity
+  - model: densenet121
+    checkpoint: ./artifacts/checkpoints/densenet121_fold4.pt
+    weight: 0.244
+    image_size: 224
+    apply_clahe: true
+    tta_variants:
+    - name: identity
+  - model: densenet121
+    checkpoint: ./artifacts/checkpoints/densenet121_fold5.pt
+    weight: 0.244
+    image_size: 224
+    apply_clahe: true
+    tta_variants:
+    - name: identity
+  - model: convnext_tiny
+    checkpoint: ./artifacts/checkpoints/convnext_tiny_timm_recipe_fold1.pt
+    weight: 0.398
+    image_size: 224
+    apply_clahe: true
+    mean:
+    - 0.485
+    - 0.456
+    - 0.406
+    std:
+    - 0.229
+    - 0.224
+    - 0.225
+    interpolation: bicubic
+    crop_pct: 0.95
+    tta_variants: &id001
+    - name: identity
+      crop_pct: 0.9
+    - name: hflip
+      crop_pct: 0.9
+    - name: identity
+      crop_pct: 0.95
+    - name: hflip
+      crop_pct: 0.95
+    - name: identity
+      crop_pct: 1.0
+    - name: hflip
+      crop_pct: 1.0
+  - model: convnext_tiny
+    checkpoint: ./artifacts/checkpoints/convnext_tiny_timm_recipe_fold2.pt
+    weight: 0.398
+    image_size: 224
+    apply_clahe: true
+    mean:
+    - 0.485
+    - 0.456
+    - 0.406
+    std:
+    - 0.229
+    - 0.224
+    - 0.225
+    interpolation: bicubic
+    crop_pct: 0.95
+    tta_variants: *id001
+  - model: convnext_tiny
+    checkpoint: ./artifacts/checkpoints/convnext_tiny_timm_recipe_fold3.pt
+    weight: 0.398
+    image_size: 224
+    apply_clahe: true
+    mean:
+    - 0.485
+    - 0.456
+    - 0.406
+    std:
+    - 0.229
+    - 0.224
+    - 0.225
+    interpolation: bicubic
+    crop_pct: 0.95
+    tta_variants: *id001
+  - model: convnext_tiny
+    checkpoint: ./artifacts/checkpoints/convnext_tiny_timm_recipe_fold4.pt
+    weight: 0.398
+    image_size: 224
+    apply_clahe: true
+    mean:
+    - 0.485
+    - 0.456
+    - 0.406
+    std:
+    - 0.229
+    - 0.224
+    - 0.225
+    interpolation: bicubic
+    crop_pct: 0.95
+    tta_variants: *id001
+  - model: convnext_tiny
+    checkpoint: ./artifacts/checkpoints/convnext_tiny_timm_recipe_fold5.pt
+    weight: 0.398
+    image_size: 224
+    apply_clahe: true
+    mean:
+    - 0.485
+    - 0.456
+    - 0.406
+    std:
+    - 0.229
+    - 0.224
+    - 0.225
+    interpolation: bicubic
+    crop_pct: 0.95
+    tta_variants: *id001
+  segmenter_checkpoint: ./artifacts/checkpoints/segmenter_fold1.pt
+  segmenter_image_size: 256
+  gradcam_enabled: false
+  segmentation_enabled: true
+  allow_missing_visuals: true
+  primary_classifier_model: ConvNeXt-Tiny
+  ensemble_display_name: EfficientNetV2-S + DenseNet121 + ConvNeXt-Tiny + ROI OOF
+    LCC
+  roi_enhancement:
+    enabled: true
+    margin_ratio: 0.35
+    mask_threshold: 0.4
+    fallback_to_full: true
+    largest_component: true
+    stacker:
+      feature_mode: logit
+      scaler_mean:
+      - -2.8545409235230474
+      - -0.897716120954797
+      scaler_scale:
+      - 4.740822750844464
+      - 3.0301534140795763
+      coef:
+      - 1.6421405893909855
+      - 0.9442837570333584
+      intercept: -0.6608847724688788

@@ -25,15 +25,15 @@
 
 ## 严格 Fold-1 基础对比
 
-| Rank | Model | AUC | Sensitivity | Specificity | Accuracy | Basic Finding |
-| ---: | --- | ---: | ---: | ---: | ---: | --- |
-| 1 | EfficientNetV2-S | 0.8937 | 0.7049 | 0.8775 | 0.8213 | strict single-model baselines 中 AUC 最高 |
-| 2 | DenseNet121 | 0.8867 | 0.7213 | 0.8775 | 0.8267 | 非常接近 EfficientNet，Sensitivity 和 Accuracy 略高 |
-| 3 | ResNet18 | 0.8756 | 0.7131 | 0.8577 | 0.8107 | 稳定、轻量且较强的 baseline |
-| 4 | MobileNetV3-Small | 0.8704 | 0.6557 | 0.9170 | 0.8320 | compact baselines 中 Accuracy/Specificity 最好，但 Sensitivity 较低 |
-| 5 | Basic CNN | 0.6427 | 0.0000 | 0.9921 | 0.6693 | 过弱；threshold 0.50 下几乎没有 malignant recall |
-| 6 | VGG16 | 0.5000 | 0.0000 | 1.0000 | 0.6747 | 本次运行未学到有效区分能力 |
-| - | AlexNet | - | - | - | - | 记录运行时 fallback support 尚未加入，运行失败 |
+| Rank | Model | AUC | Sensitivity | Precision | F1-Score | Specificity | Accuracy | Basic Finding |
+| ---: | --- | ---: | ---: | ---: | ---: | ---: | ---: | --- |
+| 1 | EfficientNetV2-S | 0.8937 | 0.7049 | - | - | 0.8775 | 0.8213 | strict single-model baselines 中 AUC 最高 |
+| 2 | DenseNet121 | 0.8867 | 0.7213 | - | - | 0.8775 | 0.8267 | 非常接近 EfficientNet，Sensitivity 和 Accuracy 略高 |
+| 3 | ResNet18 | 0.8756 | 0.7131 | - | - | 0.8577 | 0.8107 | 稳定、轻量且较强的 baseline |
+| 4 | MobileNetV3-Small | 0.8704 | 0.6557 | - | - | 0.9170 | 0.8320 | compact baselines 中 Accuracy/Specificity 最好，但 Sensitivity 较低 |
+| 5 | Basic CNN | 0.6427 | 0.0000 | - | - | 0.9921 | 0.6693 | 过弱；threshold 0.50 下几乎没有 malignant recall |
+| 6 | VGG16 | 0.5000 | 0.0000 | - | - | 1.0000 | 0.6747 | 本次运行未学到有效区分能力 |
+| - | AlexNet | - | - | - | - | - | - | 记录运行时 fallback support 尚未加入，运行失败 |
 
 ## 结果解读
 
@@ -47,10 +47,10 @@ Basic CNN 和 VGG16 在当前 recipe 下不应被视为严肃的最终候选。�
 
 以下模型是在原始 comparison run 之后测试的。它们适合做 screening，但不属于严格原始对比表，因为它们是单独启动的实验；其中 Swin 使用了不同 learning rate。
 
-| Model | AUC | Sensitivity | Specificity | Accuracy | Difference From Strict Rule | Finding |
-| --- | ---: | ---: | ---: | ---: | --- | --- |
-| Swin-Tiny | 0.7950 | 0.8852 | 0.5020 | 0.6267 | lr=0.0001，separate run | Sensitivity 高，但 false positives 很多；该 recipe 下不值得直接五折 |
-| ConvNeXt-Tiny | 0.4519 | 0.0000 | 1.0000 | 0.6747 | separate run | threshold 0.50 下坍缩为全 benign prediction |
+| Model | AUC | Sensitivity | Precision | F1-Score | Specificity | Accuracy | Difference From Strict Rule | Finding |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | --- | --- |
+| Swin-Tiny | 0.7950 | 0.8852 | - | - | 0.5020 | 0.6267 | lr=0.0001，separate run | Sensitivity 高，但 false positives 很多；该 recipe 下不值得直接五折 |
+| ConvNeXt-Tiny | 0.4519 | 0.0000 | - | - | 1.0000 | 0.6747 | separate run | threshold 0.50 下坍缩为全 benign prediction |
 
 这些结果不意味着 Transformer 或 ConvNeXt 家族永远不可用。它们只说明当前快速 recipe 没有达到 EfficientNetV2-S / DenseNet121 / ResNet18 / MobileNetV3 组的竞争力。
 

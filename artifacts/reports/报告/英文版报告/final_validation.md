@@ -136,4 +136,6 @@ Date: 2026-04-24
 - Added AlexNet construction support through torchvision so the configured comparison model is supported by the model factory.
 - Updated check_all.py to use a unique repository-local pytest temp directory, avoiding locked Windows temp-directory failures.
 - Verification: C:\Users\876762330\.conda\envs\BUCAD\python.exe check_all.py completed with 26 passed in 9.74s, and formal comparison remained dry_run=false, model_count=7.
+## Competition Metric Completeness Note
 
+The official competition metric set is AUC, Accuracy, Recall/Sensitivity, Precision, Specificity, and F1-Score. If an old archived table shows `-` for Precision or F1-Score, the historical summary did not preserve the confusion matrix or raw probabilities needed to reconstruct that value. For locked BUSI operating-point results, use `artifacts/reports/competition_metrics_all_busi_reports.md` as the complete metric source.

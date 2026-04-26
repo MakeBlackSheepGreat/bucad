@@ -77,3 +77,6 @@
 - “Model ceiling” results：Swin/ConvNeXt 还没有；其他 timm backbones 也不算完全充分。
 
 下一步严肃工作是实现 timm-aware training recipe，并对最强已有候选和新候选 backbones 重跑 fold1。
+## 比赛指标完整性说明
+
+比赛统一指标集为 AUC、Accuracy、Recall/Sensitivity、Precision、Specificity 和 F1-Score。如果历史归档表中 Precision 或 F1-Score 显示 `-`，说明原始摘要未保留可反推该值的 confusion matrix 或原始概率。锁定 BUSI 运行点结果以 `artifacts/reports/competition_metrics_all_busi_reports.md` 作为完整指标来源。

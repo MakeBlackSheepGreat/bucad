@@ -21,32 +21,32 @@ This run still keeps the project ultrasound preprocessing choice of CLAHE and ho
 
 ## BUSBRA Fold-1 Validation
 
-| Model | Recipe | Best Epoch | AUC | Sensitivity | Specificity | Accuracy |
-| --- | --- | ---: | ---: | ---: | ---: | ---: |
-| Swin-Tiny | quick project recipe | 16 | 0.7950 | 0.8852 | 0.5020 | 0.6267 |
-| Swin-Tiny | timm-aware recipe | 30 | 0.9053 | 0.7541 | 0.8933 | 0.8480 |
-| ConvNeXt-Tiny | quick project recipe | 3 | 0.4519 | 0.0000 | 1.0000 | 0.6747 |
-| ConvNeXt-Tiny | timm-aware recipe | 13 | 0.9259 | 0.7213 | 0.9328 | 0.8640 |
+| Model | Recipe | Best Epoch | AUC | Sensitivity | Precision | F1-Score | Specificity | Accuracy |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Swin-Tiny | quick project recipe | 16 | 0.7950 | 0.8852 | - | - | 0.5020 | 0.6267 |
+| Swin-Tiny | timm-aware recipe | 30 | 0.9053 | 0.7541 | - | - | 0.8933 | 0.8480 |
+| ConvNeXt-Tiny | quick project recipe | 3 | 0.4519 | 0.0000 | - | - | 1.0000 | 0.6747 |
+| ConvNeXt-Tiny | timm-aware recipe | 13 | 0.9259 | 0.7213 | - | - | 0.9328 | 0.8640 |
 
 The new recipe fixes the obvious training-collapse problem. ConvNeXt-Tiny improves from an unusable fold-1 AUC of 0.4519 to 0.9259, and Swin-Tiny improves from 0.7950 to 0.9053.
 
 ## BUSI External Evaluation: Default Threshold 0.50
 
-| Model/System | AUC | Threshold | Sensitivity | Specificity | Accuracy | Confusion | Note |
-| --- | ---: | ---: | ---: | ---: | ---: | --- | --- |
-| Swin-Tiny fold1 timm-aware | 0.8721 | 0.5000 | 0.7048 | 0.8902 | 0.8300 | TN 389 / FP 48 / FN 62 / TP 148 | single fold, no ensemble |
-| ConvNeXt-Tiny fold1 timm-aware | 0.8926 | 0.5000 | 0.7762 | 0.8696 | 0.8393 | TN 380 / FP 57 / FN 47 / TP 163 | single fold, no ensemble |
-| EfficientNetV2-S 5-fold ensemble + TTA | 0.8997 | 0.5000 | 0.6619 | 0.9382 | 0.8485 | TN 410 / FP 27 / FN 71 / TP 139 | current ensemble baseline |
-| EfficientNetV2-S + DenseNet121 mixed ensemble | 0.9052 | 0.5000 | 0.5810 | 0.9542 | 0.8331 | TN 417 / FP 20 / FN 88 / TP 122 | current mixed ensemble baseline |
+| Model/System | AUC | Threshold | Sensitivity | Specificity | Accuracy | Precision | F1-Score | Confusion | Note |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- | --- |
+| Swin-Tiny fold1 timm-aware | 0.8721 | 0.5000 | 0.7048 | 0.8902 | 0.8300 | 0.7551 | 0.7291 | TN 389 / FP 48 / FN 62 / TP 148 | single fold, no ensemble |
+| ConvNeXt-Tiny fold1 timm-aware | 0.8926 | 0.5000 | 0.7762 | 0.8696 | 0.8393 | 0.7409 | 0.7581 | TN 380 / FP 57 / FN 47 / TP 163 | single fold, no ensemble |
+| EfficientNetV2-S 5-fold ensemble + TTA | 0.8997 | 0.5000 | 0.6619 | 0.9382 | 0.8485 | 0.8373 | 0.7394 | TN 410 / FP 27 / FN 71 / TP 139 | current ensemble baseline |
+| EfficientNetV2-S + DenseNet121 mixed ensemble | 0.9052 | 0.5000 | 0.5810 | 0.9542 | 0.8331 | 0.8592 | 0.6932 | TN 417 / FP 20 / FN 88 / TP 122 | current mixed ensemble baseline |
 
 ## BUSI External Evaluation: Best Youden Operating Point
 
-| Model/System | AUC | Threshold | Sensitivity | Specificity | Accuracy | Confusion | Note |
-| --- | ---: | ---: | ---: | ---: | ---: | --- | --- |
-| Swin-Tiny fold1 timm-aware | 0.8721 | 0.1800 | 0.7524 | 0.8696 | 0.8315 | TN 380 / FP 57 / FN 52 / TP 158 | single fold, no ensemble |
-| ConvNeXt-Tiny fold1 timm-aware | 0.8926 | 0.5400 | 0.7667 | 0.8879 | 0.8485 | TN 388 / FP 49 / FN 49 / TP 161 | single fold, no ensemble |
-| EfficientNetV2-S 5-fold ensemble + TTA | 0.8997 | 0.3300 | 0.8000 | 0.8764 | 0.8516 | TN 383 / FP 54 / FN 42 / TP 168 | current ensemble baseline |
-| EfficientNetV2-S + DenseNet121 mixed ensemble | 0.9052 | 0.2700 | 0.8095 | 0.8719 | 0.8516 | TN 381 / FP 56 / FN 40 / TP 170 | current mixed ensemble baseline |
+| Model/System | AUC | Threshold | Sensitivity | Specificity | Accuracy | Precision | F1-Score | Confusion | Note |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- | --- |
+| Swin-Tiny fold1 timm-aware | 0.8721 | 0.1800 | 0.7524 | 0.8696 | 0.8315 | 0.7349 | 0.7435 | TN 380 / FP 57 / FN 52 / TP 158 | single fold, no ensemble |
+| ConvNeXt-Tiny fold1 timm-aware | 0.8926 | 0.5400 | 0.7667 | 0.8879 | 0.8485 | 0.7667 | 0.7667 | TN 388 / FP 49 / FN 49 / TP 161 | single fold, no ensemble |
+| EfficientNetV2-S 5-fold ensemble + TTA | 0.8997 | 0.3300 | 0.8000 | 0.8764 | 0.8516 | 0.7568 | 0.7778 | TN 383 / FP 54 / FN 42 / TP 168 | current ensemble baseline |
+| EfficientNetV2-S + DenseNet121 mixed ensemble | 0.9052 | 0.2700 | 0.8095 | 0.8719 | 0.8516 | 0.7522 | 0.7798 | TN 381 / FP 56 / FN 40 / TP 170 | current mixed ensemble baseline |
 
 ## Interpretation
 

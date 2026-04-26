@@ -16,6 +16,14 @@ from src.engine.inference import BreastUltrasoundInferenceService
 DEFAULT_THRESHOLD = 0.55
 
 
+def bundled_resource_path(relative_path: str | Path) -> Path:
+    base_dir = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parents[1]))
+    bundled_path = base_dir / relative_path
+    if bundled_path.exists():
+        return bundled_path
+    return Path(relative_path)
+
+
 APP_CSS = """
 :root {
   --primary: #2563eb;
@@ -476,7 +484,9 @@ def analyze_upload(
     )
 
 
-def build_app(config_path: str | Path = "configs/inference/demo.yml"):
+def build_app(config_path: str | Path | None = None):
+    if config_path is None:
+        config_path = bundled_resource_path("configs/inference/demo.yml")
     service = BreastUltrasoundInferenceService.from_config(config_path)
     default_threshold = float(service.runtime_config.get("default_threshold", DEFAULT_THRESHOLD))
     ensemble_display_name = str(
@@ -623,7 +633,7 @@ def build_app(config_path: str | Path = "configs/inference/demo.yml"):
 
 def main() -> None:
     app = build_app()
-    app.launch()
+    app.launch(inbrowser=True, show_error=True)
 
 
 if __name__ == "__main__":

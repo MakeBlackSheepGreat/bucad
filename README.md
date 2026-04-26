@@ -122,14 +122,63 @@ python check_env.py
 python check_all.py
 ```
 
+## Hardware And Software Requirements
+
+### Demo / Inference
+
+- **Operating system**: Windows 10/11 x64 is the primary target. The source workflow also works on standard Python environments where PyTorch and OpenCV are available.
+- **Packaged desktop demo**: No local Python installation is required after unpacking the release bundle. The desktop build uses Microsoft Edge WebView2; most Windows 10/11 machines already include it, otherwise install the official WebView2 Runtime.
+- **CPU / GPU**: CPU inference is supported and is sufficient for competition demonstration. NVIDIA GPU is optional and mainly improves inference latency.
+- **Memory**: 8 GB RAM minimum, 16 GB RAM recommended for smoother startup and image visualization.
+- **Disk space**: Reserve at least 8 GB for the unpacked demo, model checkpoints, temporary files, and generated visual outputs.
+
+### Training / Experimentation
+
+- **Python environment**: Conda with Python 3.10 or 3.11. The current local environment uses `BUCAD` with Python 3.11.
+- **GPU**: NVIDIA CUDA GPU is strongly recommended. CPU-only training is suitable only for smoke tests, not for full five-fold model training.
+- **VRAM**: 8 GB VRAM is a practical lower bound for the current 224-resolution ConvNeXt-Tiny / EfficientNetV2-S experiments. 12-16 GB or more is recommended for faster five-fold training, larger batch sizes, or higher-resolution trials.
+- **System memory**: 16 GB RAM minimum, 32 GB RAM recommended for training, report generation, and parallel data loading.
+- **Disk space**: Reserve at least 50 GB for BUSBRA/BUSI data, five-fold checkpoints, logs, OOF artifacts, reports, and temporary build outputs.
+- **Data rule**: BUSBRA is used for training, internal validation, OOF selection, ROI parameter selection, and threshold selection. BUSI is locked for external evaluation only and must not be used for training or tuning.
+
 ## Run The Demo
+
+Browser mode:
 
 ```powershell
 conda activate BUCAD
 python app\main.py
 ```
 
-The app loads `configs/inference/demo.yml` and opens a local Gradio interface. The current demo declares `ConvNeXt-Tiny` as the primary model and uses `EfficientNetV2-S` as the auxiliary ensemble branch.
+Desktop window mode:
+
+```powershell
+conda activate BUCAD
+python app\desktop_main.py
+```
+
+Both modes load `configs/inference/demo.yml`. The current demo declares `ConvNeXt-Tiny` as the primary model and uses `EfficientNetV2-S` as the auxiliary ensemble branch.
+
+## One-Click Windows Demo
+
+Browser-opening package:
+
+```powershell
+conda activate BUCAD
+python -m PyInstaller --clean --noconfirm packaging\demo.spec
+```
+
+Desktop-window package:
+
+```powershell
+conda activate BUCAD
+python -m PyInstaller --clean --noconfirm packaging\desktop_demo.spec
+```
+
+- Browser-opening executable: `dist/bucad-demo/bucad-demo.exe`.
+- Desktop-window executable: `dist/bucad-demo-desktop/bucad-demo-desktop.exe`.
+- Distribute and run the whole generated folder, not the single `.exe` file alone, because the executable depends on bundled model files, Python libraries, WebView files, and configs in the same directory.
+- The `v1.1.0` release package uses the desktop-window build so the UI appears as a local Windows application instead of opening an external browser.
 
 ## Run BUSI External Evaluation
 
@@ -139,9 +188,9 @@ python scripts\eval_busi.py --config configs\inference\demo.yml --output artifac
 
 Expected current metrics are close to:
 
-| AUC | Threshold | Sensitivity | Specificity | Accuracy |
-| ---: | ---: | ---: | ---: | ---: |
-| 0.9208 | 0.550 | 0.8524 | 0.8169 | 0.8284 |
+| AUC | Threshold | Accuracy | Recall/Sensitivity | Precision | Specificity | F1-Score |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 0.9208 | 0.550 | 0.8284 | 0.8524 | 0.6911 | 0.8169 | 0.7633 |
 
 ## Generate Splits
 
@@ -181,9 +230,15 @@ Important project-facing reports:
 - `artifacts/reports/ensemble_tta_threshold_tuning.md`
 - `artifacts/reports/four_model_ensemble_weight_search.md`
 - `artifacts/reports/swin_tiny_5fold_experiment.md`
-- `artifacts/reports/training_recipe_audit.md`
-- `artifacts/reports/literature_guided_optimization.md`
-- `artifacts/reports/final_validation.md`
+- `artifacts/reports/competition_metrics_all_busi_reports.md`
+- `artifacts/reports/competition_metrics_audit.md`
+- `artifacts/reports/competition_metrics_demo_eval.json`
+- `artifacts/reports/threshold_analysis_competition_metrics_demo_eval.md`
+- `artifacts/reports/报告/英文版报告/training_recipe_audit.md`
+- `artifacts/reports/报告/英文版报告/literature_guided_optimization.md`
+- `artifacts/reports/报告/英文版报告/final_validation.md`
+
+Archived English reports are grouped under `artifacts/reports/报告/英文版报告/`, with synchronized Chinese versions under `artifacts/reports/报告/中文版报告/`.
 
 ## References And Acknowledgements
 

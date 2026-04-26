@@ -109,7 +109,17 @@ def _format_value(value: Any) -> str:
 
 def _metrics_table(metrics: dict[str, Any]) -> ReportBlock:
     rows = [["指标", "数值"]]
-    preferred_keys = ("auc", "threshold", "sensitivity", "specificity", "accuracy", "youden_j")
+    preferred_keys = (
+        "auc",
+        "threshold",
+        "accuracy",
+        "sensitivity",
+        "recall",
+        "precision",
+        "specificity",
+        "f1_score",
+        "youden_j",
+    )
     for key in preferred_keys:
         if key in metrics:
             rows.append([key, _format_value(metrics[key])])
@@ -123,7 +133,7 @@ def _metrics_table(metrics: dict[str, Any]) -> ReportBlock:
 
 
 def _comparison_table(results: list[Any]) -> ReportBlock:
-    rows = [["模型", "状态", "AUC", "Sensitivity", "Specificity", "运行时间(秒)"]]
+    rows = [["模型", "状态", "AUC", "Accuracy", "Sensitivity", "Precision", "Specificity", "F1-Score", "运行时间(秒)"]]
     for item in results[:20]:
         metrics = item.get("metrics", {}) if isinstance(item, dict) else {}
         rows.append(
@@ -131,8 +141,11 @@ def _comparison_table(results: list[Any]) -> ReportBlock:
                 _format_value(item.get("model_name", "")),
                 _format_value(item.get("status", "")),
                 _format_value(metrics.get("auc", "")),
+                _format_value(metrics.get("accuracy", "")),
                 _format_value(metrics.get("sensitivity", "")),
+                _format_value(metrics.get("precision", "")),
                 _format_value(metrics.get("specificity", "")),
+                _format_value(metrics.get("f1_score", "")),
                 _format_value(item.get("runtime_seconds", "")),
             ]
         )

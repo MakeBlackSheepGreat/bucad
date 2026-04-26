@@ -120,14 +120,63 @@ python check_env.py
 python check_all.py
 ```
 
+## 硬件与软件要求
+
+### 运行 demo / 推理
+
+- **操作系统**：主要面向 Windows 10/11 x64。源码运行方式也可以在 PyTorch、OpenCV 等依赖可用的标准 Python 环境中运行。
+- **打包桌面版 demo**：解压 release 包后不需要本机额外安装 Python。桌面版使用 Microsoft Edge WebView2，大多数 Windows 10/11 已内置；如果机器缺少该组件，需要安装官方 WebView2 Runtime。
+- **CPU / GPU**：支持 CPU 推理，比赛演示场景可以使用 CPU。NVIDIA GPU 不是必须项，主要用于降低推理等待时间。
+- **内存**：最低建议 8 GB RAM，推荐 16 GB RAM，以保证启动、图像显示和可视化结果更稳定。
+- **磁盘空间**：建议至少预留 8 GB，用于解压后的 demo、模型权重、临时文件和生成的可视化结果。
+
+### 训练 / 实验
+
+- **Python 环境**：推荐 Conda + Python 3.10 或 3.11。当前本地主要使用 `BUCAD` 环境和 Python 3.11。
+- **GPU**：强烈建议使用 NVIDIA CUDA GPU。CPU 只适合做 smoke test，不适合完整五折训练。
+- **显存**：当前 224 分辨率的 ConvNeXt-Tiny / EfficientNetV2-S 实验，8 GB VRAM 可以作为较低可用门槛；如果要更快地跑五折、更大 batch size 或更高分辨率实验，推荐 12-16 GB 或更高显存。
+- **系统内存**：最低建议 16 GB RAM，推荐 32 GB RAM，用于训练、报告生成和数据加载。
+- **磁盘空间**：建议至少预留 50 GB，用于 BUSBRA/BUSI 数据、五折 checkpoint、日志、OOF 产物、报告和临时构建文件。
+- **数据边界**：BUSBRA 用于训练、内部验证、OOF 选择、ROI 参数选择和阈值选择；BUSI 只作为外部评估集，不能参与训练或调参。
+
 ## 启动网页 demo
+
+浏览器模式：
 
 ```powershell
 conda activate BUCAD
 python app\main.py
 ```
 
-程序会读取 `configs/inference/demo.yml` 并启动本地 Gradio 网页界面。当前 demo 声明 `ConvNeXt-Tiny` 为主模型，`EfficientNetV2-S` 为辅助集成分支。
+桌面窗口模式：
+
+```powershell
+conda activate BUCAD
+python app\desktop_main.py
+```
+
+两种模式都会读取 `configs/inference/demo.yml`。当前 demo 声明 `ConvNeXt-Tiny` 为主模型，`EfficientNetV2-S` 为辅助集成分支。
+
+## Windows 一键启动 Demo
+
+自动打开浏览器的版本：
+
+```powershell
+conda activate BUCAD
+python -m PyInstaller --clean --noconfirm packaging\demo.spec
+```
+
+桌面窗口版本：
+
+```powershell
+conda activate BUCAD
+python -m PyInstaller --clean --noconfirm packaging\desktop_demo.spec
+```
+
+- 自动打开浏览器的可执行文件：`dist/bucad-demo/bucad-demo.exe`。
+- 桌面窗口版可执行文件：`dist/bucad-demo-desktop/bucad-demo-desktop.exe`。
+- 发布或拷贝给队友时要带上整个生成目录，不能只单独拷贝 `.exe` 文件，因为程序依赖同目录下的模型文件、Python 库、WebView 文件和配置文件。
+- `v1.1.0` release 包使用桌面窗口版，启动后界面表现为本地 Windows 应用，而不是打开外部浏览器。
 
 ## BUSI 外部评估
 
@@ -137,9 +186,9 @@ python scripts\eval_busi.py --config configs\inference\demo.yml --output artifac
 
 当前期望指标接近：
 
-| AUC | 阈值 | Sensitivity | Specificity | Accuracy |
-| ---: | ---: | ---: | ---: | ---: |
-| 0.9208 | 0.550 | 0.8524 | 0.8169 | 0.8284 |
+| AUC | 阈值 | Accuracy | Recall/Sensitivity | Precision | Specificity | F1-Score |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 0.9208 | 0.550 | 0.8284 | 0.8524 | 0.6911 | 0.8169 | 0.7633 |
 
 ## 生成数据划分
 
@@ -179,9 +228,15 @@ python scripts\train_cls.py --config configs\classifier\efficientnetv2_s.yml --f
 - `artifacts/reports/ensemble_tta_threshold_tuning.md`
 - `artifacts/reports/four_model_ensemble_weight_search.md`
 - `artifacts/reports/swin_tiny_5fold_experiment.md`
-- `artifacts/reports/training_recipe_audit.md`
-- `artifacts/reports/literature_guided_optimization.md`
-- `artifacts/reports/final_validation.md`
+- `artifacts/reports/competition_metrics_all_busi_reports.md`
+- `artifacts/reports/competition_metrics_audit.md`
+- `artifacts/reports/competition_metrics_demo_eval.json`
+- `artifacts/reports/threshold_analysis_competition_metrics_demo_eval.md`
+- `artifacts/reports/报告/中文版报告/training_recipe_audit.md`
+- `artifacts/reports/报告/中文版报告/literature_guided_optimization.md`
+- `artifacts/reports/报告/中文版报告/final_validation.md`
+
+英文版历史报告统一存放在 `artifacts/reports/报告/英文版报告/`，对应中文版同步存放在 `artifacts/reports/报告/中文版报告/`。
 
 ## 参考与致谢
 

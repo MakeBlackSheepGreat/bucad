@@ -38,17 +38,22 @@ def classification_metrics(
     if len(np.unique(y_true_arr)) > 1:
         auc = float(roc_auc_score(y_true_arr, prob_arr))
     sensitivity = safe_divide(confusion["tp"], confusion["tp"] + confusion["fn"])
+    precision = safe_divide(confusion["tp"], confusion["tp"] + confusion["fp"])
     specificity = safe_divide(confusion["tn"], confusion["tn"] + confusion["fp"])
     accuracy = safe_divide(
         confusion["tp"] + confusion["tn"],
         confusion["tp"] + confusion["tn"] + confusion["fp"] + confusion["fn"],
     )
+    f1_score = safe_divide(2.0 * precision * sensitivity, precision + sensitivity)
     return {
         "auc": auc,
         "threshold": float(threshold),
         "sensitivity": sensitivity,
+        "recall": sensitivity,
+        "precision": precision,
         "specificity": specificity,
         "accuracy": accuracy,
+        "f1_score": f1_score,
         "confusion": confusion,
     }
 

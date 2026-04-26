@@ -11,6 +11,7 @@ tqdm
 tensorboard
 grad-cam
 gradio
+pywebview
 PyInstaller
 pytest
 python-docx

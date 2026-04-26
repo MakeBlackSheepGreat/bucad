@@ -73,9 +73,15 @@ def test_busi_evaluation_writes_metrics_report() -> None:
     assert report["sample_count"] == 4
     assert "metrics" in report
     assert "sensitivity" in report["metrics"]
+    assert "precision" in report["metrics"]
+    assert "f1_score" in report["metrics"]
     assert "threshold_analysis" in report
     assert "best_by_youden" in report["threshold_analysis"]
-    assert (TEST_ROOT / "artifacts" / "reports" / "threshold_analysis.md").exists()
+    threshold_report = TEST_ROOT / "artifacts" / "reports" / "threshold_analysis.md"
+    assert threshold_report.exists()
+    threshold_text = threshold_report.read_text(encoding="utf-8")
+    assert "Precision" in threshold_text
+    assert "F1-Score" in threshold_text
 
 
 def test_busi_evaluation_uses_runtime_default_threshold() -> None:

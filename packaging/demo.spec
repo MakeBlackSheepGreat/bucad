@@ -1,6 +1,9 @@
 # -*- mode: python ; coding: utf-8 -*-
 from pathlib import Path
-from PyInstaller.utils.hooks import collect_data_files
+
+import yaml
+
+from PyInstaller.utils.hooks import collect_data_files, collect_submodules
 
 block_cipher = None
 project_root = Path(SPEC).resolve().parents[1]
@@ -9,17 +12,54 @@ package_datas = (
     + collect_data_files('safehttpx')
     + collect_data_files('groovy')
 )
-project_datas = [(str(project_root / 'configs'), 'configs')]
-release_dir = project_root / 'artifacts' / 'release_v1'
-if release_dir.exists():
-    project_datas.append((str(release_dir), 'artifacts/release_v1'))
+
+
+def _demo_checkpoint_datas():
+    config_path = project_root / 'configs' / 'inference' / 'demo.yml'
+    config = yaml.safe_load(config_path.read_text(encoding='utf-8')) or {}
+    runtime = config.get('runtime', {})
+    checkpoint_paths = []
+    for member in runtime.get('classifier_members', []) or []:
+        checkpoint = member.get('checkpoint') if isinstance(member, dict) else None
+        if checkpoint:
+            checkpoint_paths.append(checkpoint)
+    for key in ('classifier_checkpoint', 'segmenter_checkpoint'):
+        if runtime.get(key):
+            checkpoint_paths.append(runtime[key])
+    for checkpoint in runtime.get('classifier_checkpoints', []) or []:
+        if checkpoint:
+            checkpoint_paths.append(checkpoint)
+
+    datas = []
+    seen = set()
+    for checkpoint in checkpoint_paths:
+        checkpoint_path = Path(checkpoint)
+        if not checkpoint_path.is_absolute():
+            checkpoint_path = project_root / checkpoint_path
+        checkpoint_path = checkpoint_path.resolve()
+        if checkpoint_path.exists() and checkpoint_path not in seen:
+            seen.add(checkpoint_path)
+            datas.append((str(checkpoint_path), 'artifacts/checkpoints'))
+    return datas
+
+
+project_datas = [
+    (str(project_root / 'configs'), 'configs'),
+    *_demo_checkpoint_datas(),
+]
+hidden_imports = (
+    ['gradio', 'cv2']
+    + collect_submodules('timm')
+    + collect_submodules('segmentation_models_pytorch')
+    + collect_submodules('pytorch_grad_cam')
+)
 
 a = Analysis(
     [str(project_root / 'app' / 'main.py')],
     pathex=[str(project_root)],
     binaries=[],
     datas=project_datas + package_datas,
-    hiddenimports=['gradio'],
+    hiddenimports=hidden_imports,
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
@@ -39,7 +79,7 @@ exe = EXE(
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
-    upx=True,
+    upx=False,
     console=True,
 )
 coll = COLLECT(
@@ -48,7 +88,7 @@ coll = COLLECT(
     a.zipfiles,
     a.datas,
     strip=False,
-    upx=True,
+    upx=False,
     upx_exclude=[],
     name='bucad-demo',
 )

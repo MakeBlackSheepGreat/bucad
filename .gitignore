@@ -16,12 +16,15 @@ data/
 artifacts/checkpoints/
 artifacts/demo_assets/
 artifacts/release_v1/
+artifacts/releases/
+Release/
 dist/
 build/
 
 # Generated reports that should stay local
 artifacts/reports/*.csv
 artifacts/reports/*.json
+artifacts/reports/*.xlsx
 artifacts/reports/roi_oof_scan_cache/
 artifacts/reports/threshold_analysis_*.md
 artifacts/reports/documents/
@@ -32,6 +35,7 @@ artifacts/reports/packaged_demo_*.txt
 artifacts/reports/defense_*.md
 artifacts/reports/demo_rehearsal.md
 artifacts/reports/final_*.md
+scripts/build_feishu_metrics_workbook.py
 
 # Competition-only / non-project materials
 赛题*.pdf

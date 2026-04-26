@@ -24,12 +24,44 @@ from src.preprocess.roi import crop_to_mask_bbox
 from src.preprocess.transforms import prepare_classifier_input
 from src.utils.config import load_project_config
 from src.utils.metrics import best_threshold_by_youden, classification_metrics, threshold_sweep
+from src.utils.paths import resolve_path
 from src.utils.reporting import write_json_report, write_markdown_report
 from src.utils.results import InferenceResponse, build_diagnostic_result
 from src.utils.runtime import optional_import
 
 
 torch = optional_import("torch")
+
+
+def _resolve_runtime_checkpoint_paths(runtime_config: dict[str, Any], *, project_root: Path) -> dict[str, Any]:
+    resolved = dict(runtime_config)
+
+    def resolve_checkpoint(value: Any) -> Any:
+        if not value:
+            return value
+        return str(resolve_path(str(value), base_dir=project_root))
+
+    if "classifier_checkpoint" in resolved:
+        resolved["classifier_checkpoint"] = resolve_checkpoint(resolved.get("classifier_checkpoint"))
+    if isinstance(resolved.get("classifier_checkpoints"), list):
+        resolved["classifier_checkpoints"] = [
+            resolve_checkpoint(checkpoint)
+            for checkpoint in resolved["classifier_checkpoints"]
+            if checkpoint
+        ]
+    if isinstance(resolved.get("classifier_members"), list):
+        members = []
+        for member in resolved["classifier_members"]:
+            if not isinstance(member, dict):
+                continue
+            member_config = dict(member)
+            if "checkpoint" in member_config:
+                member_config["checkpoint"] = resolve_checkpoint(member_config.get("checkpoint"))
+            members.append(member_config)
+        resolved["classifier_members"] = members
+    if "segmenter_checkpoint" in resolved:
+        resolved["segmenter_checkpoint"] = resolve_checkpoint(resolved.get("segmenter_checkpoint"))
+    return resolved
 
 
 def assess_image_quality(image: np.ndarray) -> str:
@@ -64,6 +96,7 @@ class BreastUltrasoundInferenceService:
     def from_config(cls, config_path: str | Path) -> "BreastUltrasoundInferenceService":
         config, paths = load_project_config(config_path)
         runtime_config = dict(config.get("runtime", {}))
+        runtime_config = _resolve_runtime_checkpoint_paths(runtime_config, project_root=paths.project_root)
         runtime_config.setdefault("device", config.get("device", "cpu"))
         return cls(runtime_config, paths=paths)
 
@@ -640,8 +673,11 @@ def _threshold_analysis_markdown(
         "",
         f"- Threshold: `{default_metrics.get('threshold', 0.5):.2f}`",
         f"- AUC: `{default_metrics.get('auc')}`",
-        f"- Sensitivity: `{default_metrics.get('sensitivity', 0.0):.4f}`",
+        f"- Accuracy: `{default_metrics.get('accuracy', 0.0):.4f}`",
+        f"- Recall/Sensitivity: `{default_metrics.get('sensitivity', 0.0):.4f}`",
+        f"- Precision: `{default_metrics.get('precision', 0.0):.4f}`",
         f"- Specificity: `{default_metrics.get('specificity', 0.0):.4f}`",
+        f"- F1-Score: `{default_metrics.get('f1_score', 0.0):.4f}`",
         "",
         "## Best Threshold By Youden J",
         "",
@@ -651,8 +687,11 @@ def _threshold_analysis_markdown(
             [
                 f"- Threshold: `{best_threshold.get('threshold', 0.5):.2f}`",
                 f"- Youden J: `{best_threshold.get('youden_j', 0.0):.4f}`",
-                f"- Sensitivity: `{best_threshold.get('sensitivity', 0.0):.4f}`",
+                f"- Accuracy: `{best_threshold.get('accuracy', 0.0):.4f}`",
+                f"- Recall/Sensitivity: `{best_threshold.get('sensitivity', 0.0):.4f}`",
+                f"- Precision: `{best_threshold.get('precision', 0.0):.4f}`",
                 f"- Specificity: `{best_threshold.get('specificity', 0.0):.4f}`",
+                f"- F1-Score: `{best_threshold.get('f1_score', 0.0):.4f}`",
                 "",
             ]
         )
@@ -660,13 +699,14 @@ def _threshold_analysis_markdown(
         [
             "## Sweep",
             "",
-            "| Threshold | Sensitivity | Specificity | Accuracy | Youden J |",
-            "| --- | ---: | ---: | ---: | ---: |",
+            "| Threshold | Recall/Sensitivity | Precision | Specificity | Accuracy | F1-Score | Youden J |",
+            "| --- | ---: | ---: | ---: | ---: | ---: | ---: |",
         ]
     )
     for row in rows:
         lines.append(
             f"| {row['threshold']:.2f} | {row['sensitivity']:.4f} | "
-            f"{row['specificity']:.4f} | {row['accuracy']:.4f} | {row['youden_j']:.4f} |"
+            f"{row.get('precision', 0.0):.4f} | {row['specificity']:.4f} | "
+            f"{row['accuracy']:.4f} | {row.get('f1_score', 0.0):.4f} | {row['youden_j']:.4f} |"
         )
     return lines

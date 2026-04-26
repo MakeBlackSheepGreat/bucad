@@ -13,6 +13,7 @@ from sklearn.metrics import roc_auc_score
 if __package__ is None or __package__ == "":
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+from src.utils.metrics import threshold_sweep
 from src.utils.reporting import write_json_report, write_markdown_report
 
 
@@ -159,46 +160,9 @@ def _local_weights(center: tuple[float, ...], step: float, radius: float) -> lis
 
 def _threshold_metrics(y_true: np.ndarray, probabilities: np.ndarray) -> tuple[dict[str, Any], dict[str, Any]]:
     thresholds = np.round(np.arange(0.1, 0.9001, 0.01), 2)
-    positives = int(y_true.sum())
-    negatives = int(len(y_true) - positives)
-    best: dict[str, Any] | None = None
-    default: dict[str, Any] | None = None
-
-    for threshold in thresholds:
-        predictions = probabilities >= threshold
-        true_positive = int(np.logical_and(predictions, y_true == 1).sum())
-        false_positive = int(np.logical_and(predictions, y_true == 0).sum())
-        false_negative = positives - true_positive
-        true_negative = negatives - false_positive
-        sensitivity = float(true_positive / positives) if positives else 0.0
-        specificity = float(true_negative / negatives) if negatives else 0.0
-        accuracy = float((true_positive + true_negative) / len(y_true)) if len(y_true) else 0.0
-        youden_j = float(sensitivity + specificity - 1.0)
-        row = {
-            "threshold": float(threshold),
-            "sensitivity": sensitivity,
-            "specificity": specificity,
-            "accuracy": accuracy,
-            "youden_j": youden_j,
-            "confusion": {
-                "tn": true_negative,
-                "fp": false_positive,
-                "fn": false_negative,
-                "tp": true_positive,
-            },
-        }
-        if abs(float(threshold) - 0.5) < 1e-8:
-            default = row
-        if best is None or (
-            row["youden_j"],
-            row["sensitivity"],
-            row["specificity"],
-        ) > (
-            best["youden_j"],
-            best["sensitivity"],
-            best["specificity"],
-        ):
-            best = row
+    rows = threshold_sweep(y_true, probabilities, thresholds=thresholds)
+    default = next((row for row in rows if abs(float(row["threshold"]) - 0.5) < 1e-8), None)
+    best = max(rows, key=lambda row: (row["youden_j"], row["sensitivity"], row["specificity"]), default=None)
 
     if default is None or best is None:
         raise RuntimeError("Threshold metrics could not be computed.")

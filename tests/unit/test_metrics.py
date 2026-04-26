@@ -9,6 +9,9 @@ def test_classification_metrics_exposes_auc_and_confusion() -> None:
     metrics = classification_metrics([0, 1, 0, 1], [0.1, 0.9, 0.2, 0.8])
     assert metrics["auc"] is not None
     assert metrics["confusion"]["tp"] == 2
+    assert metrics["precision"] == 1.0
+    assert metrics["recall"] == metrics["sensitivity"]
+    assert metrics["f1_score"] == 1.0
 
 
 def test_dice_score_is_one_for_identical_masks() -> None:
@@ -23,6 +26,8 @@ def test_threshold_sweep_reports_youden_scores() -> None:
 
     assert len(rows) == 3
     assert all("youden_j" in row for row in rows)
+    assert all("precision" in row for row in rows)
+    assert all("f1_score" in row for row in rows)
     assert best["threshold"] == 0.5
 
 

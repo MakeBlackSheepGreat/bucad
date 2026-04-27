@@ -1,0 +1,357 @@
+paths_config: configs/paths.local.yml
+seed: 42
+device: auto
+runtime:
+  classifier_model: convnext_tiny
+  classifier_pretrained: false
+  classifier_device: auto
+  classifier_image_size: 224
+  classifier_apply_clahe: true
+  classifier_mean:
+  - 0.485
+  - 0.456
+  - 0.406
+  classifier_std:
+  - 0.229
+  - 0.224
+  - 0.225
+  classifier_interpolation: bicubic
+  classifier_crop_pct: 0.95
+  classifier_tta_horizontal_flip: false
+  classifier_tta_variants:
+  - name: identity
+    crop_pct: 0.9
+  - name: hflip
+    crop_pct: 0.9
+  - name: identity
+    crop_pct: 0.95
+  - name: hflip
+    crop_pct: 0.95
+  - name: identity
+    crop_pct: 1.0
+  - name: hflip
+    crop_pct: 1.0
+  primary_classifier_model: Model-Zoo OOF Candidate
+  ensemble_display_name: Model-Zoo OOF Candidate + ROI Area Gate
+  default_threshold: 0.41
+  borderline_margin: 0.08
+  classifier_checkpoint: null
+  classifier_checkpoints: []
+  classifier_members:
+  - model: tf_efficientnetv2_s
+    checkpoint: ./artifacts/checkpoints/efficientnetv2_s_fold1.pt
+    weight: 0.3056800845412785
+    image_size: 224
+    apply_clahe: true
+    mean: null
+    std: null
+    interpolation: area
+    crop_pct: 1.0
+    tta_variants: &id001
+    - name: identity
+  - model: tf_efficientnetv2_s
+    checkpoint: ./artifacts/checkpoints/efficientnetv2_s_fold2.pt
+    weight: 0.3056800845412785
+    image_size: 224
+    apply_clahe: true
+    mean: null
+    std: null
+    interpolation: area
+    crop_pct: 1.0
+    tta_variants: *id001
+  - model: tf_efficientnetv2_s
+    checkpoint: ./artifacts/checkpoints/efficientnetv2_s_fold3.pt
+    weight: 0.3056800845412785
+    image_size: 224
+    apply_clahe: true
+    mean: null
+    std: null
+    interpolation: area
+    crop_pct: 1.0
+    tta_variants: *id001
+  - model: tf_efficientnetv2_s
+    checkpoint: ./artifacts/checkpoints/efficientnetv2_s_fold4.pt
+    weight: 0.3056800845412785
+    image_size: 224
+    apply_clahe: true
+    mean: null
+    std: null
+    interpolation: area
+    crop_pct: 1.0
+    tta_variants: *id001
+  - model: tf_efficientnetv2_s
+    checkpoint: ./artifacts/checkpoints/efficientnetv2_s_fold5.pt
+    weight: 0.3056800845412785
+    image_size: 224
+    apply_clahe: true
+    mean: null
+    std: null
+    interpolation: area
+    crop_pct: 1.0
+    tta_variants: *id001
+  - model: convnext_tiny
+    checkpoint: ./artifacts/checkpoints/convnext_tiny_timm_recipe_fold1.pt
+    weight: 0.03214469340316149
+    image_size: 224
+    apply_clahe: true
+    mean: &id002
+    - 0.485
+    - 0.456
+    - 0.406
+    std: &id003
+    - 0.229
+    - 0.224
+    - 0.225
+    interpolation: bicubic
+    crop_pct: 0.95
+    tta_variants: &id004
+    - name: identity
+      crop_pct: 0.9
+    - name: hflip
+      crop_pct: 0.9
+    - name: identity
+      crop_pct: 0.95
+    - name: hflip
+      crop_pct: 0.95
+    - name: identity
+      crop_pct: 1.0
+    - name: hflip
+      crop_pct: 1.0
+  - model: convnext_tiny
+    checkpoint: ./artifacts/checkpoints/convnext_tiny_timm_recipe_fold2.pt
+    weight: 0.03214469340316149
+    image_size: 224
+    apply_clahe: true
+    mean: *id002
+    std: *id003
+    interpolation: bicubic
+    crop_pct: 0.95
+    tta_variants: *id004
+  - model: convnext_tiny
+    checkpoint: ./artifacts/checkpoints/convnext_tiny_timm_recipe_fold3.pt
+    weight: 0.03214469340316149
+    image_size: 224
+    apply_clahe: true
+    mean: *id002
+    std: *id003
+    interpolation: bicubic
+    crop_pct: 0.95
+    tta_variants: *id004
+  - model: convnext_tiny
+    checkpoint: ./artifacts/checkpoints/convnext_tiny_timm_recipe_fold4.pt
+    weight: 0.03214469340316149
+    image_size: 224
+    apply_clahe: true
+    mean: *id002
+    std: *id003
+    interpolation: bicubic
+    crop_pct: 0.95
+    tta_variants: *id004
+  - model: convnext_tiny
+    checkpoint: ./artifacts/checkpoints/convnext_tiny_timm_recipe_fold5.pt
+    weight: 0.03214469340316149
+    image_size: 224
+    apply_clahe: true
+    mean: *id002
+    std: *id003
+    interpolation: bicubic
+    crop_pct: 0.95
+    tta_variants: *id004
+  - model: densenet121
+    checkpoint: ./artifacts/checkpoints/densenet121_fold1.pt
+    weight: 0.23152289524584097
+    image_size: 224
+    apply_clahe: true
+    mean: null
+    std: null
+    interpolation: area
+    crop_pct: 1.0
+    tta_variants: &id005
+    - name: identity
+  - model: densenet121
+    checkpoint: ./artifacts/checkpoints/densenet121_fold2.pt
+    weight: 0.23152289524584097
+    image_size: 224
+    apply_clahe: true
+    mean: null
+    std: null
+    interpolation: area
+    crop_pct: 1.0
+    tta_variants: *id005
+  - model: densenet121
+    checkpoint: ./artifacts/checkpoints/densenet121_fold3.pt
+    weight: 0.23152289524584097
+    image_size: 224
+    apply_clahe: true
+    mean: null
+    std: null
+    interpolation: area
+    crop_pct: 1.0
+    tta_variants: *id005
+  - model: densenet121
+    checkpoint: ./artifacts/checkpoints/densenet121_fold4.pt
+    weight: 0.23152289524584097
+    image_size: 224
+    apply_clahe: true
+    mean: null
+    std: null
+    interpolation: area
+    crop_pct: 1.0
+    tta_variants: *id005
+  - model: densenet121
+    checkpoint: ./artifacts/checkpoints/densenet121_fold5.pt
+    weight: 0.23152289524584097
+    image_size: 224
+    apply_clahe: true
+    mean: null
+    std: null
+    interpolation: area
+    crop_pct: 1.0
+    tta_variants: *id005
+  - model: convnext_small
+    checkpoint: ./artifacts/checkpoints/convnext_small_timm_recipe_fold1.pt
+    weight: 0.039953064781496406
+    image_size: 224
+    apply_clahe: true
+    mean: &id006
+    - 0.485
+    - 0.456
+    - 0.406
+    std: &id007
+    - 0.229
+    - 0.224
+    - 0.225
+    interpolation: bicubic
+    crop_pct: 0.95
+    tta_variants: *id004
+  - model: convnext_small
+    checkpoint: ./artifacts/checkpoints/convnext_small_timm_recipe_fold2.pt
+    weight: 0.039953064781496406
+    image_size: 224
+    apply_clahe: true
+    mean: *id006
+    std: *id007
+    interpolation: bicubic
+    crop_pct: 0.95
+    tta_variants: *id004
+  - model: convnext_small
+    checkpoint: ./artifacts/checkpoints/convnext_small_timm_recipe_fold3.pt
+    weight: 0.039953064781496406
+    image_size: 224
+    apply_clahe: true
+    mean: *id006
+    std: *id007
+    interpolation: bicubic
+    crop_pct: 0.95
+    tta_variants: *id004
+  - model: convnext_small
+    checkpoint: ./artifacts/checkpoints/convnext_small_timm_recipe_fold4.pt
+    weight: 0.039953064781496406
+    image_size: 224
+    apply_clahe: true
+    mean: *id006
+    std: *id007
+    interpolation: bicubic
+    crop_pct: 0.95
+    tta_variants: *id004
+  - model: convnext_small
+    checkpoint: ./artifacts/checkpoints/convnext_small_timm_recipe_fold5.pt
+    weight: 0.039953064781496406
+    image_size: 224
+    apply_clahe: true
+    mean: *id006
+    std: *id007
+    interpolation: bicubic
+    crop_pct: 0.95
+    tta_variants: *id004
+  - model: swin_tiny_patch4_window7_224
+    checkpoint: ./artifacts/checkpoints/swin_tiny_patch4_window7_224_timm_recipe_fold1.pt
+    weight: 0.39069926202822264
+    image_size: 224
+    apply_clahe: true
+    mean: &id008
+    - 0.485
+    - 0.456
+    - 0.406
+    std: &id009
+    - 0.229
+    - 0.224
+    - 0.225
+    interpolation: bicubic
+    crop_pct: 0.95
+    tta_variants: *id004
+  - model: swin_tiny_patch4_window7_224
+    checkpoint: ./artifacts/checkpoints/swin_tiny_patch4_window7_224_timm_recipe_fold2.pt
+    weight: 0.39069926202822264
+    image_size: 224
+    apply_clahe: true
+    mean: *id008
+    std: *id009
+    interpolation: bicubic
+    crop_pct: 0.95
+    tta_variants: *id004
+  - model: swin_tiny_patch4_window7_224
+    checkpoint: ./artifacts/checkpoints/swin_tiny_patch4_window7_224_timm_recipe_fold3.pt
+    weight: 0.39069926202822264
+    image_size: 224
+    apply_clahe: true
+    mean: *id008
+    std: *id009
+    interpolation: bicubic
+    crop_pct: 0.95
+    tta_variants: *id004
+  - model: swin_tiny_patch4_window7_224
+    checkpoint: ./artifacts/checkpoints/swin_tiny_patch4_window7_224_timm_recipe_fold4.pt
+    weight: 0.39069926202822264
+    image_size: 224
+    apply_clahe: true
+    mean: *id008
+    std: *id009
+    interpolation: bicubic
+    crop_pct: 0.95
+    tta_variants: *id004
+  - model: swin_tiny_patch4_window7_224
+    checkpoint: ./artifacts/checkpoints/swin_tiny_patch4_window7_224_timm_recipe_fold5.pt
+    weight: 0.39069926202822264
+    image_size: 224
+    apply_clahe: true
+    mean: *id008
+    std: *id009
+    interpolation: bicubic
+    crop_pct: 0.95
+    tta_variants: *id004
+  segmenter_checkpoint: ./artifacts/checkpoints/segmenter_fold1.pt
+  segmenter_image_size: 256
+  gradcam_enabled: true
+  segmentation_enabled: true
+  allow_missing_visuals: true
+  roi_enhancement:
+    enabled: true
+    margin_ratio: 0.35
+    mask_threshold: 0.4
+    fallback_to_full: true
+    stacker:
+      feature_mode: logit
+      scaler_mean:
+      - -2.8001548403845105
+      - -1.1518027474377952
+      scaler_scale:
+      - 4.551078251788344
+      - 4.044263237718726
+      coef:
+      - 2.6297246754870693
+      - 0.9381043730234774
+      intercept: -1.8199425936039366
+    largest_component: true
+    quality_gate:
+      enabled: true
+      min_area_ratio: 0.08
+      max_area_ratio: 0.9
+      fallback_to_full: true
+    roi_stack_blend_weight: 1.0
+    classifier_weight_overrides:
+      tf_efficientnetv2_s: 0.427
+      convnext_tiny: 0.573
+      densenet121: 0.0
+      convnext_small: 0.0
+      swin_tiny_patch4_window7_224: 0.0

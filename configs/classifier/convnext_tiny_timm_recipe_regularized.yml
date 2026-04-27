@@ -1,0 +1,42 @@
+paths_config: configs/paths.local.yml
+task_type: classification
+seed: 42
+device: auto
+model:
+  name: convnext_tiny
+  pretrained: true
+  in_chans: 3
+  num_classes: 2
+  drop_path_rate: 0.10
+data:
+  image_size: 224
+  batch_size: 8
+  num_workers: 0
+  preprocess:
+    clahe: true
+    use_timm_data_config: true
+  augmentation:
+    horizontal_flip: true
+    flip_probability: 0.5
+    rotation_degrees: 6
+    brightness: 0.04
+    contrast: 0.08
+    scale_min: 0.95
+    scale_max: 1.05
+training:
+  epochs: 30
+  learning_rate: 0.00003
+  weight_decay: 0.08
+  label_smoothing: 0.03
+  class_weights: balanced
+  checkpoint_strategy: best_auc
+  scheduler:
+    name: warmup_cosine
+    warmup_epochs: 4
+    min_lr: 0.000001
+  fold_count: 5
+  split_path: ./artifacts/reports/busbra_5fold_splits.csv
+  positive_class: malignant
+output:
+  checkpoint_name: convnext_tiny_timm_recipe_regularized_fold{fold}.pt
+  report_name: train_cls_convnext_tiny_timm_recipe_regularized_fold{fold}.json

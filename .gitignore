@@ -33,8 +33,12 @@ build/
 artifacts/reports/*.csv
 artifacts/reports/*.json
 artifacts/reports/*.xlsx
+artifacts/reports/*.docx
+artifacts/reports/*.pdf
+artifacts/reports/*.pptx
 artifacts/reports/roi_oof_scan_cache/
 artifacts/reports/threshold_analysis_*.md
+artifacts/reports/competition_materials/
 artifacts/reports/documents/
 artifacts/reports/demo_single_image/
 artifacts/reports/visual_evidence/
@@ -43,7 +47,9 @@ artifacts/reports/packaged_demo_*.txt
 artifacts/reports/defense_*.md
 artifacts/reports/demo_rehearsal.md
 artifacts/reports/final_*.md
+artifacts/reports/six_model_comparison_report.md
 scripts/build_feishu_metrics_workbook.py
+scripts/build_competition_materials.py
 
 # Competition-only / non-project materials
 赛题*.pdf
@@ -57,11 +63,15 @@ scripts/build_feishu_metrics_workbook.py
 答辩*.md
 答辩*.docx
 defense*.md
+ssfianl1*.pdf
+生医答辩ppt*.pptx
+新建 文本文档.md
 local_notes/
 
 # Agent / local workflow files
 AGENTS.md
 .agents/
+.claude/
 .specify/
 specs/
 

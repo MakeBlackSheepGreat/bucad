@@ -1,230 +1,192 @@
-# BUCAD - 乳腺超声肿瘤分类与分割辅助系统
-
-BUCAD（Breast Ultrasound Computer-Aided Diagnosis）是一个面向乳腺超声影像的计算机辅助诊断原型系统。项目围绕“良恶性分类 + 病灶区域辅助定位 + 可解释性展示”构建，将分类模型、分割模型、ROI 引导推理、Grad-CAM 热力图、本地 Gradio 演示界面和 Windows 桌面打包整合在同一个 Python 工程中。
-
-项目适合用于医学影像算法验证、教学演示、科研原型复现和后续二次开发。第三方使用者可以直接运行 demo 查看单张图像推理结果，也可以基于现有训练、评估和报告脚本继续扩展新的模型、数据集或推理策略。
-
-> BUCAD 是科研和原型系统，不是临床诊断产品，不能替代医生判断。
-
-## 项目功能
-
-输入一张乳腺超声图像后，系统可以：
-
-- 输出良性/恶性概率；
-- 根据可配置阈值给出最终判定；
-- 输出置信度和边界样本提醒；
-- 在分割权重可用时生成病灶定位叠加图；
-- 从主分类模型生成 Grad-CAM 风格热力图；
-- 对有标签数据集目录进行可复现批量评估；
-- 启动本地 Gradio 网页界面进行单图演示。
-
-系统的典型工作流如下：
-
-1. 读取输入图像并完成灰度图处理、CLAHE 增强、尺寸缩放和模型专属归一化。
-2. 使用五折分类模型分别预测完整图像的良恶性概率。
-3. 使用分割模型生成病灶 mask，并根据 mask 裁剪 ROI 区域。
-4. 使用同一组分类模型再次评估 ROI 区域，得到局部病灶视角下的恶性概率。
-5. 通过 OOF 训练得到的轻量逻辑融合器整合完整图概率和 ROI 概率。
-6. 根据默认阈值输出最终分类结果、置信度、分割叠加图和 Grad-CAM 热力图。
-
-## 当前演示模型
-
-当前主线是 `ConvNeXt-Tiny + EfficientNetV2-S + ROI Area Gate`，运行配置在 `configs/inference/demo.yml`。
-
-- **主模型分支**：`ConvNeXt-Tiny` 五折 checkpoint，集成权重 `0.573`，使用 timm-aware 预处理和 crop-sweep TTA；网页 UI 与 Grad-CAM 解释也以它作为主模型。
-- **辅助模型分支**：`EfficientNetV2-S` 五折 checkpoint，集成权重 `0.427`，使用 CLAHE 预处理和 identity TTA；它用于补充 ConvNeXt-Tiny 的错误分布，同时比继续加入 DenseNet/Swin 更轻量。
-- **ROI 分支**：`segmenter_fold1.pt` 预测病灶 mask；根据训练集分割验证结果使用 `mask_threshold=0.40`、`margin_ratio=0.35` 和最大连通域裁剪。
-- **OOF 融合**：系统会同时计算完整图概率和 ROI 概率，再输入训练集 out-of-fold 预测训练出的 logit logistic stacker 得到最终恶性概率。
-- **ROI 面积质量门控**：ROI 面积比例低于 `0.08` 或高于 `0.75` 时回退到完整图预测，降低异常 ROI 对最终分类的影响。
-- **判定阈值**：`0.510`，作为打包 demo 的默认运行点。
-
-当前 demo 配置的代表性评估结果：
-
-| 模型 | 阈值 | AUC | Accuracy | Recall/Sensitivity | Precision | Specificity | F1-Score |
-| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| ConvNeXt-Tiny + EfficientNetV2-S + ROI OOF Stacking + LCC ROI + Area Gate | 0.510 | 0.9256 | 0.8532 | 0.8667 | 0.7309 | 0.8467 | 0.7930 |
-
-可选保留配置：
-
-| 模型 | 阈值 | AUC | Accuracy | Recall/Sensitivity | Precision | Specificity | F1-Score | 用途 |
-| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |
-| ConvNeXt-Tiny + EfficientNetV2-S + DenseNet121 非 ROI 优化集成 | 0.453 | 0.9162 | 0.8702 | 0.7476 | 0.8351 | 0.9291 | 0.7889 | 可选高特异性对比配置 |
-| ConvNeXt-Tiny + EfficientNetV2-S + DenseNet121 + ROI OOF LCC | 0.560 | 0.9229 | 0.8501 | 0.8143 | 0.7467 | 0.8673 | 0.7790 | 可选三模型 ROI 线 |
-
-这些更重的三模型方案作为可选配置保留，便于复现实验和横向比较。默认 demo 采用两模型 ROI Area Gate 主线，因为它在当前评估中具有更高的 AUC、Recall/Sensitivity 和 F1-Score，同时部署复杂度低于 15 个 checkpoint 的三模型集成。
-项目中的模型结果表统一采用 AUC、Accuracy、Recall/Sensitivity、Precision、Specificity 和 F1-Score，便于不同配置之间进行一致比较。
-
-## 模型选择思路
-
-项目最初并不是直接指定最终模型，而是先用统一流程筛选多个单模型候选，再从中选择更有潜力的模型家族做五折训练、TTA、OOF、ROI 和混合集成实验。单折原生/推荐协议重测结果如下：
-
-| 模型 | 阈值 | AUC | Accuracy | Recall/Sensitivity | Precision | Specificity | F1-Score | 说明 |
-| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |
-| ConvNeXt-Small timm recipe fold1 | 0.50 | 0.8947 | 0.8284 | 0.7667 | 0.7220 | 0.8581 | 0.7436 | 后续升级验证，不进入默认主线 |
-| ConvNeXt-Tiny timm recipe fold1 | 0.50 | 0.8943 | 0.8423 | 0.7762 | 0.7477 | 0.8741 | 0.7617 | ConvNeXt 推荐配方 |
-| DenseNet121 fold1 | 0.50 | 0.8766 | 0.8083 | 0.4571 | 0.9057 | 0.9771 | 0.6076 | 高 Precision/Specificity 参考 |
-| Swin-Tiny timm recipe fold1 | 0.50 | 0.8729 | 0.8300 | 0.7048 | 0.7551 | 0.8902 | 0.7291 | Transformer 风格候选 |
-| EfficientNetV2-S fold1 | 0.50 | 0.8609 | 0.7465 | 0.8333 | 0.5757 | 0.7048 | 0.6809 | CNN 主候选 |
-| EfficientNetV2-S main fold1 | 0.50 | 0.8483 | 0.8099 | 0.6714 | 0.7231 | 0.8764 | 0.6963 | 后续五折分支的 fold1 |
-| ResNet18 fold1 | 0.50 | 0.8480 | 0.7991 | 0.7714 | 0.6639 | 0.8124 | 0.7137 | ResNet baseline |
-| MobileNetV3-Small fold1 | 0.50 | 0.8431 | 0.7543 | 0.7143 | 0.6024 | 0.7735 | 0.6536 | 轻量 baseline |
-| Swin-Tiny initial fold1 | 0.50 | 0.8242 | 0.6754 | 0.8714 | 0.5000 | 0.5812 | 0.6354 | 早期非 timm-aware 配方 |
-| Early ResNet18 classifier fold1 | 0.50 | 0.7543 | 0.7450 | 0.6429 | 0.6000 | 0.7941 | 0.6207 | 早期 baseline |
-| Basic CNN fold1 | 0.50 | 0.7327 | 0.6754 | 0.0429 | 0.5000 | 0.9794 | 0.0789 | 非预训练轻量 baseline |
-| ConvNeXt-Tiny initial fold1 | 0.50 | 0.5996 | 0.6754 | 0.0000 | 0.0000 | 1.0000 | 0.0000 | 早期非 timm-aware 配方 |
-| VGG16 fold1 | 0.50 | 0.5000 | 0.6754 | 0.0000 | 0.0000 | 1.0000 | 0.0000 | VGG baseline |
-
-基于上述筛选，项目选择 `EfficientNetV2-S`、`DenseNet121`、`ConvNeXt-Tiny` 和 `Swin-Tiny` 作为 BUCAD 后续重点实验的四个候选模型家族：
-
-- **ConvNeXt-Tiny 做主模型**：timm-aware 配方显著修复早期 ConvNeXt 训练/预处理问题，单折和五折表现稳定，且适合配合 crop-sweep TTA 与 Grad-CAM 可解释性输出。
-- **EfficientNetV2-S 做辅助分支**：单折 Recall/Sensitivity 较高，与 ConvNeXt-Tiny 的错误分布不同，进入集成后能提升整体稳定性。
-- **DenseNet121 保留为可选配置**：单折 Precision 和 Specificity 很高，适合作为高特异性参考和三模型可选配置，但默认运行点下 Recall/Sensitivity 不如两模型 ROI 主线。
-- **Swin-Tiny 进入候选但不进入默认 demo**：Swin-Tiny 在推荐配方下明显优于初始版本，具备结构互补性；后续混合集成权重搜索显示它对当前最优运行点贡献有限，因此不纳入默认部署配置。
-- **ConvNeXt-Small 作为后续升级验证**：单折 AUC 很接近 ConvNeXt-Tiny，但五折和集成收益不足以替代当前主线，因此保留为研究参考。
-- **ROI 与 OOF 是最终主线差异点**：最终 demo 没有停留在单模型筛选结果，而是在四模型筛选基础上继续比较五折、TTA、OOF、ROI 裁剪和部署复杂度，最终收敛到 `ConvNeXt-Tiny + EfficientNetV2-S + ROI Area Gate`。
-
-## 推理与优化流程
-
-项目当前推理流程围绕“稳定、可解释、便于部署”设计：
-
-1. **异构预处理**：每个集成成员可以独立设置图像尺寸、CLAHE、归一化、插值、crop 比例和 TTA。
-2. **ConvNeXt crop-sweep TTA**：ConvNeXt 使用 ImageNet mean/std、bicubic 插值和 `crop_pct=0.90/0.95/1.00`，每个 crop 同时评估原图和水平翻转。
-3. **EfficientNet identity 分支**：EfficientNetV2-S 使用 CLAHE、area 插值、不继承 ConvNeXt 的 mean/std，并只保留 identity TTA，避免跨模型预处理串扰。
-4. **ROI OOF Stacking**：最终 demo 同时使用完整图概率和 ROI 概率，由 OOF 训练出的逻辑融合器输出最终概率。
-5. **ROI mask 后处理**：根据分割验证结果，最终 ROI 使用 `0.40` mask 阈值、最大连通域裁剪和 `margin_ratio=0.35`。
-6. **ROI 面积质量门控**：极小或过大的 ROI 裁剪会回退到完整图预测，提高当前运行点下的 Precision/F1。
-7. **OOF 阈值选择**：最终 ROI Area Gate 阈值为 `0.510`，来自基于训练集 out-of-fold 证据筛选出的候选配置。
-8. **可解释性对齐**：`demo.yml` 将 ConvNeXt-Tiny 放在第一分支，网页 UI 和 Grad-CAM 输出都围绕主模型解释，便于第三方理解结果来源。
-
-## 为什么要做这些主线优化
-
-当前主线不是把所有尝试过的技巧都堆进去，而是只保留已经在内部验证和锁定外部验证中证明相对稳定的部分。每一项优化都对应一个明确问题：小数据集方差、超声图像低对比、单模型误差分布偏移、完整图背景干扰、ROI 裁剪不稳定、阈值运行点选择，以及 demo 可解释性。
-
-### 为什么使用五折分类器集成
-
-乳腺超声数据量有限，单个 train/val 划分很难覆盖所有病灶形态、BI-RADS 分布、采集条件和良恶性边界样本。如果只使用单折模型，模型容易受某一个验证折的样本结构影响，外部数据集上波动会更大。
-
-所以主线对 ConvNeXt-Tiny 和 EfficientNetV2-S 都使用五折 checkpoint。推理时对五个折的输出做加权平均，相当于让五个略有差异的训练视角共同投票。这样可以降低单折偶然性，提高概率输出稳定性。对于 BUSI 这种和 BUSBRA 分布不完全一致的外部验证集，这一点尤其重要。
-
-### 为什么以 ConvNeXt-Tiny 作为主模型
-
-ConvNeXt-Tiny 是当前主线的主分支，因为它在使用 timm-aware 训练和推理配方之后，表现最稳定，也最适合作为 demo 的主解释模型。早期非 timm-aware 的 ConvNeXt 结果很差，说明这个模型对预处理、归一化和 crop 策略比较敏感；后来统一使用 ImageNet mean/std、bicubic 插值、timm crop 设置、类别平衡和 best-AUC checkpoint 后，ConvNeXt-Tiny 成为最可靠的恶性排序分支。
-
-它在主线里的核心作用是保护 Sensitivity，也就是尽量减少恶性漏检。单独 EfficientNetV2-S 更保守，容易漏掉恶性；ConvNeXt-Tiny 更适合承担主要恶性识别任务，因此 UI 和 Grad-CAM 也以它作为主模型。
-
-### 为什么保留 EfficientNetV2-S 辅助分支
-
-EfficientNetV2-S 单独使用时并不是最好的主模型。BUSI 结果显示，它的 Specificity 很高，但 Sensitivity 明显偏低。换句话说，它不太容易把良性误报成恶性，但也更容易漏掉恶性。
-
-这类模型不适合单独部署，却适合放进融合里做“保守校正”。ConvNeXt-Tiny 对恶性更敏感，EfficientNetV2-S 对良性更谨慎，两者错误分布不同。当前权重是 ConvNeXt `0.573`、EfficientNet `0.427`，相当于让 ConvNeXt 主导，同时用 EfficientNet 压制一部分良性误报。
-
-后来我们也测试过 DenseNet、Swin、ConvNeXt-Small 等更多模型的 model-zoo 融合，但这些方案虽然在 BUSBRA OOF 上看起来更好，迁移到 BUSI 后 AUC 或 Sensitivity 下降。因此主线没有继续堆更多模型，而是保留了两模型家族的稳定组合。
-
-### 为什么 ConvNeXt 要做 crop-sweep TTA
-
-乳腺超声图像中的病灶大小、位置和周围背景差异很大。单一 center crop 可能有两个问题：要么裁得太紧，丢掉病灶周边组织；要么裁得太松，引入过多无关背景。
-
-因此 ConvNeXt 分支推理时使用三种 crop 比例：`0.90`、`0.95`、`1.00`，每种再做原图和水平翻转，共六个视图。这样模型可以同时看稍紧、适中、完整的视野，再对结果取平均，降低某一个 crop 失败带来的影响。
-
-水平翻转在这里是合理的，因为左右方向不是良恶性标签本身。它主要增强模型对左右乳腺采集方向差异的鲁棒性。EfficientNetV2-S 后来单独测试过 TTA，但内部收益太小且会增加推理耗时，所以主线只给 ConvNeXt 保留 crop-sweep TTA。
-
-### 为什么使用 CLAHE 和模型专属预处理
-
-超声图像常见问题是局部对比度低、散斑噪声多、病灶边缘不清晰。CLAHE 可以增强局部对比，让病灶边界、内部回声和周围组织差异更容易被 CNN 特征捕捉。
-
-但不同模型不能强行共用同一套预处理。ConvNeXt-Tiny 使用 ImageNet mean/std、bicubic 插值和 timm crop 设置；EfficientNetV2-S 使用更简单的 area resize 分支，不继承 ConvNeXt 的 mean/std。这样做是因为不同模型训练时看到的数据分布不同，推理时必须保持一致，否则会出现跨模型预处理错配。
-
-### 为什么要引入 ROI 分割引导
-
-完整图分类器会看到整张超声图，包括黑边、文字、探头区域、正常组织纹理和其他无关背景。这些区域有时会干扰模型，让模型把背景模式当成病灶证据。
-
-ROI 分支的目的就是让模型再看一次“更聚焦病灶”的图。主线先用分割器预测病灶 mask，再根据 mask 裁剪 ROI，然后把 ROI 图送入同一套分类器，得到局部病灶视角下的恶性概率。
-
-ROI 分支不是用来替代完整图，而是补充完整图。完整图保留整体上下文，也能避免分割失败时完全看错区域；ROI 图强调病灶本体和周边形态。主线最终同时使用两者。
-
-### 为什么使用最大连通域和 0.35 边界裁剪
-
-分割器输出的 mask 有时会包含多个小块，其中一些小块可能只是噪声或无关组织。主线开启 `largest_component: true`，只保留最大连通域，是为了更稳定地定位最可能的病灶主体。
-
-裁剪时使用 `margin_ratio=0.35`，不是只裁病灶内部。原因是乳腺超声的良恶性判断不只看病灶内部，还会看边界、形态、后方回声和周边组织关系。裁得太紧会丢掉这些信息；裁得太松又会退化成完整图。`0.35` 是当前主线中较稳的折中设置。
-
-### 为什么要用 full/ROI logistic stacker
-
-主线没有简单平均完整图概率和 ROI 概率，而是用 BUSBRA OOF 训练出的轻量 logistic stacker。输入是完整图恶性概率和 ROI 恶性概率的 logit 形式。
-
-这样做的原因是 full 图和 ROI 图的概率分布并不一样，直接平均会有校准问题。完整图更稳，ROI 更聚焦但也更容易受分割影响。stacker 学到的是：完整图是主信号，ROI 是辅助校正信号。这样比手写平均更符合内部验证中观察到的错误模式。
-
-### 为什么要做 ROI 面积质量门控
-
-ROI 面积门控是当前主线稳定性的关键。配置中规定 ROI 面积低于 `0.08` 或高于 `0.75` 时，直接回退到完整图预测。
-
-原因很直接：ROI 不是永远可靠。面积太小，可能说明分割器只截到了一个噪声点，或者漏掉了真正病灶；面积太大，说明 mask 几乎覆盖整张图，ROI 已经失去“聚焦病灶”的意义。此时继续使用 ROI 分支，反而可能把错误放大。
-
-内部错误分析也支持这个设计：不少 FP 来自 ROI/stacker 把良性样本推过恶性阈值。因此面积门控相当于一个保险机制：ROI 看起来合理时才用 ROI，ROI 不合理时相信完整图。
-
-### 为什么阈值是 0.51
-
-当前默认阈值是 `0.51`，不是随便使用 `0.50`。这个运行点来自训练集 OOF 证据，并在锁定 BUSI 外部验证中确认。最新主线 BUSI 基准里，Youden 最优阈值也是 `0.51`。
-
-医学筛查型任务里，漏掉恶性通常比多报几个良性更严重。因此阈值选择优先保证 Sensitivity，同时控制 Specificity 不严重下降。当前阈值下，BUSI Sensitivity 为 `0.8667`，Specificity 为 `0.8467`，是当前主线里较平衡的运行点。
-
-### 为什么保留 borderline margin 和可解释性输出
-
-`borderline_margin=0.08` 主要服务 demo 展示。它不会提高 AUC，但可以把接近阈值的样本标记为边界/不确定，避免系统对所有结果都表现得过度确定。
-
-分割 overlay 和 Grad-CAM 也是同样逻辑。它们不直接改变分类概率，但能让用户看到模型关注区域和病灶定位结果。对于计算机辅助诊断原型来说，可解释性是演示和答辩时非常重要的一部分。
-
-### 为什么没有合入其他看起来更复杂的方案
-
-已经尝试但没有合入主线的方案包括：5 折分割器、model-zoo stacking、hard-sample weighting、ConvNeXt seed diversity、weight soup、soft ROI gate、EfficientNet TTA、CutMix、轻量正则化和 320 输入。
-
-这些方案有些在 BUSBRA OOF 上更好，但迁移到 BUSI 后没有超过当前主线；有些在 fold1 内部筛选阶段就低于原始配方。由于 BUSI 只能作为锁定后的外部验证，不能用来反复调参，所以主线必须保守：只有真正能在外部验证中稳住 AUC、Sensitivity、Specificity 和 F1 的方案才合入。
-
-因此，当前 `demo.yml` 保留的是最稳的一组组合：双模型五折、ConvNeXt TTA、ROI 引导、full/ROI stacker、ROI 面积门控、0.51 阈值和可解释性输出。
-
-## 指标说明
-
-项目报告和 README 中的模型基准至少包含以下指标：
-
-- **AUC**：衡量模型区分良恶性样本的整体排序能力。
-- **Accuracy**：所有样本中预测正确的比例。
-- **Recall/Sensitivity**：实际恶性样本中被正确识别为恶性的比例，反映漏诊风险。
-- **Precision**：预测为恶性的样本中真实恶性的比例，反映阳性预测可靠性。
-- **Specificity**：实际良性样本中被正确识别为良性的比例，反映误诊控制能力。
-- **F1-Score**：Precision 与 Recall/Sensitivity 的调和平均，用于综合评价恶性检出质量。
-
-## 项目目录
-
-- `configs/`：路径、分类器、分割器和推理配置。
-- `src/datasets/`：数据集读取与 split 支持。
-- `src/models/`：分类器和分割器工厂。
-- `src/engine/`：训练、对比、推理和评估流程。
-- `src/explain/`：Grad-CAM 和可视化叠加图。
-- `src/preprocess/`：图像读取和预处理。
-- `src/utils/`：配置、指标、报告、路径、日志和结果结构。
-- `scripts/`：命令行入口。
-- `app/`：Gradio 网页应用。
-- `tests/`：单元、集成和 smoke 测试。
-- `artifacts/reports/`：可版本化的 Markdown 实验报告。
-- `artifacts/checkpoints/`：本地模型权重，默认不进入 Git。
-
-## 数据路径
-
-从 `configs/paths.example.yml` 复制生成 `configs/paths.local.yml`，并配置本地数据集路径：
-
-```yaml
-datasets:
-  busbra_root: ./BUSBRA
-  busi_root: ./Dataset_BUSI_with_GT
+# BUCAD - 乳腺超声计算机辅助诊断系统
+
+BUCAD（Breast Ultrasound Computer-Aided Diagnosis）是一个面向乳腺超声影像的计算机辅助诊断研究原型。系统整合了深度学习分类模型、语义分割模型、ROI 引导推理、Grad-CAM 可解释性可视化、Gradio 交互界面及 Windows 桌面部署方案，构成一个完整的算法验证与原型演示框架。
+
+本系统适用于医学影像算法研究、模型对比实验、教学演示及二次开发。当前版本已在 BUSBRA 训练集和 BUSI 外部测试集上完成验证。
+
+> **声明**：BUCAD 为科研原型系统，非临床诊断产品，不可替代专业医学判断。
+
+## 系统功能
+
+输入单张乳腺超声图像后，系统输出包括：
+
+- 良性/恶性二分类概率及基于可配置阈值的判定结果
+- 预测置信度与边界样本标记
+- 基于语义分割的病灶区域定位叠加图
+- 基于 Grad-CAM 的分类模型注意力热力图
+- 批量数据集评估与可复现实验报告
+
+### 推理流程
+
+```
+输入图像 → 灰度转换 + CLAHE 增强 + 尺寸缩放 + 模型专属归一化
+    ↓
+五折分类模型集成 → 完整图良恶性概率
+    ↓
+语义分割模型 → 病灶 mask → 最大连通域提取 + 边界扩展裁剪 → ROI 图像
+    ↓
+同一分类模型集成 → ROI 良恶性概率
+    ↓
+OOF 训练的 Logistic Stacking → 融合完整图与 ROI 概率
+    ↓
+阈值判定 + 置信度计算 + 边界标记
+    ↓
+输出：分类结果 + 分割叠加图 + Grad-CAM 热力图
 ```
 
-数据集说明：
+## 模型架构
 
-- 按照实际使用场景配置本地数据集路径；目录名称可以根据本机数据组织方式调整。
-- split 使用病例级划分，避免数据泄漏。
-- 数据集、模型权重、生成图片、JSON/CSV 输出和 release 包默认不进入 Git。
+### 当前主线配置
 
-## 环境安装
+当前部署配置位于 `configs/inference/demo.yml`，采用 `ConvNeXt-Tiny + EfficientNetV2-S + ROI Area Gate` 双模型集成架构。
+
+| 组件 | 模型 | 权重 | Checkpoint 数量 | TTA 策略 |
+|---|---|---|---|---|
+| 主分类分支 | ConvNeXt-Tiny | 0.573 | 5-fold | crop-sweep (0.90/0.95/1.00) + hflip |
+| 辅助分类分支 | EfficientNetV2-S | 0.427 | 5-fold | identity |
+| 分割分支 | UNet (ResNet-18 encoder) | — | 1 | — |
+| 融合层 | Logistic Regression Stacker | — | — | — |
+
+### 关键技术参数
+
+| 参数 | 值 | 说明 |
+|---|---|---|
+| 分割 mask 阈值 | 0.40 | 病灶概率图二值化阈值 |
+| ROI 边界扩展系数 | 0.35 | mask bbox 外扩比例 |
+| ROI 面积质量门控 | [0.08, 0.75] | 超出范围回退至完整图预测 |
+| 分类阈值 | 0.510 | 基于 OOF 证据确定的运行点 |
+| 边界样本标记阈值 | 0.08 | 概率距阈值 ±0.08 内标记为不确定 |
+
+### 代表性评估结果
+
+| 数据集 | 阈值 | AUC | Accuracy | Sensitivity | Specificity | Precision | F1-Score |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| BUSBRA (5-fold CV) | 0.510 | 0.9256 | 0.8532 | 0.8667 | 0.8467 | 0.7309 | 0.7930 |
+| BUSI (外部测试) | 0.540 | 0.8991 | 0.8346 | 0.7381 | 0.8810 | 0.7488 | 0.7434 |
+
+## 模型筛选与对比
+
+### 单模型基线对比
+
+项目采用统一流程对多个候选模型进行筛选，以下为单折（fold1）原生训练配方的 BUSI 外部测试结果：
+
+| 模型 | 参数量 | AUC | Accuracy | Sensitivity | Specificity | F1-Score |
+|---|---:|---:|---:|---:|---:|---:|
+| ConvNeXt-Tiny (timm recipe) | 28M | 0.8943 | 0.8423 | 0.7762 | 0.8741 | 0.7617 |
+| ConvNeXt-Small (timm recipe) | 50M | 0.8947 | 0.8284 | 0.7667 | 0.8581 | 0.7436 |
+| DenseNet-121 | 8M | 0.8766 | 0.8083 | 0.4571 | 0.9771 | 0.6076 |
+| Swin-Tiny (timm recipe) | 28M | 0.8729 | 0.8300 | 0.7048 | 0.8902 | 0.7291 |
+| EfficientNetV2-S | 21M | 0.8609 | 0.7465 | 0.8333 | 0.7048 | 0.6809 |
+| ResNet-18 | 11M | 0.8480 | 0.7991 | 0.7714 | 0.8124 | 0.7137 |
+| MobileNetV3-Small | 2.5M | 0.8431 | 0.7543 | 0.7143 | 0.7735 | 0.6536 |
+
+### 五折集成对比
+
+六个模型家族的 5-fold 交叉验证及 BUSI 外部测试结果：
+
+| 模型 | BUSBRA 5-fold AUC (均值±标准差) | BUSI AUC | BUSI Sensitivity | BUSI Specificity | Youden 阈值 |
+|---|---|---:|---:|---:|---:|
+| ConvNeXt-Tiny V1 | 0.9212 ± 0.0196 | 0.8991 | 0.7381 | 0.8810 | 0.54 |
+| ConvNeXt-Tiny V2 | 0.9176 ± 0.0107 | 0.8897 | 0.7333 | 0.8970 | 0.39 |
+| ConvNeXt-Small | 0.9162 ± 0.0163 | 0.9040 | 0.8190 | 0.8535 | 0.47 |
+| Swin-Tiny | 0.9139 ± 0.0130 | 0.8831 | 0.7476 | 0.8696 | 0.61 |
+| DenseNet-121 | 0.9071 ± 0.0174 | 0.8909 | 0.3905 | 0.9908 | 0.18 |
+| EfficientNetV2-S | 0.8946 ± 0.0241 | 0.8982 | 0.6619 | 0.9314 | 0.39 |
+
+> 详细对比数据见 `artifacts/reports/six_model_comparison_report.md` 和 `artifacts/reports/six_model_comparison_data.json`
+
+### 可选集成配置
+
+| 配置 | 模型组合 | 阈值 | AUC | Sensitivity | Specificity | F1-Score |
+|---|---|---:|---:|---:|---:|---:|
+| 三模型非 ROI | ConvNeXt + EfficientNet + DenseNet | 0.453 | 0.9162 | 0.7476 | 0.9291 | 0.7889 |
+| 三模型 ROI OOF | ConvNeXt + EfficientNet + DenseNet + ROI | 0.560 | 0.9229 | 0.8143 | 0.8673 | 0.7790 |
+
+## 技术设计依据
+
+### 五折交叉验证集成
+
+受限于训练数据规模，单一 train/val 划分难以充分覆盖病灶形态、BI-RADS 分级、采集条件及良恶性边界样本的分布多样性。五折集成通过 StratifiedGroupKFold 按病例级分组划分，确保同一患者的样本不跨折出现，避免数据泄漏。推理时对五个折的输出取加权平均，降低单折偶然性，提升概率输出稳定性。
+
+### 主模型选择：ConvNeXt-Tiny
+
+ConvNeXt-Tiny 在采用 timm-aware 训练配方（ImageNet 预训练均值/标准差、bicubic 插值、timm crop 配置、类别平衡权重、best-AUC 检查点选择）后，表现出最优的恶性样本排序能力。早期非 timm-aware 配方下 ConvNeXt 性能显著下降（AUC 从 0.93 降至 0.60），表明该模型对预处理策略高度敏感。
+
+在当前双模型集成中，ConvNeXt-Tiny 承担主要的恶性检出任务（权重 0.573），其较高的 Sensitivity 降低了漏诊风险。
+
+### 辅助模型选择：EfficientNetV2-S
+
+EfficientNetV2-S 单独部署时 Sensitivity 偏低（0.66），但 Specificity 较高（0.93），属于保守型分类器。将其纳入集成可与 ConvNeXt-Tiny 形成互补：ConvNeXt 偏向恶性召回，EfficientNet 偏向良性特异，两者错误分布的差异性提升了集成的整体鲁棒性。
+
+### Crop-Sweep 测试时增强
+
+乳腺超声图像中病灶尺寸、位置及周围组织背景差异显著。单一 center crop 可能因裁剪过紧丢失病灶周围组织信息，或因裁剪过松引入过多无关背景。
+
+ConvNeXt 分支采用三种 crop 比例（0.90、0.95、1.00），每种配合水平翻转，共生成六个推理视图。多视图预测结果取平均，降低了单一裁剪策略失败的风险。EfficientNetV2-S 分支因独立测试 TTA 收益有限且增加推理延迟，仅保留 identity TTA。
+
+### CLAHE 预处理与模型专属归一化
+
+超声图像普遍存在局部对比度低、散斑噪声强、病灶边缘模糊等问题。CLAHE（Contrast Limited Adaptive Histogram Equalization）可增强局部对比度，有利于 CNN 特征提取器捕捉病灶边界、内部回声及周围组织差异。
+
+不同模型因训练时接触的数据分布不同，推理时必须保持预处理一致性。ConvNeXt-Tiny 使用 ImageNet 标准化参数和 bicubic 插值；EfficientNetV2-S 使用 area 插值且不继承 ConvNeXt 的归一化参数。跨模型预处理不匹配会导致性能退化。
+
+### ROI 分割引导
+
+完整图分类器接收整张超声图像，包含黑边、设备标注、探头区域及正常组织纹理等无关信息，这些区域可能干扰分类决策。
+
+ROI 分支通过语义分割模型预测病灶 mask，经最大连通域提取和边界扩展裁剪后生成 ROI 图像，再由同一分类模型评估局部病灶视角下的恶性概率。ROI 分支与完整图分支并行运作：完整图保留全局上下文，ROI 图强调病灶本体形态，两者通过 OOF 训练的 Logistic Stacker 融合。
+
+### ROI 面积质量门控
+
+分割预测并非始终可靠。面积过小（< 0.08）可能表示分割器仅捕获噪声区域或遗漏真实病灶；面积过大（> 0.75）则 mask 几乎覆盖全图，ROI 失去聚焦意义。面积门控机制在 ROI 质量异常时回退至完整图预测，作为分割失败的安全兜底策略。
+
+### OOF Logistic Stacking
+
+完整图与 ROI 图的概率分布存在差异，直接平均会引入校准问题。系统采用 BUSBRA 训练集 out-of-fold 预测训练的 Logistic Regression 作为融合层，以 logit 空间特征作为输入，学习完整图为主信号、ROI 为辅助校正信号的最优权重分配。
+
+### 阈值选择
+
+默认阈值 0.510 基于训练集 OOF 证据确定，并在 BUSI 外部测试中验证（Youden 最优阈值同样为 0.51）。医学筛查任务中，漏诊恶性病例的代价通常高于良性误报，因此阈值选择优先保证 Sensitivity，同时控制 Specificity 不显著下降。
+
+## 指标定义
+
+| 指标 | 定义 | 临床意义 |
+|---|---|---|
+| AUC | ROC 曲线下面积 | 模型区分良恶性的整体排序能力 |
+| Accuracy | (TP+TN) / (TP+TN+FP+FN) | 整体预测正确率 |
+| Sensitivity (Recall) | TP / (TP+FN) | 恶性检出率，反映漏诊风险 |
+| Specificity | TN / (TN+FP) | 良性正确识别率，反映误诊控制 |
+| Precision | TP / (TP+FP) | 阳性预测可靠性 |
+| F1-Score | 2 × Precision × Recall / (Precision + Recall) | Precision 与 Recall 的调和均值 |
+| Youden's J | Sensitivity + Specificity - 1 | 综合评估阈值优劣 |
+
+## 项目结构
+
+```
+BUCAD/
+├── configs/                          # 配置文件
+│   ├── classifier/                   # 分类器训练配置
+│   ├── segmenter/                    # 分割器训练配置
+│   └── inference/                    # 推理与集成配置
+├── src/
+│   ├── datasets/                     # 数据集加载与划分
+│   ├── models/                       # 模型工厂（分类器/分割器）
+│   ├── engine/                       # 训练/评估/推理引擎
+│   ├── explain/                      # Grad-CAM 可解释性
+│   ├── preprocess/                   # 图像预处理与 ROI 裁剪
+│   └── utils/                        # 配置/指标/报告/日志
+├── scripts/                          # 命令行入口脚本
+├── app/                              # Gradio Web 应用
+├── packaging/                        # Windows 桌面打包配置
+├── tests/                            # 单元/集成/smoke 测试
+└── artifacts/
+    ├── checkpoints/                  # 模型权重（不提交至 Git）
+    └── reports/                      # 实验报告与评估结果
+```
+
+## 环境配置
+
+### 依赖安装
 
 ```powershell
 conda create -n BUCAD python=3.11 -y
@@ -232,142 +194,137 @@ conda activate BUCAD
 python -m pip install -r requirements.txt
 ```
 
-检查环境：
+### 环境验证
 
 ```powershell
 python check_env.py
 python check_all.py
 ```
 
-## 硬件与软件要求
+### 数据集配置
 
-### 运行 demo / 推理
+复制 `configs/paths.example.yml` 为 `configs/paths.local.yml`，配置本地数据集路径：
 
-- **操作系统**：主要面向 Windows 10/11 x64。源码运行方式也可以在 PyTorch、OpenCV 等依赖可用的标准 Python 环境中运行。
-- **打包桌面版 demo**：解压 release 包后不需要本机额外安装 Python。桌面版使用 Microsoft Edge WebView2，大多数 Windows 10/11 已内置；如果机器缺少该组件，需要安装官方 WebView2 Runtime。
-- **CPU / GPU**：支持 CPU 推理，普通演示场景可以使用 CPU。NVIDIA GPU 不是必须项，主要用于降低推理等待时间。
-- **内存**：最低建议 8 GB RAM，推荐 16 GB RAM，以保证启动、图像显示和可视化结果更稳定。
-- **磁盘空间**：建议至少预留 8 GB，用于解压后的 demo、模型权重、临时文件和生成的可视化结果。
+```yaml
+datasets:
+  busbra_root: ./BUSBRA
+  busi_root: ./Dataset_BUSI_with_GT
+```
 
-### 训练 / 实验
+数据集采用病例级划分（StratifiedGroupKFold），避免同一患者样本跨训练/验证集出现导致数据泄漏。
 
-- **Python 环境**：推荐 Conda + Python 3.10 或 3.11；示例安装命令使用 `BUCAD` 环境和 Python 3.11。
-- **GPU**：强烈建议使用 NVIDIA CUDA GPU。CPU 只适合做 smoke test，不适合完整五折训练。
-- **显存**：当前 224 分辨率的 ConvNeXt-Tiny / EfficientNetV2-S 实验，8 GB VRAM 可以作为较低可用门槛；如果要更快地跑五折、更大 batch size 或更高分辨率实验，推荐 12-16 GB 或更高显存。
-- **系统内存**：最低建议 16 GB RAM，推荐 32 GB RAM，用于训练、报告生成和数据加载。
-- **磁盘空间**：建议至少预留 50 GB，用于本地数据集、五折 checkpoint、日志、OOF 产物、报告和临时构建文件。
-- **数据处理**：数据集、checkpoint、生成报告和 release 包应保留在 Git 跟踪源码之外。
+## 运行方式
 
-## 启动网页 demo
-
-浏览器模式：
+### Web 界面
 
 ```powershell
 conda activate BUCAD
 python app\main.py
 ```
 
-桌面窗口模式：
+### 桌面窗口模式
 
 ```powershell
 conda activate BUCAD
 python app\desktop_main.py
 ```
 
-两种模式都会读取 `configs/inference/demo.yml`。当前 demo 声明 `ConvNeXt-Tiny` 为主模型，`EfficientNetV2-S` 为辅助集成分支。
+两种模式均读取 `configs/inference/demo.yml`。
 
-## Windows 一键启动 Demo
-
-自动打开浏览器的版本：
+### Windows 桌面打包
 
 ```powershell
-conda activate BUCAD
+# 浏览器模式
 python -m PyInstaller --clean --noconfirm packaging\demo.spec
-```
 
-桌面窗口版本：
-
-```powershell
-conda activate BUCAD
+# 桌面窗口模式
 python -m PyInstaller --clean --noconfirm packaging\desktop_demo.spec
 ```
 
-- 自动打开浏览器的可执行文件：`dist/bucad-demo/bucad-demo.exe`。
-- 桌面窗口版可执行文件：`dist/bucad-demo-desktop/bucad-demo-desktop.exe`。
-- 发布或拷贝桌面版 demo 时需要带上整个生成目录，不能只单独拷贝 `.exe` 文件，因为程序依赖同目录下的模型文件、Python 库、WebView 文件和配置文件。
-- `v1.1.0` release 包使用桌面窗口版，启动后界面表现为本地 Windows 应用，而不是打开外部浏览器。
+输出路径：
+- 浏览器模式：`dist/bucad-demo/bucad-demo.exe`
+- 桌面窗口模式：`dist/bucad-demo-desktop/bucad-demo-desktop.exe`
 
-## 批量评估
+> 桌面版需携带完整生成目录，不可单独分发 `.exe` 文件。
 
-```powershell
-python scripts\eval_busi.py --config configs\inference\demo.yml --output artifacts\reports\busi_demo_convnext_effnet.json
-```
-
-打包 demo 配置的代表性指标：
-
-| 模型 | 阈值 | AUC | Accuracy | Recall/Sensitivity | Precision | Specificity | F1-Score |
-| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| ConvNeXt-Tiny + EfficientNetV2-S + ROI Area Gate | 0.510 | 0.9256 | 0.8532 | 0.8667 | 0.7309 | 0.8467 | 0.7930 |
-
-## 生成数据划分
+### 数据划分生成
 
 ```powershell
 python scripts\make_split.py --config configs\paths.local.yml
 ```
 
 输出：
-
 - `artifacts/reports/busbra_5fold_splits.csv`
 - `artifacts/reports/busbra_split_summary.json`
 
-## 训练分类模型
-
-训练 ConvNeXt-Tiny 单折：
+### 分类模型训练
 
 ```powershell
+# ConvNeXt-Tiny fold 1
 python scripts\train_cls.py --config configs\classifier\convnext_tiny_timm_recipe.yml --fold 1
-```
 
-训练 EfficientNetV2-S 单折：
-
-```powershell
+# EfficientNetV2-S fold 1
 python scripts\train_cls.py --config configs\classifier\efficientnetv2_s.yml --fold 1
 ```
 
-五折 checkpoint 输出到 `artifacts/checkpoints/`，不提交到远程仓库。
+五折 checkpoint 输出至 `artifacts/checkpoints/`。
 
-## 实验报告与结果文件
+### 批量评估
 
-如需进一步了解模型选择、消融实验和历史对比结果，可以查看以下报告文件：
+```powershell
+python scripts\eval_busi.py --config configs\inference\demo.yml --output artifacts\reports\busi_demo.json
+```
 
-- `artifacts/reports/fivefold_single_model_comparison.md`
-- `artifacts/reports/fold1_single_model_baseline_comparison.md`
-- `artifacts/reports/native_single_model_retest.md`
-- `artifacts/reports/convnext_tta_optimization.md`
-- `artifacts/reports/ensemble_tta_threshold_tuning.md`
-- `artifacts/reports/roi_oof_experiment.md`
-- `artifacts/reports/roi_oof_lcc_optimization.md`
-- `artifacts/reports/roi_precision_f1_study.md`
-- `artifacts/reports/oof_two_model_decision_report.md`
-- `artifacts/reports/four_model_ensemble_weight_search.md`
-- `artifacts/reports/three_model_ensemble_weight_search.md`
-- `artifacts/reports/three_model_roi_oof_experiment.md`
-- `artifacts/reports/swin_tiny_5fold_experiment.md`
-- `artifacts/reports/报告/中文版报告/training_recipe_audit.md`
-- `artifacts/reports/报告/中文版报告/literature_guided_optimization.md`
-- `artifacts/reports/报告/中文版报告/final_validation.md`
+## 硬件要求
 
-英文版历史报告统一存放在 `artifacts/reports/报告/英文版报告/`，对应中文版同步存放在 `artifacts/reports/报告/中文版报告/`。
+### 推理/演示
 
-## 参考与致谢
+| 项目 | 最低要求 | 推荐配置 |
+|---|---|---|
+| 操作系统 | Windows 10 x64 | Windows 11 x64 |
+| CPU | 支持 AVX2 指令集 | 现代多核处理器 |
+| GPU | 非必需（支持 CPU 推理） | NVIDIA GPU（降低推理延迟） |
+| 内存 | 8 GB | 16 GB |
+| 磁盘 | 8 GB | — |
 
-本项目在设计和优化过程中参考了公开乳腺超声数据集、医学影像开源项目，以及分类、分割、ROI 感知诊断、多任务学习和超声基础模型相关研究。
+### 训练/实验
 
-- BUSI 数据集：[Dataset of breast ultrasound images](https://pubmed.ncbi.nlm.nih.gov/31867417/)
-- 乳腺超声病灶区域感知分类研究：[PMC11431713](https://pmc.ncbi.nlm.nih.gov/articles/PMC11431713/)
-- 乳腺超声分割与分类多任务研究：[PMC12011763](https://pmc.ncbi.nlm.nih.gov/articles/PMC12011763/)
-- OpenUS 超声基础模型：[XZheng0427/OpenUS](https://github.com/XZheng0427/OpenUS)
-- BUSI 分割参考项目：[tqxli/breast_ultrasound_lesion_segmentation_PyTorch](https://github.com/tqxli/breast_ultrasound_lesion_segmentation_PyTorch)
-- BUSI-SAM / SAM 风格分割参考：[huangjin520/BUSI-SAM](https://github.com/huangjin520/BUSI-SAM)、[bscs12/BUSSAM](https://github.com/bscs12/BUSSAM)
+| 项目 | 最低要求 | 推荐配置 |
+|---|---|---|
+| Python | 3.10 / 3.11 (Conda) | 3.11 |
+| GPU | NVIDIA CUDA，8 GB VRAM | 12-16 GB VRAM |
+| 内存 | 16 GB | 32 GB |
+| 磁盘 | 50 GB | — |
 
-感谢上述数据集、论文和开源项目的作者与维护者。他们的工作为 BUCAD 的数据处理、模型对比、分割可视化、混合集成设计和后续 ROI 感知优化提供了重要参考。
+## 实验报告索引
+
+| 报告文件 | 内容 |
+|---|---|
+| `artifacts/reports/six_model_comparison_report.md` | 六模型全面对比（BUSBRA + BUSI） |
+| `artifacts/reports/six_model_comparison_data.json` | 对比数据（JSON 格式，供程序读取） |
+| `artifacts/reports/fivefold_single_model_comparison.md` | 五折单模型对比 |
+| `artifacts/reports/fold1_single_model_baseline_comparison.md` | Fold1 单模型基线对比 |
+| `artifacts/reports/native_single_model_retest.md` | 原生配方单模型重测 |
+| `artifacts/reports/convnext_tta_optimization.md` | ConvNeXt TTA 优化实验 |
+| `artifacts/reports/ensemble_tta_threshold_tuning.md` | 集成 TTA 与阈值调优 |
+| `artifacts/reports/roi_oof_experiment.md` | ROI OOF 融合实验 |
+| `artifacts/reports/roi_oof_lcc_optimization.md` | ROI OOF + 最大连通域优化 |
+| `artifacts/reports/roi_precision_f1_study.md` | ROI 对 Precision/F1 的影响研究 |
+| `artifacts/reports/oof_two_model_decision_report.md` | 双模型 OOF 决策报告 |
+| `artifacts/reports/four_model_ensemble_weight_search.md` | 四模型集成权重搜索 |
+| `artifacts/reports/three_model_ensemble_weight_search.md` | 三模型集成权重搜索 |
+| `artifacts/reports/three_model_roi_oof_experiment.md` | 三模型 ROI OOF 实验 |
+| `artifacts/reports/swin_tiny_5fold_experiment.md` | Swin-Tiny 五折实验 |
+
+## 参考文献
+
+- Al-Dhabyani W, et al. Dataset of breast ultrasound images. *Data in Brief*, 2020. [[PubMed]](https://pubmed.ncbi.nlm.nih.gov/31867417/)
+- ROI-aware classification for breast ultrasound. [[PMC11431713]](https://pmc.ncbi.nlm.nih.gov/articles/PMC11431713/)
+- Multi-task learning for breast ultrasound segmentation and classification. [[PMC12011763]](https://pmc.ncbi.nlm.nih.gov/articles/PMC12011763/)
+- OpenUS: Ultrasound foundation model. [[GitHub]](https://github.com/XZheng0427/OpenUS)
+- BUSI segmentation reference. [[GitHub]](https://github.com/tqxli/breast_ultrasound_lesion_segmentation_PyTorch)
+- BUSI-SAM / BUSSAM segmentation references. [[GitHub]](https://github.com/huangjin520/BUSI-SAM) [[GitHub]](https://github.com/bscs12/BUSSAM)
+
+## 许可
+
+本项目仅供科研与教学使用。

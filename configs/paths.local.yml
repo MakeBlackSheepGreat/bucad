@@ -1,0 +1,12 @@
+project_root: ..
+datasets:
+  busbra_root: ./训练集/BUSBRA
+  busi_root: ./测试集/Dataset_BUSI_with_GT
+artifacts:
+  root: ./artifacts
+  checkpoints: ./artifacts/checkpoints
+  logs: ./artifacts/logs
+  reports: ./artifacts/reports
+runtime:
+  default_classifier_ckpt: ./artifacts/checkpoints/classifier_fold1.pt
+  default_segmenter_ckpt: ./artifacts/checkpoints/segmenter_fold1.pt

@@ -9,11 +9,19 @@ data/
 *.nii
 *.npz
 
+# Required shared runtime assets for clone-and-run handoff.
+!训练集/
+!训练集/**
+!测试集/
+!测试集/**
+
 # Model weights and large generated artifacts
 *.pt
 *.pth
 *.ckpt
 artifacts/checkpoints/
+!artifacts/checkpoints/
+!artifacts/checkpoints/**
 artifacts/demo_assets/
 artifacts/release_v1/
 artifacts/releases/
@@ -81,6 +89,7 @@ venv/
 .idea/
 *.egg-info/
 configs/paths.local.yml
+!configs/paths.local.yml
 
 # Logs and temporary files
 artifacts/logs/

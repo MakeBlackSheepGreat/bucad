@@ -2,26 +2,26 @@
 
 [Chinese README](README_CN.md)
 
-BUCAD (Breast Ultrasound Computer-Aided Diagnosis) is a computer-aided diagnosis research prototype for breast ultrasound image analysis. The system integrates deep-learning classification, semantic segmentation, ROI-guided inference, Grad-CAM explainability visualization, local Gradio inference interface, and Windows desktop deployment.
+BUCAD (Breast Ultrasound Computer-Aided Diagnosis) is a computer-aided diagnosis research prototype for benign/malignant analysis of breast ultrasound images. The system integrates deep-learning classification, semantic segmentation, ROI-guided inference, Grad-CAM explainability visualization, a local Gradio inference interface, and Windows desktop deployment.
 
-The project is intended for algorithm validation, reproducible experimentation, teaching demonstrations, and controlled secondary development. It is not a clinical diagnosis product and must not replace physician judgment.
+The project is intended for algorithm validation, reproducible experimentation, teaching demonstrations, and controlled secondary development. It has not undergone clinical registration or multi-center clinical validation and must not be used as an independent clinical diagnosis basis.
 
 ## Data and Validation Protocol
 
 - BUSBRA is used for model training, internal validation, out-of-fold candidate screening, and threshold selection.
-- BUSI is used only after candidates are frozen, for locked external validation and threshold confirmation. It does not participate in any form of training or tuning.
-- Project-level comparison tables report AUC, Accuracy, Recall/Sensitivity, Precision, Specificity, and F1-Score.
+- BUSI is used only after candidates are frozen, for locked external validation and result review. It does not participate in training, model selection, parameter search, or threshold tuning.
+- Project experiment tables report AUC, Accuracy, Recall/Sensitivity, Precision, Specificity, and F1-Score.
 
 ## Current Mainline Configuration
 
-The deployed configuration is at `configs/inference/demo.yml`.
+The current reproducible inference configuration is at `configs/inference/demo.yml`.
 
 | Component | Model | Algorithm | Weight | Notes |
 |---|---|---|---|---|
 | Primary classifier | ConvNeXt-Tiny | ConvNeXt (Liu et al., 2022) | 0.573 | 5-fold checkpoints, timm-aware preprocessing, crop-sweep TTA |
 | Auxiliary classifier | EfficientNetV2-S | EfficientNetV2 (Tan & Le, 2021) | 0.427 | 5-fold checkpoints, CLAHE preprocessing, identity TTA |
-| Segmenter | UNet-ResNet18 | UNet (Ronneberger et al., 2015) + ResNet-18 encoder | - | ImageNet-pretrained encoder, binary mask output |
-| Fusion layer | Logistic Stacker | Logistic Regression (sklearn) | - | OOF-trained, logit-space features |
+| Segmenter | UNet-ResNet18 | UNet (Ronneberger et al., 2015) + ResNet-18 encoder | - | ImageNet-pretrained encoder, binary lesion mask output |
+| Fusion layer | Logistic Stacker | Logistic Regression (sklearn) | - | Trained on BUSBRA OOF predictions, using logit-space features |
 
 ### Key Technical Parameters
 
@@ -29,9 +29,9 @@ The deployed configuration is at `configs/inference/demo.yml`.
 |---|---|---|
 | Segmentation mask threshold | 0.40 | BUSBRA Dice sweep: 0.30->0.7971, **0.40->0.8085**, 0.50->0.8074, 0.60->0.7797 |
 | ROI margin ratio | 0.35 | Compromise for preserving perilesional tissue context |
-| ROI area gate | [0.08, 0.75] | Falls back to full-image prediction outside range; OOF protocol selected |
-| Classification threshold | 0.510 | BUSBRA OOF evidence + BUSI Youden J confirmation |
-| Borderline marking | +/-0.08 | Samples within +/-0.08 of threshold marked as uncertain |
+| ROI area gate | [0.08, 0.75] | Falls back to full-image prediction outside range; selected by BUSBRA OOF protocol |
+| Classification threshold | 0.510 | Selected from BUSBRA OOF evidence; BUSI is used only for frozen external review |
+| Borderline marking | +/-0.08 | Samples with predicted probability within +/-0.08 of threshold are marked as uncertain |
 
 ### BUSI External Validation Result
 
@@ -45,11 +45,11 @@ Confusion matrix: TN 370 / FP 67 / FN 28 / TP 182.
 
 ### CLAHE Contrast Enhancement
 
-Ultrasound images commonly exhibit low local contrast, strong speckle noise, and blurred lesion edges. The system applies Contrast Limited Adaptive Histogram Equalization (CLAHE) to enhance lesion boundaries, internal echogenicity, and surrounding tissue contrast differences, facilitating subsequent CNN feature extraction.
+Ultrasound images commonly exhibit low local contrast, strong speckle noise, and blurred lesion edges. The system applies Contrast Limited Adaptive Histogram Equalization (CLAHE) in configured branches to enhance lesion boundaries, internal echogenicity, and surrounding tissue contrast differences, providing more stable gray-scale structure for subsequent CNN feature extraction.
 
 ### Model-Specific Normalization
 
-Different model families require different preprocessing due to their ImageNet pretraining configurations. The system adopts a timm-aware strategy, reading each model's mean/std, interpolation method, and crop ratio from the `timm` model's `pretrained_cfg`:
+Different model families require different preprocessing due to their ImageNet pretraining configurations. The system adopts a timm-aware strategy so that mean/std, interpolation method, and crop ratio remain aligned with the pretraining recipe:
 
 | Model | mean | std | Interpolation | crop_pct |
 |---|---|---|---|---|
@@ -58,7 +58,7 @@ Different model families require different preprocessing due to their ImageNet p
 
 ### Necessity of Timm-Aware Preprocessing
 
-Timm-aware preprocessing is a hard prerequisite for ConvNeXt-family models. Under the early non-timm-aware recipe, ConvNeXt-Tiny achieved AUC of only 0.5996 on BUSI (Sensitivity=0, near-random). After introducing the timm-aware recipe, AUC improved to 0.8943 (+0.2947). Swin-Tiny similarly benefited: non-timm AUC 0.8242, timm AUC 0.8729 (+0.0487).
+Timm-aware preprocessing is a hard prerequisite for effective transfer of ConvNeXt-family pretrained weights. Under the early non-timm-aware recipe, ConvNeXt-Tiny achieved AUC of only 0.5996 on BUSI (Sensitivity=0, near-random). After introducing the timm-aware recipe, AUC improved to 0.8943 (+0.2947). Swin-Tiny similarly benefited: non-timm AUC 0.8242, timm AUC 0.8729 (+0.0487).
 
 Detailed ablation data in `artifacts/reports/报告/英文版报告/native_single_model_retest.md`.
 
@@ -66,7 +66,7 @@ Detailed ablation data in `artifacts/reports/报告/英文版报告/native_singl
 
 ### 1. Five-Fold Cross-Validation Ensemble
 
-StratifiedGroupKFold is used for case-level grouping, ensuring that samples from the same patient do not appear across folds. Inference averages the outputs of all five folds.
+StratifiedGroupKFold with case-level grouping is used to ensure that samples from the same patient do not appear across folds. During inference, outputs are first aggregated within each model family across five folds and then passed to the downstream fusion stage.
 
 **Ablation results (BUSBRA 5-fold CV AUC):**
 
@@ -92,7 +92,7 @@ Detailed data in `artifacts/reports/报告/英文版报告/fivefold_single_model
 
 Lesion size, position, and surrounding tissue background vary significantly across breast ultrasound images. A single center crop may either lose perilesional tissue by cropping too tightly or introduce excessive irrelevant background by cropping too loosely.
 
-The ConvNeXt branch uses three crop ratios (0.90, 0.95, 1.00), each with horizontal flipping, producing six inference views. Predictions are averaged across all views.
+The ConvNeXt branch uses three crop ratios (0.90, 0.95, 1.00), each with horizontal flipping, producing six inference views. Predictions are averaged across all views to reduce variance caused by any single crop scale.
 
 **Ablation results (ConvNeXt-Tiny 5-fold, BUSI external):**
 
@@ -109,7 +109,7 @@ Detailed data in `artifacts/reports/报告/英文版报告/convnext_tta_optimiza
 
 ### 3. ROI Segmentation Guidance
 
-Full-image classifiers receive the entire ultrasound frame, including borders, device annotations, probe regions, and normal tissue textures. The ROI branch uses a semantic segmentation model (UNet + ResNet-18 encoder) to predict a lesion mask, then crops the ROI region after largest connected component extraction and margin expansion, and evaluates the lesion-focused malignant probability with the same classifier.
+Full-image classifiers receive the entire ultrasound frame, which may include borders, device annotations, probe regions, and normal tissue textures. The ROI branch uses a semantic segmentation model (UNet + ResNet-18 encoder) to predict a lesion mask, then crops the ROI region after largest connected component extraction and margin expansion, and evaluates lesion-focused malignant probability with the classifier.
 
 **Ablation results (BUSI external):**
 
@@ -118,7 +118,7 @@ Full-image classifiers receive the entire ultrasound frame, including borders, d
 | Full-image baseline | 0.9151 | - | Dual-model ensemble, no ROI |
 | + Segmenter ROI | 0.9196 | 0.8429 | +0.0045 |
 | + LCC post-processing | 0.9208 | 0.8524 | +0.0057 vs baseline |
-| Oracle ROI (GT mask) | 0.9202 | - | Upper bound, not deployable |
+| Oracle ROI (GT mask) | 0.9202 | - | Theoretical upper-bound control, not deployable |
 
 ROI guidance provides a stable +0.0057 AUC improvement. LCC post-processing further improves AUC by +0.0012 and Sensitivity by +0.0095 by suppressing fragmented masks.
 
@@ -126,7 +126,7 @@ Detailed data in `artifacts/reports/报告/英文版报告/roi_oof_experiment.md
 
 ### 4. ROI Area Quality Gate
 
-Segmentation predictions are not always reliable. Area too small (< 0.08) may indicate the segmenter captured only noise; area too large (> 0.75) means the mask covers nearly the entire image, losing the focusing benefit. The area gate falls back to full-image prediction when ROI quality is abnormal.
+Segmentation predictions are not always reliable. Area too small (< 0.08) may indicate the segmenter captured only noise; area too large (> 0.75) means the mask nearly covers the entire image, losing the focusing benefit. The area gate falls back to full-image prediction when ROI quality is abnormal.
 
 **Ablation results (BUSI external):**
 
@@ -136,13 +136,13 @@ Segmentation predictions are not always reliable. Area too small (< 0.08) may in
 | + Area gate | **0.9256** | **0.8667** | **0.8467** | **0.7309** | **0.7930** | 67 | 28 |
 | **Improvement** | **+0.0048** | **+0.0143** | **+0.0297** | **+0.0398** | **+0.0297** | **-13** | **-3** |
 
-The area gate is the only technique that simultaneously improves all six metrics. Rejected alternatives: threshold-only tuning (insufficient gain), removing LCC (AUC/Sensitivity regression), gate < 0.25 (AUC -0.0116).
+In this ablation group, the area gate is the only technique that simultaneously improves all six metrics. Rejected alternatives include threshold-only tuning (insufficient gain), removing LCC (AUC/Sensitivity regression), and gate < 0.25 (AUC -0.0116).
 
 Detailed data in `artifacts/reports/报告/英文版报告/roi_precision_f1_study.md`.
 
 ### 5. OOF Logistic Stacking
 
-Full-image and ROI probability distributions differ; direct averaging introduces calibration issues. The system uses a Logistic Regression stacker trained on BUSBRA out-of-fold predictions, with logit-space features as input.
+Probability distributions differ across models, TTA views, and ROI/full-image branches; direct averaging can amplify systematic bias from one branch. The system trains a Logistic Regression fusion model on BUSBRA out-of-fold predictions, using logit-space features as input, avoiding direct weight search on the external validation set.
 
 **Ablation results (BUSI external):**
 
@@ -151,13 +151,13 @@ Full-image and ROI probability distributions differ; direct averaging introduces
 | Static weighted average | 0.9130 | eff 0.427 / conv 0.573 |
 | OOF Logistic Stacking | 0.9138 | +0.0008, multi-view input |
 
-OOF stacking provides more stable calibration in internal validation, but external AUC improvement is marginal (+0.0008). Its primary value lies in automatically learning full/ROI weight allocation.
+OOF stacking provides a more disciplined internal protocol for training a fusion model, but external AUC improvement is marginal (+0.0008). Its primary value is learning branch weights and calibration relationships from internal OOF predictions rather than manually tuning them on the external validation set.
 
 Detailed data in `artifacts/reports/报告/英文版报告/oof_two_model_stacking.md`.
 
 ### 6. Ensemble Member Selection
 
-The project systematically screened multiple candidate models. The following are single-fold (fold1) timm-aware recipe results on BUSI external test:
+The project systematically screened multiple candidate models. The following are representative single-fold (fold1) timm-aware recipe external review results:
 
 | Model | Params | AUC | Sensitivity | Specificity | F1-Score |
 |---|---:|---:|---:|---:|---:|
@@ -185,7 +185,7 @@ Detailed data in `artifacts/reports/报告/英文版报告/formal_best_ensemble_
 
 ### 7. ConvNeXt-Small Upgrade Evaluation
 
-ConvNeXt-Small (50M params) shows marginally higher single-fold external AUC than ConvNeXt-Tiny (28M params), but lower internal AUC and training loss near zero, indicating overfitting.
+ConvNeXt-Small (50M params) shows marginally higher single-fold external AUC than ConvNeXt-Tiny (28M params), but lower internal AUC and training loss near zero, indicating overfitting risk under the current training recipe.
 
 **Ablation results:**
 
@@ -221,7 +221,7 @@ The following shows the BUSI external AUC accumulation path from baseline to fin
 | Stage | Configuration | BUSI AUC | Cumulative Gain |
 |---|---|---:|---:|
 | Single-fold ConvNeXt-Tiny | fold1, identity | 0.8943 | Baseline |
-| + timm-aware recipe | Corrected from 0.5996 | 0.8943 | Prerequisite |
+| + timm-aware recipe | Corrected preprocessing mismatch | 0.8943 | Prerequisite |
 | + 5-fold ensemble | 5-fold average | 0.9054 | +0.0111 |
 | + crop-sweep TTA | 3 crop x hflip | 0.9054 | Included in 5-fold |
 | + EfficientNetV2-S auxiliary | Dual-model static weighting | 0.9130 | +0.0076 |
@@ -263,7 +263,7 @@ BUCAD/
 ├── packaging/                        # Windows desktop packaging
 ├── tests/                            # Unit/integration/smoke tests
 └── artifacts/
-    ├── checkpoints/                  # Model weights (not committed to Git)
+    ├── checkpoints/                  # Model weights (managed through Git LFS or local assets)
     └── reports/                      # Experiment reports and evaluation results
         ├── 报告/中文版报告/           # Chinese experiment reports
         └── 报告/英文版报告/           # English experiment reports
@@ -285,8 +285,8 @@ Copy `configs/paths.example.yml` to `configs/paths.local.yml` and point to local
 
 ```yaml
 datasets:
-  busbra_root: ./BUSBRA
-  busi_root: ./Dataset_BUSI_with_GT
+  busbra_root: ./训练集/BUSBRA
+  busi_root: ./测试集/Dataset_BUSI_with_GT
 ```
 
 ## Running
@@ -368,4 +368,4 @@ Full report directory: `artifacts/reports/报告/英文版报告/`.
 
 ## License
 
-This project is for research and educational use only.
+This project is for research, teaching, and competition reproducibility only.

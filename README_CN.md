@@ -2,26 +2,26 @@
 
 [English README](README.md)
 
-BUCAD（Breast Ultrasound Computer-Aided Diagnosis）是一个面向乳腺超声影像分析的计算机辅助诊断研究原型。系统集成了深度学习分类、语义分割、ROI 引导推理、Grad-CAM 可解释性可视化、本地 Gradio 推理界面以及 Windows 桌面部署方案。
+BUCAD（Breast Ultrasound Computer-Aided Diagnosis）是一个面向乳腺超声影像良恶性辅助分析的计算机辅助诊断研究原型系统。系统集成深度学习分类、语义分割、ROI 引导推理、Grad-CAM 可解释性可视化、本地 Gradio 推理界面以及 Windows 桌面部署方案。
 
-本项目用于算法验证、可复现实验、教学演示及受控的二次开发，不是临床诊断产品，不能替代医生判断。
+本项目用于算法验证、可复现实验、教学演示及受控的二次开发，尚未经过临床注册和多中心临床验证，不能作为独立临床诊断依据。
 
 ## 数据与验证
 
 - BUSBRA 用于模型训练、内部验证、out-of-fold 候选筛选和阈值选择。
-- BUSI 仅用于候选方案冻结之后的锁定外部验证与阈值确认，不参与任何形式的训练或调参。
-- 项目中的对比表统一报告 AUC、Accuracy、Recall/Sensitivity、Precision、Specificity 和 F1-Score。
+- BUSI 仅在候选方案冻结之后用于锁定外部验证与结果复核，不参与训练、模型选择、参数搜索或阈值调优。
+- 项目实验对比统一报告 AUC、Accuracy、Recall/Sensitivity、Precision、Specificity 和 F1-Score。
 
 ## 当前主线配置
 
-部署配置位于 `configs/inference/demo.yml`。
+当前可复现推理配置位于 `configs/inference/demo.yml`。
 
 | 组件 | 模型 | 算法 | 权重 | 说明 |
 |---|---|---|---|---|
 | 主分类分支 | ConvNeXt-Tiny | ConvNeXt (Liu et al., 2022) | 0.573 | 五折 checkpoint，timm-aware 预处理，crop-sweep TTA |
 | 辅助分类分支 | EfficientNetV2-S | EfficientNetV2 (Tan & Le, 2021) | 0.427 | 五折 checkpoint，CLAHE 预处理，identity TTA |
-| 分割分支 | UNet-ResNet18 | UNet (Ronneberger et al., 2015) + ResNet-18 encoder | — | ImageNet 预训练 encoder，二值 mask 输出 |
-| 融合层 | Logistic Stacker | Logistic Regression (sklearn) | — | OOF 训练，logit 空间特征 |
+| 分割分支 | UNet-ResNet18 | UNet (Ronneberger et al., 2015) + ResNet-18 encoder | — | ImageNet 预训练编码器，输出二值病灶 mask |
+| 融合层 | Logistic Stacker | Logistic Regression (sklearn) | — | 基于 BUSBRA OOF 训练，使用 logit 空间特征 |
 
 ### 关键技术参数
 
@@ -29,9 +29,9 @@ BUCAD（Breast Ultrasound Computer-Aided Diagnosis）是一个面向乳腺超声
 |---|---|---|
 | 分割 mask 阈值 | 0.40 | BUSBRA Dice 扫描：0.30→0.7971, **0.40→0.8085**, 0.50→0.8074, 0.60→0.7797 |
 | ROI 边界扩展系数 | 0.35 | 保留病灶周边组织上下文的折中设置 |
-| ROI 面积门控 | [0.08, 0.75] | 超出范围回退至完整图预测，OOF 协议选定 |
-| 分类阈值 | 0.510 | BUSBRA OOF 证据 + BUSI Youden J 确认 |
-| 边界样本标记 | ±0.08 | 概率距阈值 ±0.08 内标记为不确定 |
+| ROI 面积门控 | [0.08, 0.75] | 超出范围回退至完整图预测，由 BUSBRA OOF 协议选定 |
+| 分类阈值 | 0.510 | BUSBRA OOF 证据选定；BUSI 仅作冻结后外部复核 |
+| 边界样本标记 | ±0.08 | 预测概率距阈值 ±0.08 内标记为不确定 |
 
 ### BUSI 外部验证结果
 
@@ -45,11 +45,11 @@ BUCAD（Breast Ultrasound Computer-Aided Diagnosis）是一个面向乳腺超声
 
 ### CLAHE 对比度增强
 
-超声图像普遍存在局部对比度低、散斑噪声强、病灶边缘模糊等问题。系统对输入图像应用 Contrast Limited Adaptive Histogram Equalization（CLAHE），通过局部直方图均衡增强病灶边界、内部回声及周围组织的对比度差异，有利于后续 CNN 特征提取。
+超声图像普遍存在局部对比度低、散斑噪声强、病灶边缘模糊等问题。系统在配置启用的分支中应用 Contrast Limited Adaptive Histogram Equalization（CLAHE），通过局部直方图均衡增强病灶边界、内部回声及周围组织的对比度差异，为后续 CNN 特征提取提供更稳定的灰度结构。
 
 ### 模型专属归一化
 
-不同模型家族因 ImageNet 预训练配置不同，推理时必须保持预处理一致性。系统采用 timm-aware 策略，从 `timm` 模型的 `pretrained_cfg` 中读取各模型的 mean/std、插值方式和 crop 比例：
+不同模型家族因 ImageNet 预训练配置不同，推理时必须保持预处理一致性。系统采用 timm-aware 策略，使 mean/std、插值方式和 crop 比例与预训练配方保持一致：
 
 | 模型 | mean | std | 插值 | crop_pct |
 |---|---|---|---|---|
@@ -58,7 +58,7 @@ BUCAD（Breast Ultrasound Computer-Aided Diagnosis）是一个面向乳腺超声
 
 ### timm-aware 预处理的必要性
 
-timm-aware 预处理是 ConvNeXt 系列模型的前提条件。早期非 timm-aware 配方下，ConvNeXt-Tiny 在 BUSI 上 AUC 仅为 0.5996（Sensitivity=0，近似随机）。引入 timm-aware 配方后 AUC 提升至 0.8943（+0.2947）。Swin-Tiny 同样受益，非 timm 配方 AUC 0.8242，timm 配方提升至 0.8729（+0.0487）。
+timm-aware 预处理是 ConvNeXt 系列模型有效迁移预训练权重的前提条件。早期非 timm-aware 配方下，ConvNeXt-Tiny 在 BUSI 上 AUC 仅为 0.5996（Sensitivity=0，近似随机）。引入 timm-aware 配方后 AUC 提升至 0.8943（+0.2947）。Swin-Tiny 同样受益，非 timm 配方 AUC 0.8242，timm 配方提升至 0.8729（+0.0487）。
 
 详细消融数据见 `artifacts/reports/报告/中文版报告/native_single_model_retest.md`。
 
@@ -66,7 +66,7 @@ timm-aware 预处理是 ConvNeXt 系列模型的前提条件。早期非 timm-aw
 
 ### 1. 五折交叉验证集成
 
-采用 StratifiedGroupKFold 按病例级分组划分，确保同一患者样本不跨折出现。推理时对五个折的输出取加权平均。
+采用病例级分组的 StratifiedGroupKFold 划分方案，确保同一患者样本不跨折出现。推理阶段先在同一模型族内汇总五折输出，再进入后续模型融合。
 
 **消融结果（BUSBRA 5-fold CV AUC）：**
 
@@ -92,7 +92,7 @@ timm-aware 预处理是 ConvNeXt 系列模型的前提条件。早期非 timm-aw
 
 乳腺超声图像中病灶尺寸、位置及周围组织背景差异显著。单一 center crop 可能因裁剪过紧丢失病灶周围组织信息，或因裁剪过松引入过多无关背景。
 
-ConvNeXt 分支采用三种 crop 比例（0.90、0.95、1.00），每种配合水平翻转，共生成六个推理视图。多视图预测结果取平均。
+ConvNeXt 分支采用三种 crop 比例（0.90、0.95、1.00），每种配合水平翻转，共生成六个推理视图。多视图预测结果取平均，以降低单一裁剪尺度造成的偶然偏差。
 
 **消融结果（ConvNeXt-Tiny 5-fold，BUSI 外部）：**
 
@@ -109,7 +109,7 @@ crop-sweep 在 AUC（+0.0063）、Sensitivity（+0.0333）和 F1（+0.0262）上
 
 ### 3. ROI 分割引导
 
-完整图分类器接收整张超声图像，包含黑边、设备标注、探头区域及正常组织纹理等无关信息。ROI 分支通过语义分割模型（UNet + ResNet-18 encoder）预测病灶 mask，经最大连通域提取和边界扩展裁剪后生成 ROI 图像，再由同一分类模型评估局部病灶视角下的恶性概率。
+完整图分类器接收整张超声图像，可能同时包含黑边、设备标注、探头区域及正常组织纹理等非病灶信息。ROI 分支通过语义分割模型（UNet + ResNet-18 encoder）预测病灶 mask，经最大连通域提取和边界扩展裁剪后生成 ROI 图像，再由分类模型评估局部病灶视角下的恶性概率。
 
 **消融结果（BUSI 外部）：**
 
@@ -118,7 +118,7 @@ crop-sweep 在 AUC（+0.0063）、Sensitivity（+0.0333）和 F1（+0.0262）上
 | 完整图基线 | 0.9151 | — | 双模型集成，无 ROI |
 | + Segmenter ROI | 0.9196 | 0.8429 | +0.0045 |
 | + LCC 后处理 | 0.9208 | 0.8524 | +0.0057 vs 基线 |
-| Oracle ROI（GT mask） | 0.9202 | — | 上界，不可部署 |
+| Oracle ROI（GT mask） | 0.9202 | — | 理论上界对照，不可部署 |
 
 ROI 引导在 AUC 上带来 +0.0057 的稳定提升。最大连通域（LCC）后处理通过抑制碎片化 mask 进一步提升 AUC +0.0012、Sensitivity +0.0095。
 
@@ -126,7 +126,7 @@ ROI 引导在 AUC 上带来 +0.0057 的稳定提升。最大连通域（LCC）�
 
 ### 4. ROI 面积质量门控
 
-分割预测并非始终可靠。面积过小（< 0.08）可能表示分割器仅捕获噪声区域；面积过大（> 0.75）则 mask 几乎覆盖全图，ROI 失去聚焦意义。面积门控在 ROI 质量异常时回退至完整图预测。
+分割预测并非始终可靠。面积过小（< 0.08）可能表示分割器仅捕获噪声区域；面积过大（> 0.75）则说明 mask 接近覆盖全图，ROI 失去聚焦意义。面积门控在 ROI 质量异常时回退至完整图预测。
 
 **消融结果（BUSI 外部）：**
 
@@ -136,13 +136,13 @@ ROI 引导在 AUC 上带来 +0.0057 的稳定提升。最大连通域（LCC）�
 | + 面积门控 | **0.9256** | **0.8667** | **0.8467** | **0.7309** | **0.7930** | 67 | 28 |
 | **提升** | **+0.0048** | **+0.0143** | **+0.0297** | **+0.0398** | **+0.0297** | **-13** | **-3** |
 
-面积门控是唯一同时提升全部六项指标的技术。被拒绝的替代方案：仅调阈值（增益过小）、移除 LCC（AUC/Sensitivity 回退）、门控 < 0.25（AUC -0.0116）。
+在该组消融中，面积门控是唯一同时提升全部六项指标的技术。被拒绝的替代方案包括：仅调阈值（增益过小）、移除 LCC（AUC/Sensitivity 回退）、门控 < 0.25（AUC -0.0116）。
 
 详细数据见 `artifacts/reports/报告/中文版报告/roi_precision_f1_study.md`。
 
 ### 5. OOF Logistic Stacking
 
-完整图与 ROI 图的概率分布存在差异，直接平均会引入校准问题。系统采用 BUSBRA 训练集 out-of-fold 预测训练的 Logistic Regression 作为融合层，以 logit 空间特征作为输入。
+不同模型、TTA 视图和 ROI/完整图分支的概率分布存在校准差异，直接平均可能放大某一分支的系统性偏差。系统采用 BUSBRA 训练集 out-of-fold 预测训练 Logistic Regression 融合器，以 logit 空间特征作为输入，避免直接依赖外部验证集搜索权重。
 
 **消融结果（BUSI 外部）：**
 
@@ -151,13 +151,13 @@ ROI 引导在 AUC 上带来 +0.0057 的稳定提升。最大连通域（LCC）�
 | 静态加权平均 | 0.9130 | eff 0.427 / conv 0.573 |
 | OOF Logistic Stacking | 0.9138 | +0.0008，多视图输入 |
 
-OOF stacking 在内部验证中带来更稳定的校准，但外部 AUC 提升有限（+0.0008）。其主要价值在于自动学习 full/ROI 权重分配，而非手动调参。
+OOF stacking 在内部验证中提供了更规范的融合器训练口径，但外部 AUC 提升有限（+0.0008）。其主要价值在于通过内部 OOF 预测学习分支权重与校准关系，而不是在外部验证集上手动调参。
 
 详细数据见 `artifacts/reports/报告/中文版报告/oof_two_model_stacking.md`。
 
 ### 6. 集成成员选择
 
-项目对多个候选模型进行了系统筛选。以下为单折（fold1）timm-aware 配方的 BUSI 外部测试结果：
+项目对多个候选模型进行了系统筛选。以下为单折（fold1）timm-aware 配方的代表性外部复核结果：
 
 | 模型 | 参数量 | AUC | Sensitivity | Specificity | F1-Score |
 |---|---:|---:|---:|---:|---:|
@@ -185,7 +185,7 @@ OOF stacking 在内部验证中带来更稳定的校准，但外部 AUC 提升�
 
 ### 7. ConvNeXt-Small 升级评估
 
-ConvNeXt-Small（50M 参数）在单折外部 AUC 上略高于 ConvNeXt-Tiny（28M 参数），但内部验证 AUC 反而更低，且训练损失接近 0，存在过拟合迹象。
+ConvNeXt-Small（50M 参数）在单折外部 AUC 上略高于 ConvNeXt-Tiny（28M 参数），但内部验证 AUC 反而更低，且训练损失接近 0，提示当前配置下存在过拟合风险。
 
 **消融结果：**
 
@@ -221,7 +221,7 @@ ConvNeXt-Small（50M 参数）在单折外部 AUC 上略高于 ConvNeXt-Tiny（2
 | 阶段 | 配置 | BUSI AUC | 累积提升 |
 |---|---|---:|---:|
 | 单折 ConvNeXt-Tiny | fold1, identity | 0.8943 | 基线 |
-| + timm-aware 配方 | 从 0.5996 修正 | 0.8943 | 前提条件 |
+| + timm-aware 配方 | 修正预处理失配 | 0.8943 | 前提条件 |
 | + 五折集成 | 5-fold average | 0.9054 | +0.0111 |
 | + crop-sweep TTA | 3 crop × hflip | 0.9054 | 包含在五折中 |
 | + EfficientNetV2-S 辅助分支 | 双模型静态加权 | 0.9130 | +0.0076 |
@@ -263,7 +263,7 @@ BUCAD/
 ├── packaging/                        # Windows 桌面打包配置
 ├── tests/                            # 单元/集成/smoke 测试
 └── artifacts/
-    ├── checkpoints/                  # 模型权重（不提交至 Git）
+    ├── checkpoints/                  # 模型权重（通过 Git LFS 或本地资产管理）
     └── reports/                      # 实验报告与评估结果
         ├── 报告/中文版报告/           # 中文实验报告（139 份）
         └── 报告/英文版报告/           # 英文实验报告（139 份）
@@ -285,8 +285,8 @@ python check_all.py
 
 ```yaml
 datasets:
-  busbra_root: ./BUSBRA
-  busi_root: ./Dataset_BUSI_with_GT
+  busbra_root: ./训练集/BUSBRA
+  busi_root: ./测试集/Dataset_BUSI_with_GT
 ```
 
 ## 运行方式
@@ -368,4 +368,4 @@ python scripts\eval_busi.py --config configs\inference\demo.yml --output artifac
 
 ## 许可
 
-本项目仅供科研与教学使用。
+本项目仅供科研、教学与比赛复现实验使用。

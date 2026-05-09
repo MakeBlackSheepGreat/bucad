@@ -52,21 +52,13 @@ scripts/build_feishu_metrics_workbook.py
 scripts/build_competition_materials.py
 
 # Competition-only / non-project materials
-赛题*.pdf
-赛题*.docx
-赛题*
-开发手册*.md
-开发手册*.docx
-开发手册*
-队员配置*.docx
-队员配置*
-答辩*.md
-答辩*.docx
 defense*.md
 ssfianl1*.pdf
-生医答辩ppt*.pptx
-新建 文本文档.md
 local_notes/
+赛题*
+开发手册*.txt
+队员配置*.txt
+暂存文件/
 
 # Agent / local workflow files
 AGENTS.md

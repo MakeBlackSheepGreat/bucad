@@ -60,7 +60,7 @@ Different model families require different preprocessing due to their ImageNet p
 
 Timm-aware preprocessing is a hard prerequisite for effective transfer of ConvNeXt-family pretrained weights. Under the early non-timm-aware recipe, ConvNeXt-Tiny achieved AUC of only 0.5996 on BUSI (Sensitivity=0, near-random). After introducing the timm-aware recipe, AUC improved to 0.8943 (+0.2947). Swin-Tiny similarly benefited: non-timm AUC 0.8242, timm AUC 0.8729 (+0.0487).
 
-Detailed ablation data in `artifacts/reports/报告/英文版报告/native_single_model_retest.md`.
+Detailed ablation data in `artifacts/reports/English reports/native_single_model_retest.md`.
 
 ## Optimization Techniques and Ablation Studies
 
@@ -86,7 +86,7 @@ StratifiedGroupKFold with case-level grouping is used to ensure that samples fro
 | DenseNet-121 | 0.8766 | 0.8914 | +0.0148 |
 | Swin-Tiny | 0.8729 | 0.8971 | +0.0242 |
 
-Detailed data in `artifacts/reports/报告/英文版报告/fivefold_single_model_comparison.md`.
+Detailed data in `artifacts/reports/English reports/fivefold_single_model_comparison.md`.
 
 ### 2. Crop-Sweep Test-Time Augmentation
 
@@ -105,7 +105,7 @@ The ConvNeXt branch uses three crop ratios (0.90, 0.95, 1.00), each with horizon
 
 Crop-sweep achieves the best AUC (+0.0063), Sensitivity (+0.0333), and F1 (+0.0262) over identity baseline.
 
-Detailed data in `artifacts/reports/报告/英文版报告/convnext_tta_optimization.md`.
+Detailed data in `artifacts/reports/English reports/convnext_tta_optimization.md`.
 
 ### 3. ROI Segmentation Guidance
 
@@ -122,7 +122,7 @@ Full-image classifiers receive the entire ultrasound frame, which may include bo
 
 ROI guidance provides a stable +0.0057 AUC improvement. LCC post-processing further improves AUC by +0.0012 and Sensitivity by +0.0095 by suppressing fragmented masks.
 
-Detailed data in `artifacts/reports/报告/英文版报告/roi_oof_experiment.md` and `artifacts/reports/报告/英文版报告/roi_oof_lcc_optimization.md`.
+Detailed data in `artifacts/reports/English reports/roi_oof_experiment.md` and `artifacts/reports/English reports/roi_oof_lcc_optimization.md`.
 
 ### 4. ROI Area Quality Gate
 
@@ -138,7 +138,7 @@ Segmentation predictions are not always reliable. Area too small (< 0.08) may in
 
 In this ablation group, the area gate is the only technique that simultaneously improves all six metrics. Rejected alternatives include threshold-only tuning (insufficient gain), removing LCC (AUC/Sensitivity regression), and gate < 0.25 (AUC -0.0116).
 
-Detailed data in `artifacts/reports/报告/英文版报告/roi_precision_f1_study.md`.
+Detailed data in `artifacts/reports/English reports/roi_precision_f1_study.md`.
 
 ### 5. OOF Logistic Stacking
 
@@ -153,7 +153,7 @@ Probability distributions differ across models, TTA views, and ROI/full-image br
 
 OOF stacking provides a more disciplined internal protocol for training a fusion model, but external AUC improvement is marginal (+0.0008). Its primary value is learning branch weights and calibration relationships from internal OOF predictions rather than manually tuning them on the external validation set.
 
-Detailed data in `artifacts/reports/报告/英文版报告/oof_two_model_stacking.md`.
+Detailed data in `artifacts/reports/English reports/oof_two_model_stacking.md`.
 
 ### 6. Ensemble Member Selection
 
@@ -181,7 +181,7 @@ The project systematically screened multiple candidate models. The following are
 
 Three-model AUC exceeds two-model by only 0.0002, but Sensitivity drops 4.3% with increased deployment complexity (15 vs 10 checkpoints). Two-model achieves higher Youden-optimal Accuracy (0.8655 vs 0.8516), so the mainline selects two models.
 
-Detailed data in `artifacts/reports/报告/英文版报告/formal_best_ensemble_external_eval.md`.
+Detailed data in `artifacts/reports/English reports/formal_best_ensemble_external_eval.md`.
 
 ### 7. ConvNeXt-Small Upgrade Evaluation
 
@@ -197,7 +197,7 @@ ConvNeXt-Small (50M params) shows marginally higher single-fold external AUC tha
 
 The contradiction between internal AUC decrease (-0.0141) and external AUC increase (+0.0038) indicates unstable generalization under the current training configuration. Youden J is essentially identical (0.6671 vs 0.6665), not meeting the replacement criterion.
 
-Detailed data in `artifacts/reports/报告/英文版报告/convnext_small_upgrade_experiment.md`.
+Detailed data in `artifacts/reports/English reports/convnext_small_upgrade_experiment.md`.
 
 ## Tested but Rejected Approaches
 
@@ -212,7 +212,7 @@ Detailed data in `artifacts/reports/报告/英文版报告/convnext_small_upgrad
 | 320 input resolution | - | - | Increased VRAM, no external AUC improvement |
 | EfficientNet TTA | - | - | Marginal internal gain, increased inference latency |
 
-Detailed records are retained in the corresponding protocol files under `artifacts/reports/报告/英文版报告/`.
+Detailed records are retained in the corresponding protocol files under `artifacts/reports/English reports/`.
 
 ## Cumulative Pipeline Improvement
 
@@ -265,8 +265,8 @@ BUCAD/
 └── artifacts/
     ├── checkpoints/                  # Model weights (managed through Git LFS or local assets)
     └── reports/                      # Experiment reports and evaluation results
-        ├── 报告/中文版报告/           # Chinese experiment reports
-        └── 报告/英文版报告/           # English experiment reports
+        ├── Chinese reports/          # Chinese experiment reports
+        └── English reports/          # English experiment reports
 ```
 
 ## Environment Setup
@@ -351,7 +351,7 @@ python scripts\eval_busi.py --config configs\inference\demo.yml --output artifac
 | `convnext_small_upgrade_experiment.md` | ConvNeXt-Small vs Tiny comparison |
 | `six_model_comparison_report.md` | Six-model comprehensive comparison (BUSBRA + BUSI) |
 
-Full report directory: `artifacts/reports/报告/英文版报告/`.
+Full report directory: `artifacts/reports/English reports/`.
 
 ## References
 

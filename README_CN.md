@@ -280,6 +280,8 @@ python check_env.py
 python check_all.py
 ```
 
+`configs/inference/demo.yml` 引用的演示模型权重通过 Git LFS 存放在 `artifacts/checkpoints/`。安装 Git LFS 后正常 clone 通常会自动拉取；如果本地 `.pt` 文件只是很小的 pointer 文件，启动 demo 前执行 `git lfs pull`。
+
 ### 数据集配置
 
 复制 `configs/paths.example.yml` 为 `configs/paths.local.yml`，配置本地数据集路径：

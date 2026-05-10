@@ -280,6 +280,8 @@ python check_env.py
 python check_all.py
 ```
 
+The demo checkpoints referenced by `configs/inference/demo.yml` are tracked through Git LFS under `artifacts/checkpoints/`. A normal clone with Git LFS installed should hydrate them automatically; if the files are small pointer files, run `git lfs pull` before launching the demo.
+
 ### Dataset Configuration
 
 Copy `configs/paths.example.yml` to `configs/paths.local.yml` and point to local datasets:

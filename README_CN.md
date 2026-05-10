@@ -270,21 +270,24 @@ BUCAD/
         └── README.md                 # 报告目录分类说明
 ```
 
-## 环境配置
+## 运行方式
+
+### 环境配置
+
+首次拉取项目后，先安装依赖并确认 Git LFS 模型权重已经完整下载：
 
 ```powershell
+git lfs install
+git lfs pull
+
 conda create -n BUCAD python=3.11 -y
 conda activate BUCAD
 python -m pip install -r requirements.txt
-python check_env.py
-python check_all.py
 ```
 
-`configs/inference/demo.yml` 引用的演示模型权重通过 Git LFS 存放在 `artifacts/checkpoints/`。安装 Git LFS 后正常 clone 通常会自动拉取；如果本地 `.pt` 文件只是很小的 pointer 文件，启动 demo 前执行 `git lfs pull`。
+`configs/inference/demo.yml` 引用的主线演示权重位于 `artifacts/checkpoints/`，包括 ConvNeXt-Tiny 五折、EfficientNetV2-S 五折和 `segmenter_fold1.pt`。安装 Git LFS 后，正常 `git clone` 通常会自动拉取这些 `.pt` 文件；如果 `.pt` 文件只有几 KB，说明本地拿到的是 pointer 文件，需要执行 `git lfs pull`。
 
-### 数据集配置
-
-复制 `configs/paths.example.yml` 为 `configs/paths.local.yml`，配置本地数据集路径：
+训练或批量评估需要本地数据集路径。复制 `configs/paths.example.yml` 为 `configs/paths.local.yml`，并按实际位置配置：
 
 ```yaml
 datasets:
@@ -292,21 +295,29 @@ datasets:
   busi_root: ./测试集/Dataset_BUSI_with_GT
 ```
 
-## 运行方式
+### 运行演示程序
 
-### Web 界面
+```powershell
+conda activate BUCAD
+python app\desktop_main.py
+```
+
+桌面演示程序默认读取 `configs/inference/demo.yml`。该配置已经冻结为 ConvNeXt-Tiny + EfficientNetV2-S + ROI Area Gate 主线，可直接用于单图上传和可解释性展示。若只需要浏览器界面，也可以运行：
 
 ```powershell
 conda activate BUCAD
 python app\main.py
 ```
 
-### 桌面窗口模式
+### 运行测试程序
 
 ```powershell
 conda activate BUCAD
-python app\desktop_main.py
+python check_env.py
+python check_all.py
 ```
+
+`check_env.py` 用于检查 Python、CUDA、PyTorch 和主要依赖；`check_all.py` 用于执行项目级环境与基础功能检查。完成上述检查后，`python app\desktop_main.py` 应可在本地启动演示界面。
 
 ### Windows 打包
 

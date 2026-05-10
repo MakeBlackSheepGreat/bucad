@@ -270,21 +270,24 @@ BUCAD/
         └── README.md                 # Report directory taxonomy
 ```
 
-## Environment Setup
+## Running
+
+### Environment Setup
+
+After cloning the repository, install dependencies and ensure Git LFS checkpoints are hydrated:
 
 ```powershell
+git lfs install
+git lfs pull
+
 conda create -n BUCAD python=3.11 -y
 conda activate BUCAD
 python -m pip install -r requirements.txt
-python check_env.py
-python check_all.py
 ```
 
-The demo checkpoints referenced by `configs/inference/demo.yml` are tracked through Git LFS under `artifacts/checkpoints/`. A normal clone with Git LFS installed should hydrate them automatically; if the files are small pointer files, run `git lfs pull` before launching the demo.
+The main demo weights referenced by `configs/inference/demo.yml` are stored under `artifacts/checkpoints/` through Git LFS. They include the 5-fold ConvNeXt-Tiny checkpoints, the 5-fold EfficientNetV2-S checkpoints, and `segmenter_fold1.pt`. A normal clone with Git LFS installed should download them automatically; if the `.pt` files are only a few KB, they are pointer files and `git lfs pull` is required.
 
-### Dataset Configuration
-
-Copy `configs/paths.example.yml` to `configs/paths.local.yml` and point to local datasets:
+Training or batch evaluation requires local dataset paths. Copy `configs/paths.example.yml` to `configs/paths.local.yml` and point to the actual dataset locations:
 
 ```yaml
 datasets:
@@ -292,21 +295,29 @@ datasets:
   busi_root: ./测试集/Dataset_BUSI_with_GT
 ```
 
-## Running
+### Run Demo Application
 
-### Web Interface
+```powershell
+conda activate BUCAD
+python app\desktop_main.py
+```
+
+The desktop demo reads `configs/inference/demo.yml` by default. This frozen mainline uses ConvNeXt-Tiny + EfficientNetV2-S + ROI Area Gate for single-image inference and explainability output. For browser-only use, run:
 
 ```powershell
 conda activate BUCAD
 python app\main.py
 ```
 
-### Desktop Window Mode
+### Run Test Programs
 
 ```powershell
 conda activate BUCAD
-python app\desktop_main.py
+python check_env.py
+python check_all.py
 ```
+
+`check_env.py` checks Python, CUDA, PyTorch, and major dependencies. `check_all.py` runs project-level environment and basic functionality checks. After these checks pass, `python app\desktop_main.py` should start the local demo interface.
 
 ### Windows Packaging
 

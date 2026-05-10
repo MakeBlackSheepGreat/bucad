@@ -60,7 +60,7 @@ BUCAD（Breast Ultrasound Computer-Aided Diagnosis）是一个面向乳腺超声
 
 timm-aware 预处理是 ConvNeXt 系列模型有效迁移预训练权重的前提条件。早期非 timm-aware 配方下，ConvNeXt-Tiny 在 BUSI 上 AUC 仅为 0.5996（Sensitivity=0，近似随机）。引入 timm-aware 配方后 AUC 提升至 0.8943（+0.2947）。Swin-Tiny 同样受益，非 timm 配方 AUC 0.8242，timm 配方提升至 0.8729（+0.0487）。
 
-详细消融数据见 `artifacts/reports/Chinese reports/native_single_model_retest.md`。
+详细消融数据见 `artifacts/reports/Chinese reports/01_baseline_model_screening/native_single_model_retest.md`。
 
 ## 优化技术与消融实验
 
@@ -86,7 +86,7 @@ timm-aware 预处理是 ConvNeXt 系列模型有效迁移预训练权重的前�
 | DenseNet-121 | 0.8766 | 0.8914 | +0.0148 |
 | Swin-Tiny | 0.8729 | 0.8971 | +0.0242 |
 
-详细数据见 `artifacts/reports/Chinese reports/fivefold_single_model_comparison.md`。
+详细数据见 `artifacts/reports/Chinese reports/01_baseline_model_screening/fivefold_single_model_comparison.md`。
 
 ### 2. Crop-Sweep 测试时增强
 
@@ -105,7 +105,7 @@ ConvNeXt 分支采用三种 crop 比例（0.90、0.95、1.00），每种配合�
 
 crop-sweep 在 AUC（+0.0063）、Sensitivity（+0.0333）和 F1（+0.0262）上均为最优。
 
-详细数据见 `artifacts/reports/Chinese reports/convnext_tta_optimization.md`。
+详细数据见 `artifacts/reports/Chinese reports/04_tta_threshold_external_eval/convnext_tta_optimization.md`。
 
 ### 3. ROI 分割引导
 
@@ -122,7 +122,7 @@ crop-sweep 在 AUC（+0.0063）、Sensitivity（+0.0333）和 F1（+0.0262）上
 
 ROI 引导在 AUC 上带来 +0.0057 的稳定提升。最大连通域（LCC）后处理通过抑制碎片化 mask 进一步提升 AUC +0.0012、Sensitivity +0.0095。
 
-详细数据见 `artifacts/reports/Chinese reports/roi_oof_experiment.md` 和 `artifacts/reports/Chinese reports/roi_oof_lcc_optimization.md`。
+详细数据见 `artifacts/reports/Chinese reports/02_roi_segmentation/roi_oof_experiment.md` 和 `artifacts/reports/Chinese reports/02_roi_segmentation/roi_oof_lcc_optimization.md`。
 
 ### 4. ROI 面积质量门控
 
@@ -138,7 +138,7 @@ ROI 引导在 AUC 上带来 +0.0057 的稳定提升。最大连通域（LCC）�
 
 在该组消融中，面积门控是唯一同时提升全部六项指标的技术。被拒绝的替代方案包括：仅调阈值（增益过小）、移除 LCC（AUC/Sensitivity 回退）、门控 < 0.25（AUC -0.0116）。
 
-详细数据见 `artifacts/reports/Chinese reports/roi_precision_f1_study.md`。
+详细数据见 `artifacts/reports/Chinese reports/02_roi_segmentation/roi_precision_f1_study.md`。
 
 ### 5. OOF Logistic Stacking
 
@@ -153,7 +153,7 @@ ROI 引导在 AUC 上带来 +0.0057 的稳定提升。最大连通域（LCC）�
 
 OOF stacking 在内部验证中提供了更规范的融合器训练口径，但外部 AUC 提升有限（+0.0008）。其主要价值在于通过内部 OOF 预测学习分支权重与校准关系，而不是在外部验证集上手动调参。
 
-详细数据见 `artifacts/reports/Chinese reports/oof_two_model_stacking.md`。
+详细数据见 `artifacts/reports/Chinese reports/03_ensemble_oof_stacking/oof_two_model_stacking.md`。
 
 ### 6. 集成成员选择
 
@@ -181,7 +181,7 @@ OOF stacking 在内部验证中提供了更规范的融合器训练口径，但�
 
 三模型 AUC 仅高 0.0002，但 Sensitivity 下降 4.3%，部署复杂度增加（15 vs 10 个 checkpoint）。双模型在 Youden 最优点的 Accuracy 更高（0.8655 vs 0.8516），因此主线选择双模型。
 
-详细数据见 `artifacts/reports/Chinese reports/formal_best_ensemble_external_eval.md`。
+详细数据见 `artifacts/reports/Chinese reports/03_ensemble_oof_stacking/formal_best_ensemble_external_eval.md`。
 
 ### 7. ConvNeXt-Small 升级评估
 
@@ -197,7 +197,7 @@ ConvNeXt-Small（50M 参数）在单折外部 AUC 上略高于 ConvNeXt-Tiny（2
 
 内部 AUC 下降 0.0141 与外部 AUC 提升 0.0038 的矛盾表明 ConvNeXt-Small 在当前训练配置下泛化不稳定。Youden J 几乎相同（0.6671 vs 0.6665），未达到替换标准。
 
-详细数据见 `artifacts/reports/Chinese reports/convnext_small_upgrade_experiment.md`。
+详细数据见 `artifacts/reports/Chinese reports/01_baseline_model_screening/convnext_small_upgrade_experiment.md`。
 
 ## 已测试但未采纳的方案
 
@@ -212,7 +212,7 @@ ConvNeXt-Small（50M 参数）在单折外部 AUC 上略高于 ConvNeXt-Tiny（2
 | 320 输入分辨率 | — | — | 显存开销增加，外部 AUC 无改善 |
 | EfficientNet TTA | — | — | 内部增益过小且增加推理延迟 |
 
-详细记录见 `artifacts/reports/Chinese reports/` 中对应协议文件。
+详细记录见 `artifacts/reports/Chinese reports/` 下各分类子目录中的对应协议文件。
 
 ## 完整管线累计提升
 
@@ -265,8 +265,9 @@ BUCAD/
 └── artifacts/
     ├── checkpoints/                  # 模型权重（通过 Git LFS 或本地资产管理）
     └── reports/                      # 实验报告与评估结果
-        ├── Chinese reports/          # 中文实验报告（139 份）
-        └── English reports/          # 英文实验报告（139 份）
+        ├── Chinese reports/          # 中文实验报告（按实验主题分类，139 份）
+        ├── English reports/          # 英文实验报告（按实验主题分类，139 份）
+        └── README.md                 # 报告目录分类说明
 ```
 
 ## 环境配置
@@ -340,18 +341,18 @@ python scripts\eval_busi.py --config configs\inference\demo.yml --output artifac
 
 | 报告 | 内容 |
 |---|---|
-| `native_single_model_retest.md` | timm-aware vs 非 timm-aware 配方对比 |
-| `fivefold_single_model_comparison.md` | 四模型 5-fold vs 单折对比 |
-| `convnext_tta_optimization.md` | ConvNeXt TTA 策略消融 |
-| `roi_oof_experiment.md` | ROI 引导 vs 完整图对比 |
-| `roi_oof_lcc_optimization.md` | LCC 后处理消融 |
-| `roi_precision_f1_study.md` | ROI 面积门控消融 |
-| `oof_two_model_stacking.md` | OOF Stacking vs 静态权重 |
-| `formal_best_ensemble_external_eval.md` | 双模型 vs 三模型正式评估 |
-| `convnext_small_upgrade_experiment.md` | ConvNeXt-Small vs Tiny 对比 |
-| `six_model_comparison_report.md` | 六模型全面对比（BUSBRA + BUSI） |
+| `01_baseline_model_screening/native_single_model_retest.md` | timm-aware vs 非 timm-aware 配方对比 |
+| `01_baseline_model_screening/fivefold_single_model_comparison.md` | 四模型 5-fold vs 单折对比 |
+| `04_tta_threshold_external_eval/convnext_tta_optimization.md` | ConvNeXt TTA 策略消融 |
+| `02_roi_segmentation/roi_oof_experiment.md` | ROI 引导 vs 完整图对比 |
+| `02_roi_segmentation/roi_oof_lcc_optimization.md` | LCC 后处理消融 |
+| `02_roi_segmentation/roi_precision_f1_study.md` | ROI 面积门控消融 |
+| `03_ensemble_oof_stacking/oof_two_model_stacking.md` | OOF Stacking vs 静态权重 |
+| `03_ensemble_oof_stacking/formal_best_ensemble_external_eval.md` | 双模型 vs 三模型正式评估 |
+| `01_baseline_model_screening/convnext_small_upgrade_experiment.md` | ConvNeXt-Small vs Tiny 对比 |
+| `01_baseline_model_screening/six_model_comparison_report.md` | 六模型全面对比（BUSBRA + BUSI） |
 
-完整报告目录见 `artifacts/reports/Chinese reports/`。
+完整报告目录见 `artifacts/reports/Chinese reports/`，分类说明见 `artifacts/reports/README.md`。
 
 ## 参考文献
 

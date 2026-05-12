@@ -1,0 +1,55 @@
+{
+  "generated_at": "2026-05-11T16:13:14.225402+00:00",
+  "stage": "full",
+  "fold_count": 1,
+  "epochs": 1,
+  "mainline_metrics": {
+    "auc": 0.9255802549852892,
+    "threshold": 0.51,
+    "sensitivity": 0.8666666666666667,
+    "specificity": 0.8466819221967964,
+    "accuracy": 0.8531684698608965,
+    "precision": 0.7309236947791165,
+    "f1_score": 0.7930283224400873
+  },
+  "data_boundary": "BUSBRA-only training and selection; BUSI frozen one-pass review only.",
+  "results": [
+    {
+      "method_id": "cenet_dseb_only",
+      "paper_source": "CENet DSEB",
+      "rationale": "只启用多尺度差分边缘增强和差分注意力，检验边界跳连是否改善 BUS 病灶 mask。",
+      "status": "trained",
+      "decision": "report_only",
+      "config_path": "C:\\Users\\876762330\\Desktop\\projects\\Agent\\artifacts\\reports\\Chinese reports\\06_paper_guided_optimization\\generated_configs\\cenet_dseb_only.yml",
+      "fold_reports": [
+        {
+          "fold": 1,
+          "device": "cuda",
+          "checkpoint_path": "C:\\Users\\876762330\\Desktop\\projects\\Agent\\artifacts\\checkpoints\\paper_guided_cenet_dseb_only_fold1.pt",
+          "metrics": {
+            "dice": 0.5482482377295481,
+            "iou": 0.4066575174224419,
+            "boundary_f1": 0.25895728194497275,
+            "hd95": 98.26969982501434
+          },
+          "loss_config": {
+            "name": "bce_dice",
+            "bce_weight": 1.0,
+            "dice_weight": 1.0
+          },
+          "train_size": 1500,
+          "val_size": 375,
+          "max_train_batches": null,
+          "max_val_batches": null
+        }
+      ],
+      "internal_mean_metrics": {
+        "boundary_f1": 0.25895728194497275,
+        "dice": 0.5482482377295481,
+        "hd95": 98.26969982501434,
+        "iou": 0.4066575174224419
+      },
+      "frozen_config": "C:\\Users\\876762330\\Desktop\\projects\\Agent\\artifacts\\reports\\Chinese reports\\06_paper_guided_optimization\\frozen_configs\\demo_cenet_dseb_only.yml"
+    }
+  ]
+}

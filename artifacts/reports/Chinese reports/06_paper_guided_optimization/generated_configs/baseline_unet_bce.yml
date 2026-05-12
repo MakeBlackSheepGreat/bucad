@@ -1,0 +1,35 @@
+paths_config: configs/paths.local.yml
+task_type: segmentation
+seed: 42
+device: auto
+model:
+  architecture: unet
+  encoder_name: resnet18
+  encoder_weights: imagenet
+  in_channels: 3
+  classes: 1
+data:
+  image_size: 256
+  batch_size: 4
+  num_workers: 0
+training:
+  epochs: 5
+  learning_rate: 0.0003
+  weight_decay: 0.0001
+  fold_count: 1
+  split_path: ./artifacts/reports/busbra_5fold_splits.csv
+output:
+  checkpoint_name: paper_guided_baseline_unet_bce_fold{fold}.pt
+  report_name: paper_guided_baseline_unet_bce_train_fold{fold}.json
+loss:
+  name: bce
+  bce_weight: 1.0
+paper_guided_experiment:
+  method_id: baseline_unet_bce
+  paper_source: control
+  rationale: 原始 U-Net + BCE 对照，用于确认新训练协议没有改变数据划分。
+  stage: screening
+  generated_at: '2026-05-11T16:19:09.573251+00:00'
+  data_boundary: BUSBRA only for training/model selection; BUSI external review is
+    frozen and non-tuning.
+report_dir: C:\Users\876762330\Desktop\projects\Agent\artifacts\reports\Chinese reports\06_paper_guided_optimization

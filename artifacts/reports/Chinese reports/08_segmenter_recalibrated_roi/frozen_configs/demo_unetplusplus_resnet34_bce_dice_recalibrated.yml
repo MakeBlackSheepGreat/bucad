@@ -1,0 +1,222 @@
+paths_config: configs/paths.local.yml
+seed: 42
+device: auto
+runtime:
+  classifier_model: convnext_tiny
+  classifier_pretrained: false
+  classifier_device: auto
+  classifier_image_size: 224
+  classifier_apply_clahe: true
+  classifier_mean:
+  - 0.485
+  - 0.456
+  - 0.406
+  classifier_std:
+  - 0.229
+  - 0.224
+  - 0.225
+  classifier_interpolation: bicubic
+  classifier_crop_pct: 0.95
+  classifier_tta_horizontal_flip: false
+  classifier_tta_variants: &id001
+  - name: identity
+    crop_pct: 0.9
+  - name: hflip
+    crop_pct: 0.9
+  - name: identity
+    crop_pct: 0.95
+  - name: hflip
+    crop_pct: 0.95
+  - name: identity
+    crop_pct: 1.0
+  - name: hflip
+    crop_pct: 1.0
+  primary_classifier_model: ConvNeXt-Tiny
+  ensemble_display_name: ConvNeXt-Tiny + EfficientNetV2-S + ROI Area Gate + recalibrated
+    unetplusplus_resnet34_bce_dice
+  default_threshold: 0.57
+  borderline_margin: 0.08
+  classifier_checkpoint: null
+  classifier_checkpoints: []
+  classifier_members:
+  - model: convnext_tiny
+    checkpoint: ./artifacts/checkpoints/convnext_tiny_timm_recipe_fold1.pt
+    weight: 0.573
+    image_size: 224
+    apply_clahe: true
+    mean:
+    - 0.485
+    - 0.456
+    - 0.406
+    std:
+    - 0.229
+    - 0.224
+    - 0.225
+    interpolation: bicubic
+    crop_pct: 0.95
+    tta_variants: *id001
+  - model: convnext_tiny
+    checkpoint: ./artifacts/checkpoints/convnext_tiny_timm_recipe_fold2.pt
+    weight: 0.573
+    image_size: 224
+    apply_clahe: true
+    mean:
+    - 0.485
+    - 0.456
+    - 0.406
+    std:
+    - 0.229
+    - 0.224
+    - 0.225
+    interpolation: bicubic
+    crop_pct: 0.95
+    tta_variants: *id001
+  - model: convnext_tiny
+    checkpoint: ./artifacts/checkpoints/convnext_tiny_timm_recipe_fold3.pt
+    weight: 0.573
+    image_size: 224
+    apply_clahe: true
+    mean:
+    - 0.485
+    - 0.456
+    - 0.406
+    std:
+    - 0.229
+    - 0.224
+    - 0.225
+    interpolation: bicubic
+    crop_pct: 0.95
+    tta_variants: *id001
+  - model: convnext_tiny
+    checkpoint: ./artifacts/checkpoints/convnext_tiny_timm_recipe_fold4.pt
+    weight: 0.573
+    image_size: 224
+    apply_clahe: true
+    mean:
+    - 0.485
+    - 0.456
+    - 0.406
+    std:
+    - 0.229
+    - 0.224
+    - 0.225
+    interpolation: bicubic
+    crop_pct: 0.95
+    tta_variants: *id001
+  - model: convnext_tiny
+    checkpoint: ./artifacts/checkpoints/convnext_tiny_timm_recipe_fold5.pt
+    weight: 0.573
+    image_size: 224
+    apply_clahe: true
+    mean:
+    - 0.485
+    - 0.456
+    - 0.406
+    std:
+    - 0.229
+    - 0.224
+    - 0.225
+    interpolation: bicubic
+    crop_pct: 0.95
+    tta_variants: *id001
+  - model: tf_efficientnetv2_s
+    checkpoint: ./artifacts/checkpoints/efficientnetv2_s_fold1.pt
+    weight: 0.427
+    image_size: 224
+    apply_clahe: true
+    mean: null
+    std: null
+    interpolation: area
+    crop_pct: 1.0
+    tta_variants:
+    - name: identity
+  - model: tf_efficientnetv2_s
+    checkpoint: ./artifacts/checkpoints/efficientnetv2_s_fold2.pt
+    weight: 0.427
+    image_size: 224
+    apply_clahe: true
+    mean: null
+    std: null
+    interpolation: area
+    crop_pct: 1.0
+    tta_variants:
+    - name: identity
+  - model: tf_efficientnetv2_s
+    checkpoint: ./artifacts/checkpoints/efficientnetv2_s_fold3.pt
+    weight: 0.427
+    image_size: 224
+    apply_clahe: true
+    mean: null
+    std: null
+    interpolation: area
+    crop_pct: 1.0
+    tta_variants:
+    - name: identity
+  - model: tf_efficientnetv2_s
+    checkpoint: ./artifacts/checkpoints/efficientnetv2_s_fold4.pt
+    weight: 0.427
+    image_size: 224
+    apply_clahe: true
+    mean: null
+    std: null
+    interpolation: area
+    crop_pct: 1.0
+    tta_variants:
+    - name: identity
+  - model: tf_efficientnetv2_s
+    checkpoint: ./artifacts/checkpoints/efficientnetv2_s_fold5.pt
+    weight: 0.427
+    image_size: 224
+    apply_clahe: true
+    mean: null
+    std: null
+    interpolation: area
+    crop_pct: 1.0
+    tta_variants:
+    - name: identity
+  segmenter_checkpoint: null
+  segmenter_image_size: 256
+  gradcam_enabled: true
+  segmentation_enabled: true
+  allow_missing_visuals: true
+  roi_enhancement:
+    enabled: true
+    margin_ratio: 0.35
+    mask_threshold: 0.4
+    fallback_to_full: true
+    stacker:
+      feature_mode: logit
+      C: 3.0
+      class_weight: balanced
+      cv_auc: 0.9226908465380237
+      fold_auc_mean: 0.9237734894243962
+      fold_auc_std: 0.019390472422646816
+      threshold_from_oof: 0.6
+      scaler_mean:
+      - -3.3017036370527126
+      - -1.125314255528518
+      scaler_scale:
+      - 5.5323306060369974
+      - 4.063733997571352
+      coef:
+      - 2.227913074808022
+      - 0.9661687813570974
+      intercept: -0.9220893201965693
+    largest_component: true
+    quality_gate:
+      enabled: true
+      min_area_ratio: 0.08
+      max_area_ratio: 1.01
+      fallback_to_full: true
+    roi_stack_blend_weight: 1.0
+  segmenter_checkpoints:
+  - C:\Users\876762330\Desktop\projects\Agent\artifacts\checkpoints\segmenter_recal_unetplusplus_resnet34_bce_dice_fold1.pt
+  - C:\Users\876762330\Desktop\projects\Agent\artifacts\checkpoints\segmenter_recal_unetplusplus_resnet34_bce_dice_fold2.pt
+  - C:\Users\876762330\Desktop\projects\Agent\artifacts\checkpoints\segmenter_recal_unetplusplus_resnet34_bce_dice_fold3.pt
+  - C:\Users\876762330\Desktop\projects\Agent\artifacts\checkpoints\segmenter_recal_unetplusplus_resnet34_bce_dice_fold4.pt
+  - C:\Users\876762330\Desktop\projects\Agent\artifacts\checkpoints\segmenter_recal_unetplusplus_resnet34_bce_dice_fold5.pt
+segmenter_recalibrated_roi:
+  method_id: unetplusplus_resnet34_bce_dice
+  category: U-Net++ / stronger ResNet
+  frozen_at: '2026-05-12T05:31:30.703034+00:00'
+  data_boundary: Stacker, threshold, and area gate selected from BUSBRA OOF only.

@@ -1,0 +1,36 @@
+paths_config: configs/paths.local.yml
+task_type: segmentation
+seed: 42
+device: auto
+model:
+  architecture: manet
+  encoder_name: resnet34
+  encoder_weights: imagenet
+  in_channels: 3
+  classes: 1
+data:
+  image_size: 256
+  batch_size: 4
+  num_workers: 0
+training:
+  epochs: 5
+  learning_rate: 0.0003
+  weight_decay: 0.0001
+  fold_count: 5
+  split_path: ./artifacts/reports/busbra_5fold_splits.csv
+output:
+  checkpoint_name: segmenter_recal_manet_resnet34_bce_dice_fold{fold}.pt
+  report_name: segmenter_recal_manet_resnet34_bce_dice_train_fold{fold}.json
+loss:
+  name: bce_dice
+  bce_weight: 1.0
+  dice_weight: 1.0
+segmenter_recalibrated_roi:
+  method_id: manet_resnet34_bce_dice
+  category: attention decoder
+  rationale: Use MAnet attention blocks as a practical Attention U-Net style substitute
+    available in the local SMP stack.
+  generated_at: '2026-05-12T07:19:45.396718+00:00'
+  data_boundary: BUSBRA for training and recalibration; BUSI frozen external review
+    only.
+report_dir: C:\Users\876762330\Desktop\projects\Agent\artifacts\reports\Chinese reports\08_segmenter_recalibrated_roi

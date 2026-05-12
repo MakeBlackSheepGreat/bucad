@@ -1,0 +1,316 @@
+paths_config: configs/paths.local.yml
+seed: 42
+device: auto
+runtime:
+  classifier_model: convnext_tiny
+  classifier_pretrained: false
+  classifier_device: auto
+  classifier_image_size: 224
+  classifier_apply_clahe: true
+  classifier_mean:
+  - 0.485
+  - 0.456
+  - 0.406
+  classifier_std:
+  - 0.229
+  - 0.224
+  - 0.225
+  classifier_interpolation: bicubic
+  classifier_crop_pct: 0.95
+  classifier_tta_horizontal_flip: false
+  classifier_tta_variants: &id001
+  - name: identity
+    crop_pct: 0.9
+  - name: hflip
+    crop_pct: 0.9
+  - name: identity
+    crop_pct: 0.95
+  - name: hflip
+    crop_pct: 0.95
+  - name: identity
+    crop_pct: 1.0
+  - name: hflip
+    crop_pct: 1.0
+  primary_classifier_model: ConvNeXt-Tiny
+  ensemble_display_name: ConvNeXt-Tiny + EfficientNetV2-S + ROI Area Gate
+  default_threshold: 0.51
+  borderline_margin: 0.08
+  classifier_checkpoint: null
+  classifier_checkpoints: []
+  classifier_members:
+  - model: convnext_tiny
+    checkpoint: ./artifacts/checkpoints/convnext_tiny_timm_recipe_fold1.pt
+    weight: 0.573
+    image_size: 224
+    apply_clahe: true
+    mean:
+    - 0.485
+    - 0.456
+    - 0.406
+    std:
+    - 0.229
+    - 0.224
+    - 0.225
+    interpolation: bicubic
+    crop_pct: 0.95
+    tta_variants: *id001
+  - model: convnext_tiny
+    checkpoint: ./artifacts/checkpoints/convnext_tiny_timm_recipe_fold2.pt
+    weight: 0.573
+    image_size: 224
+    apply_clahe: true
+    mean:
+    - 0.485
+    - 0.456
+    - 0.406
+    std:
+    - 0.229
+    - 0.224
+    - 0.225
+    interpolation: bicubic
+    crop_pct: 0.95
+    tta_variants: *id001
+  - model: convnext_tiny
+    checkpoint: ./artifacts/checkpoints/convnext_tiny_timm_recipe_fold3.pt
+    weight: 0.573
+    image_size: 224
+    apply_clahe: true
+    mean:
+    - 0.485
+    - 0.456
+    - 0.406
+    std:
+    - 0.229
+    - 0.224
+    - 0.225
+    interpolation: bicubic
+    crop_pct: 0.95
+    tta_variants: *id001
+  - model: convnext_tiny
+    checkpoint: ./artifacts/checkpoints/convnext_tiny_timm_recipe_fold4.pt
+    weight: 0.573
+    image_size: 224
+    apply_clahe: true
+    mean:
+    - 0.485
+    - 0.456
+    - 0.406
+    std:
+    - 0.229
+    - 0.224
+    - 0.225
+    interpolation: bicubic
+    crop_pct: 0.95
+    tta_variants: *id001
+  - model: convnext_tiny
+    checkpoint: ./artifacts/checkpoints/convnext_tiny_timm_recipe_fold5.pt
+    weight: 0.573
+    image_size: 224
+    apply_clahe: true
+    mean:
+    - 0.485
+    - 0.456
+    - 0.406
+    std:
+    - 0.229
+    - 0.224
+    - 0.225
+    interpolation: bicubic
+    crop_pct: 0.95
+    tta_variants: *id001
+  - model: tf_efficientnetv2_s
+    checkpoint: ./artifacts/checkpoints/efficientnetv2_s_fold1.pt
+    weight: 0.427
+    image_size: 224
+    apply_clahe: true
+    mean: null
+    std: null
+    interpolation: area
+    crop_pct: 1.0
+    tta_variants:
+    - name: identity
+  - model: tf_efficientnetv2_s
+    checkpoint: ./artifacts/checkpoints/efficientnetv2_s_fold2.pt
+    weight: 0.427
+    image_size: 224
+    apply_clahe: true
+    mean: null
+    std: null
+    interpolation: area
+    crop_pct: 1.0
+    tta_variants:
+    - name: identity
+  - model: tf_efficientnetv2_s
+    checkpoint: ./artifacts/checkpoints/efficientnetv2_s_fold3.pt
+    weight: 0.427
+    image_size: 224
+    apply_clahe: true
+    mean: null
+    std: null
+    interpolation: area
+    crop_pct: 1.0
+    tta_variants:
+    - name: identity
+  - model: tf_efficientnetv2_s
+    checkpoint: ./artifacts/checkpoints/efficientnetv2_s_fold4.pt
+    weight: 0.427
+    image_size: 224
+    apply_clahe: true
+    mean: null
+    std: null
+    interpolation: area
+    crop_pct: 1.0
+    tta_variants:
+    - name: identity
+  - model: tf_efficientnetv2_s
+    checkpoint: ./artifacts/checkpoints/efficientnetv2_s_fold5.pt
+    weight: 0.427
+    image_size: 224
+    apply_clahe: true
+    mean: null
+    std: null
+    interpolation: area
+    crop_pct: 1.0
+    tta_variants:
+    - name: identity
+  segmenter_checkpoint: ./artifacts/checkpoints/segmenter_fold1.pt
+  segmenter_image_size: 256
+  gradcam_enabled: true
+  segmentation_enabled: true
+  allow_missing_visuals: true
+  roi_enhancement:
+    enabled: true
+    margin_ratio: 0.35
+    mask_threshold: 0.4
+    fallback_to_full: true
+    stacker:
+      feature_mode: logit
+      scaler_mean:
+      - -3.3017036370527126
+      - -1.00869908977926
+      scaler_scale:
+      - 5.5323306060369974
+      - 4.008256137621855
+      coef:
+      - 2.1358748759428625
+      - 0.9337465177659563
+      intercept: -0.867107931216447
+    largest_component: true
+    quality_gate:
+      enabled: true
+      min_area_ratio: 0.08
+      max_area_ratio: 0.75
+      fallback_to_full: true
+    roi_stack_blend_weight: 1.0
+    descriptor_router:
+      enabled: false
+      source: BUSBRA_OOF_descriptor_router
+      candidate_name: logistic_descriptor_full_C0.1_none
+      feature_set: descriptor_full
+      feature_names:
+      - full_probability
+      - roi_probability
+      - stacked_probability
+      - full_logit
+      - roi_logit
+      - stacked_logit
+      - full_roi_delta
+      - abs_full_roi_delta
+      - full_uncertainty
+      - roi_uncertainty
+      - stacked_uncertainty
+      - roi_valid
+      - roi_area_ratio
+      - mask_area_ratio
+      - lesion_bbox_area_ratio
+      - lesion_aspect_ratio
+      - mask_extent
+      - mask_compactness
+      - boundary_complexity
+      - component_count
+      - mask_mean_probability
+      - edge_contrast
+      - image_mean
+      - image_std
+      - image_sharpness
+      scaler_mean:
+      - 0.26906952232505077
+      - 0.39333698504852954
+      - 0.37977928154134805
+      - -3.7372559709112245
+      - -1.1283722318298577
+      - -1.063140803111779
+      - 0.12426746272347873
+      - 0.18208070019511383
+      - 0.20356791031536742
+      - 0.3542979518816815
+      - 0.3362530631934848
+      - 1.0
+      - 0.37181617656084376
+      - 0.065435093420343
+      - 0.09376386259357693
+      - 1.587883928445703
+      - 0.7060635564941588
+      - 0.6916493530890996
+      - 1.4976636271138872
+      - 1.2084967320261437
+      - 0.8621773098808488
+      - 0.04228221557545371
+      - 0.3297422383242314
+      - 0.15781055763246843
+      - 0.006691083098986959
+      scaler_scale:
+      - 0.3567312369800873
+      - 0.34674002327377085
+      - 0.34584747744859623
+      - 5.571672012891225
+      - 3.8957240655527783
+      - 2.859135165587744
+      - 0.24537071777937927
+      - 0.20614511891324502
+      - 0.29671563886432295
+      - 0.33089490030754665
+      - 0.30934446673094956
+      - 1.0
+      - 0.19225457715188343
+      - 0.040433757828428944
+      - 0.058458372104683395
+      - 0.4867660720990941
+      - 0.06555127521613005
+      - 0.11302291513609714
+      - 0.3400648166287194
+      - 0.7068708281124506
+      - 0.06903617471934112
+      - 0.020475780011152918
+      - 0.11209493893011499
+      - 0.04689669900921425
+      - 0.003546758692310436
+      coef:
+      - 0.42452407580853424
+      - 0.37899871257612283
+      - 0.46667420711338686
+      - 0.5325961312975881
+      - 0.033906650110411024
+      - 0.4114598882928848
+      - -0.08161925943273896
+      - 0.12970764520584985
+      - -0.05729647569136513
+      - -0.16089906477831023
+      - -0.030860959265886237
+      - 0.0
+      - 0.013599548661493628
+      - 0.021948932897277264
+      - 0.032047182912104746
+      - -0.5115336391084694
+      - -0.0390452477396158
+      - -0.20260904805104196
+      - -0.05622670942924841
+      - 0.1123137387809907
+      - 0.30243594226507975
+      - -0.4017022485935779
+      - -0.19976873701442935
+      - 0.03452991503466143
+      - 0.1343205288070597
+      intercept: -1.6172658881234547
+      blend_weight: 1.0
+      training_boundary: BUSBRA OOF only; BUSI is not used by this script.

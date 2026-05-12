@@ -1,0 +1,59 @@
+{
+  "generated_at": "2026-05-12T04:35:00.630422+00:00",
+  "method": "non-SAM segmenter replacement with BUSBRA OOF ROI recalibration",
+  "data_boundary": "BUSBRA trains segmenters and selects stacker/gate/threshold; BUSI is frozen external review only.",
+  "runtime_config": "configs/inference/demo.yml",
+  "full_oof_cache": "artifacts/reports/oof_two_model_predictions.json",
+  "fold_count": 1,
+  "epochs": 1,
+  "margin_ratio": 0.35,
+  "mask_threshold": 0.4,
+  "mainline_metrics": {
+    "auc": 0.9255802549852892,
+    "threshold": 0.51,
+    "accuracy": 0.8531684698608965,
+    "sensitivity": 0.8666666666666667,
+    "specificity": 0.8466819221967964,
+    "precision": 0.7309236947791165,
+    "f1_score": 0.7930283224400873
+  },
+  "results": [
+    {
+      "method_id": "unetplusplus_resnet34_bce_dice",
+      "category": "U-Net++ / stronger ResNet",
+      "status": "failed",
+      "decision": "report_only",
+      "config_path": "C:\\Users\\876762330\\Desktop\\projects\\Agent\\artifacts\\reports\\Chinese reports\\08_segmenter_recalibrated_roi\\generated_configs\\unetplusplus_resnet34_bce_dice.yml",
+      "fold_reports": [
+        {
+          "fold": 1,
+          "device": "cuda",
+          "checkpoint_path": "C:\\Users\\876762330\\Desktop\\projects\\Agent\\artifacts\\checkpoints\\segmenter_recal_unetplusplus_resnet34_bce_dice_fold1.pt",
+          "metrics": {
+            "dice": 0.8420008894493103,
+            "iou": 0.7507931455238943,
+            "boundary_f1": 0.6230761201801379,
+            "hd95": 16.899680915734216
+          },
+          "loss_config": {
+            "name": "bce_dice",
+            "bce_weight": 1.0,
+            "dice_weight": 1.0
+          },
+          "train_size": 1500,
+          "val_size": 375,
+          "max_train_batches": null,
+          "max_val_batches": null
+        }
+      ],
+      "internal_mean_metrics": {
+        "boundary_f1": 0.6230761201801379,
+        "dice": 0.8420008894493103,
+        "hd95": 16.899680915734216,
+        "iou": 0.7507931455238943
+      },
+      "error": "ValueError: OOF sample order mismatch for unetplusplus_resnet34_bce_dice."
+    }
+  ],
+  "best_by_busi_auc": null
+}

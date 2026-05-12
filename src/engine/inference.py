@@ -7,6 +7,11 @@ import numpy as np
 import pandas as pd
 
 from src.datasets.busi import load_busi_manifest
+from src.engine.descriptors import (
+    build_router_feature_map,
+    extract_roi_descriptors,
+    router_feature_vector,
+)
 from src.engine.errors import (
     BucadError,
     ClassificationUnavailableError,
@@ -459,6 +464,49 @@ class BreastUltrasoundInferenceService:
         probability = 1.0 / (1.0 + float(np.exp(-logit)))
         return float(np.clip(probability, 0.0, 1.0))
 
+    def _apply_descriptor_router(
+        self,
+        *,
+        full_probability: float,
+        roi_probability: float,
+        stacked_probability: float,
+        descriptors: dict[str, float],
+        router: dict[str, Any],
+    ) -> float:
+        if not bool(router.get("enabled", False)):
+            return float(stacked_probability)
+        feature_names = [str(name) for name in router.get("feature_names", [])]
+        if not feature_names:
+            raise ClassificationUnavailableError("Descriptor router requires feature_names.")
+        feature_map = build_router_feature_map(
+            full_probability=full_probability,
+            roi_probability=roi_probability,
+            stacked_probability=stacked_probability,
+            descriptors=descriptors,
+        )
+        try:
+            features = router_feature_vector(feature_map, feature_names)
+        except KeyError as exc:
+            raise ClassificationUnavailableError(str(exc)) from exc
+        mean = np.asarray(router.get("scaler_mean", [0.0] * len(feature_names)), dtype=np.float64)
+        scale = np.asarray(router.get("scaler_scale", [1.0] * len(feature_names)), dtype=np.float64)
+        coef = np.asarray(router.get("coef", []), dtype=np.float64)
+        if mean.shape != features.shape or scale.shape != features.shape or coef.shape != features.shape:
+            raise ClassificationUnavailableError(
+                "Descriptor router parameters must match feature_names length."
+            )
+        scaled = (features - mean) / np.maximum(scale, 1e-6)
+        logit_value = float(np.dot(coef, scaled) + float(router.get("intercept", 0.0)))
+        routed_probability = 1.0 / (1.0 + float(np.exp(-logit_value)))
+        blend_weight = float(router.get("blend_weight", 1.0))
+        if blend_weight < 1.0:
+            blend_weight = float(np.clip(blend_weight, 0.0, 1.0))
+            routed_probability = (
+                blend_weight * routed_probability
+                + (1.0 - blend_weight) * float(stacked_probability)
+            )
+        return float(np.clip(routed_probability, 0.0, 1.0))
+
     @staticmethod
     def _roi_area_ratio(mask: np.ndarray | None, config: dict[str, Any]) -> tuple[float, bool]:
         if mask is None:
@@ -560,6 +608,23 @@ class BreastUltrasoundInferenceService:
             malignant_probability = (
                 blend_weight * malignant_probability
                 + (1.0 - blend_weight) * full_malignant_probability
+            )
+        descriptor_router = config.get("descriptor_router")
+        if isinstance(descriptor_router, dict) and bool(descriptor_router.get("enabled", False)):
+            descriptors = extract_roi_descriptors(
+                image,
+                mask,
+                threshold=float(config.get("mask_threshold", 0.5)),
+                margin_ratio=float(config.get("margin_ratio", 0.35)),
+                min_area_ratio=float(config.get("min_mask_area_ratio", 0.001)),
+                largest_component=bool(config.get("largest_component", False)),
+            )
+            malignant_probability = self._apply_descriptor_router(
+                full_probability=full_malignant_probability,
+                roi_probability=roi_malignant_probability,
+                stacked_probability=malignant_probability,
+                descriptors=descriptors,
+                router=descriptor_router,
             )
         return 1.0 - malignant_probability, malignant_probability
 

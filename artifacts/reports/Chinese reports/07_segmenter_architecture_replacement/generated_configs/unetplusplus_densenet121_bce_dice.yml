@@ -1,0 +1,35 @@
+paths_config: configs/paths.local.yml
+task_type: segmentation
+seed: 42
+device: auto
+model:
+  architecture: unetplusplus
+  encoder_name: densenet121
+  encoder_weights: imagenet
+  in_channels: 3
+  classes: 1
+data:
+  image_size: 256
+  batch_size: 4
+  num_workers: 0
+training:
+  epochs: 5
+  learning_rate: 0.0003
+  weight_decay: 0.0001
+  fold_count: 1
+  split_path: ./artifacts/reports/busbra_5fold_splits.csv
+output:
+  checkpoint_name: segmenter_arch_unetplusplus_densenet121_bce_dice_fold{fold}.pt
+  report_name: segmenter_arch_unetplusplus_densenet121_bce_dice_train_fold{fold}.json
+loss:
+  name: bce_dice
+  bce_weight: 1.0
+  dice_weight: 1.0
+segmenter_architecture_replacement:
+  method_id: unetplusplus_densenet121_bce_dice
+  category: U-Net++ / DenseNet121
+  rationale: Use nested U-Net++ skip fusion with the DenseNet121 encoder reported
+    as a strong BUSI backbone direction.
+  generated_at: '2026-05-12T02:48:44.525315+00:00'
+  boundary: BUSBRA training only; BUSI is a frozen one-pass external review.
+report_dir: C:\Users\876762330\Desktop\projects\Agent\artifacts\reports\Chinese reports\07_segmenter_architecture_replacement

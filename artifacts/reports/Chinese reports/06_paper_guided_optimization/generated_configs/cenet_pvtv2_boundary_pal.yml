@@ -1,0 +1,43 @@
+paths_config: configs/paths.local.yml
+task_type: segmentation
+seed: 42
+device: auto
+model:
+  architecture: cenet_pvtv2
+  encoder_name: pvt_v2_b0
+  encoder_weights: null
+  in_channels: 3
+  classes: 1
+  decoder_channels: 96
+  use_dseb: true
+  use_cfam: true
+  use_nonlocal: true
+  boundary_head: true
+data:
+  image_size: 256
+  batch_size: 4
+  num_workers: 0
+training:
+  epochs: 5
+  learning_rate: 0.0003
+  weight_decay: 0.0001
+  fold_count: 1
+  split_path: ./artifacts/reports/busbra_5fold_splits.csv
+output:
+  checkpoint_name: paper_guided_cenet_pvtv2_boundary_pal_fold{fold}.pt
+  report_name: paper_guided_cenet_pvtv2_boundary_pal_train_fold{fold}.json
+loss:
+  name: bce_dice_boundary_pal
+  bce_weight: 1.0
+  dice_weight: 1.0
+  boundary_weight: 0.25
+  pal_weight: 0.15
+paper_guided_experiment:
+  method_id: cenet_pvtv2_boundary_pal
+  paper_source: CENet PvT-v2 encoder
+  rationale: 尝试使用 PVT-v2 特征金字塔编码器复现论文主干方向；若 timm 不支持则记录依赖受限。
+  stage: screening
+  generated_at: '2026-05-11T17:01:17.730580+00:00'
+  data_boundary: BUSBRA only for training/model selection; BUSI external review is
+    frozen and non-tuning.
+report_dir: C:\Users\876762330\Desktop\projects\Agent\artifacts\reports\Chinese reports\06_paper_guided_optimization

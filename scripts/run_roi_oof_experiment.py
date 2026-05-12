@@ -69,6 +69,18 @@ def build_parser() -> argparse.ArgumentParser:
         default="artifacts/checkpoints/segmenter_fold1.pt",
         help="Segmenter checkpoint for deployable BUSI ROI proxy.",
     )
+    parser.add_argument(
+        "--segmenter-checkpoint-pattern",
+        default="artifacts/checkpoints/segmenter_5fold_fold{fold}.pt",
+        help="Fold-specific segmenter checkpoint template used when --roi-mask-source=segmenter_oof.",
+    )
+    parser.add_argument(
+        "--roi-mask-source",
+        choices=("gt_mask", "segmenter_oof", "segmenter_fold1"),
+        default="gt_mask",
+        help="Mask source for BUSBRA ROI OOF. segmenter_oof avoids GT-mask shape leakage.",
+    )
+    parser.add_argument("--segmenter-image-size", type=int, default=256)
     parser.add_argument("--fold-count", type=int, default=5)
     parser.add_argument("--batch-size", type=int, default=16)
     parser.add_argument("--device", default="auto")
@@ -133,11 +145,27 @@ def _roi_images_from_manifest(
     *,
     margin_ratio: float,
     mask_threshold: float,
+    mask_source: str = "gt_mask",
+    segmenter: Any | None = None,
+    segmenter_image_size: int = 256,
+    device: str = "cpu",
 ) -> list[np.ndarray]:
     images: list[np.ndarray] = []
     for row in manifest.itertuples(index=False):
         image = read_image(row.image_path, grayscale=True)
-        mask = read_mask(row.mask_path)
+        if mask_source == "gt_mask":
+            mask = read_mask(row.mask_path)
+        elif mask_source in {"segmenter_oof", "segmenter_fold1"}:
+            if segmenter is None:
+                raise ValueError(f"{mask_source} requires a loaded segmenter.")
+            mask = _predict_segmenter_mask(
+                segmenter,
+                image,
+                image_size=segmenter_image_size,
+                device=device,
+            )
+        else:
+            raise ValueError(f"Unsupported ROI mask source: {mask_source}")
         images.append(
             crop_to_mask_bbox(
                 image,
@@ -157,6 +185,10 @@ def _generate_roi_oof(
     batch_size: int,
     margin_ratio: float,
     mask_threshold: float,
+    roi_mask_source: str = "gt_mask",
+    segmenter_checkpoint: str | Path = "artifacts/checkpoints/segmenter_fold1.pt",
+    segmenter_checkpoint_pattern: str = "artifacts/checkpoints/segmenter_5fold_fold{fold}.pt",
+    segmenter_image_size: int = 256,
 ) -> dict[str, Any]:
     config, paths = load_project_config(config_path)
     manifest = load_busbra_manifest(paths.busbra_root)
@@ -177,12 +209,51 @@ def _generate_roi_oof(
     )
     resolved_device = select_device(device)
     views: dict[str, list[dict[str, Any]]] = {view_name: [] for view_name in PAIR_VIEWS}
+    single_segmenter = None
+    if roi_mask_source == "segmenter_fold1":
+        resolved_checkpoint = _resolve_project_path(paths.project_root, segmenter_checkpoint)
+        single_segmenter = load_segmenter(
+            {
+                "architecture": "unet",
+                "encoder_name": "resnet18",
+                "encoder_weights": None,
+                "in_channels": 3,
+                "classes": 1,
+            },
+            checkpoint_path=resolved_checkpoint,
+            map_location="cpu",
+        )
+        single_segmenter.to(resolved_device)
+        single_segmenter.eval()
     for fold in range(1, fold_count + 1):
         val_manifest = _val_manifest_for_fold(manifest, assignments, fold)
+        fold_segmenter = single_segmenter
+        if roi_mask_source == "segmenter_oof":
+            resolved_checkpoint = _resolve_project_path(
+                paths.project_root,
+                str(segmenter_checkpoint_pattern).format(fold=fold),
+            )
+            fold_segmenter = load_segmenter(
+                {
+                    "architecture": "unet",
+                    "encoder_name": "resnet18",
+                    "encoder_weights": None,
+                    "in_channels": 3,
+                    "classes": 1,
+                },
+                checkpoint_path=resolved_checkpoint,
+                map_location="cpu",
+            )
+            fold_segmenter.to(resolved_device)
+            fold_segmenter.eval()
         roi_images = _roi_images_from_manifest(
             val_manifest,
             margin_ratio=margin_ratio,
             mask_threshold=mask_threshold,
+            mask_source=roi_mask_source,
+            segmenter=fold_segmenter,
+            segmenter_image_size=segmenter_image_size,
+            device=resolved_device,
         )
         for view_name in PAIR_VIEWS:
             probabilities = _predict_view_on_images(
@@ -206,10 +277,14 @@ def _generate_roi_oof(
     for view_name in views:
         views[view_name] = sorted(views[view_name], key=lambda row: row["sample_id"])
     return {
-        "source": "BUSBRA GT-mask ROI OOF predictions",
+        "source": f"BUSBRA {roi_mask_source} ROI OOF predictions",
         "sample_count": len(next(iter(views.values()))),
         "margin_ratio": margin_ratio,
         "mask_threshold": mask_threshold,
+        "roi_mask_source": roi_mask_source,
+        "segmenter_checkpoint": str(segmenter_checkpoint),
+        "segmenter_checkpoint_pattern": str(segmenter_checkpoint_pattern),
+        "segmenter_image_size": int(segmenter_image_size),
         "views": views,
     }
 
@@ -356,11 +431,17 @@ def _load_busi_full_pair(path: str | Path) -> tuple[list[dict[str, str]], np.nda
     return reference, y_true, probabilities
 
 
-def _predict_segmenter_mask(segmenter, image: np.ndarray) -> np.ndarray:
+def _predict_segmenter_mask(
+    segmenter,
+    image: np.ndarray,
+    *,
+    image_size: int = 256,
+    device: str = "cpu",
+) -> np.ndarray:
     require_dependency("torch", torch)
-    input_tensor = prepare_classifier_input(image, 256)
+    input_tensor = prepare_classifier_input(image, image_size)
     with torch.no_grad():
-        logits = segmenter(input_tensor.unsqueeze(0).to(dtype=torch.float32))
+        logits = segmenter(input_tensor.unsqueeze(0).to(device=device, dtype=torch.float32))
         return torch.sigmoid(logits)[0, 0].cpu().numpy()
 
 
@@ -673,6 +754,10 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             batch_size=int(args.batch_size),
             margin_ratio=float(args.margin_ratio),
             mask_threshold=float(args.mask_threshold),
+            roi_mask_source=str(args.roi_mask_source),
+            segmenter_checkpoint=args.segmenter_checkpoint,
+            segmenter_checkpoint_pattern=str(args.segmenter_checkpoint_pattern),
+            segmenter_image_size=int(args.segmenter_image_size),
         )
         write_json_report(roi_oof_path, roi_oof)
 
@@ -710,6 +795,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "method": "ROI two-view OOF stacking",
         "margin_ratio": float(args.margin_ratio),
         "mask_threshold": float(args.mask_threshold),
+        "roi_mask_source": str(args.roi_mask_source),
+        "segmenter_checkpoint_pattern": str(args.segmenter_checkpoint_pattern),
         "oof_sample_count": int(len(sample_ids)),
         "baseline": {
             "full_pair_auc": float(roc_auc_score(busi_y_true, busi_full_pair)),

@@ -32,8 +32,8 @@ runtime:
   - name: hflip
     crop_pct: 1.0
   primary_classifier_model: ConvNeXt-Tiny
-  ensemble_display_name: ConvNeXt-Tiny + EfficientNetV2-S + ROI Area Gate
-  default_threshold: 0.51
+  ensemble_display_name: ConvNeXt-Tiny + EfficientNetV2-S + ROI Area Gate + U-Net++ ResNet34 segmenter
+  default_threshold: 0.57
   borderline_margin: 0.08
   classifier_checkpoint: null
   classifier_checkpoints: []
@@ -173,7 +173,13 @@ runtime:
     crop_pct: 1.0
     tta_variants:
     - name: identity
-  segmenter_checkpoint: ./artifacts/checkpoints/segmenter_fold1.pt
+  segmenter_checkpoint: null
+  segmenter_checkpoints:
+  - ./artifacts/checkpoints/segmenter_recal_unetplusplus_resnet34_bce_dice_fold1.pt
+  - ./artifacts/checkpoints/segmenter_recal_unetplusplus_resnet34_bce_dice_fold2.pt
+  - ./artifacts/checkpoints/segmenter_recal_unetplusplus_resnet34_bce_dice_fold3.pt
+  - ./artifacts/checkpoints/segmenter_recal_unetplusplus_resnet34_bce_dice_fold4.pt
+  - ./artifacts/checkpoints/segmenter_recal_unetplusplus_resnet34_bce_dice_fold5.pt
   segmenter_image_size: 256
   gradcam_enabled: true
   segmentation_enabled: true
@@ -185,20 +191,30 @@ runtime:
     fallback_to_full: true
     stacker:
       feature_mode: logit
+      C: 3.0
+      class_weight: balanced
+      cv_auc: 0.9226908465380237
+      fold_auc_mean: 0.9237734894243962
+      fold_auc_std: 0.019390472422646816
+      threshold_from_oof: 0.6
       scaler_mean:
       - -3.3017036370527126
-      - -1.00869908977926
+      - -1.125314255528518
       scaler_scale:
       - 5.5323306060369974
-      - 4.008256137621855
+      - 4.063733997571352
       coef:
-      - 2.1358748759428625
-      - 0.9337465177659563
-      intercept: -0.867107931216447
+      - 2.227913074808022
+      - 0.9661687813570974
+      intercept: -0.9220893201965693
     largest_component: true
     quality_gate:
       enabled: true
       min_area_ratio: 0.08
-      max_area_ratio: 0.75
+      max_area_ratio: 1.01
       fallback_to_full: true
     roi_stack_blend_weight: 1.0
+segmenter_recalibrated_roi:
+  method_id: unetplusplus_resnet34_bce_dice
+  category: U-Net++ / ResNet34
+  data_boundary: Stacker, threshold, and area gate selected from BUSBRA OOF only.

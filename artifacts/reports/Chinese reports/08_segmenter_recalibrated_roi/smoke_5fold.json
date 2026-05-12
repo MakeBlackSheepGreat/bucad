@@ -1,0 +1,433 @@
+{
+  "generated_at": "2026-05-12T04:40:48.087108+00:00",
+  "method": "non-SAM segmenter replacement with BUSBRA OOF ROI recalibration",
+  "data_boundary": "BUSBRA trains segmenters and selects stacker/gate/threshold; BUSI is frozen external review only.",
+  "runtime_config": "configs/inference/demo.yml",
+  "full_oof_cache": "artifacts/reports/oof_two_model_predictions.json",
+  "fold_count": 5,
+  "epochs": 1,
+  "margin_ratio": 0.35,
+  "mask_threshold": 0.4,
+  "mainline_metrics": {
+    "auc": 0.9255802549852892,
+    "threshold": 0.51,
+    "accuracy": 0.8531684698608965,
+    "sensitivity": 0.8666666666666667,
+    "specificity": 0.8466819221967964,
+    "precision": 0.7309236947791165,
+    "f1_score": 0.7930283224400873
+  },
+  "results": [
+    {
+      "method_id": "unetplusplus_resnet34_bce_dice",
+      "category": "U-Net++ / stronger ResNet",
+      "status": "trained_recalibrated",
+      "decision": "report_only",
+      "config_path": "C:\\Users\\876762330\\Desktop\\projects\\Agent\\artifacts\\reports\\Chinese reports\\08_segmenter_recalibrated_roi\\generated_configs\\unetplusplus_resnet34_bce_dice.yml",
+      "fold_reports": [
+        {
+          "fold": 1,
+          "device": "cuda",
+          "checkpoint_path": "C:\\Users\\876762330\\Desktop\\projects\\Agent\\artifacts\\checkpoints\\segmenter_recal_unetplusplus_resnet34_bce_dice_fold1.pt",
+          "metrics": {
+            "dice": 0.8257732685729974,
+            "iou": 0.7300377740456747,
+            "boundary_f1": 0.5712085390268794,
+            "hd95": 20.466767440549276
+          },
+          "loss_config": {
+            "name": "bce_dice",
+            "bce_weight": 1.0,
+            "dice_weight": 1.0
+          },
+          "train_size": 1500,
+          "val_size": 375,
+          "max_train_batches": null,
+          "max_val_batches": null
+        },
+        {
+          "fold": 2,
+          "device": "cuda",
+          "checkpoint_path": "C:\\Users\\876762330\\Desktop\\projects\\Agent\\artifacts\\checkpoints\\segmenter_recal_unetplusplus_resnet34_bce_dice_fold2.pt",
+          "metrics": {
+            "dice": 0.8570927991701762,
+            "iou": 0.7716202634362429,
+            "boundary_f1": 0.6543290480054952,
+            "hd95": 15.535022894217644
+          },
+          "loss_config": {
+            "name": "bce_dice",
+            "bce_weight": 1.0,
+            "dice_weight": 1.0
+          },
+          "train_size": 1500,
+          "val_size": 375,
+          "max_train_batches": null,
+          "max_val_batches": null
+        },
+        {
+          "fold": 3,
+          "device": "cuda",
+          "checkpoint_path": "C:\\Users\\876762330\\Desktop\\projects\\Agent\\artifacts\\checkpoints\\segmenter_recal_unetplusplus_resnet34_bce_dice_fold3.pt",
+          "metrics": {
+            "dice": 0.8618133365613876,
+            "iou": 0.7791068125080877,
+            "boundary_f1": 0.6805613292168605,
+            "hd95": 15.815795266099423
+          },
+          "loss_config": {
+            "name": "bce_dice",
+            "bce_weight": 1.0,
+            "dice_weight": 1.0
+          },
+          "train_size": 1500,
+          "val_size": 375,
+          "max_train_batches": null,
+          "max_val_batches": null
+        },
+        {
+          "fold": 4,
+          "device": "cuda",
+          "checkpoint_path": "C:\\Users\\876762330\\Desktop\\projects\\Agent\\artifacts\\checkpoints\\segmenter_recal_unetplusplus_resnet34_bce_dice_fold4.pt",
+          "metrics": {
+            "dice": 0.8416010102178886,
+            "iou": 0.7481057091730066,
+            "boundary_f1": 0.6299598867698023,
+            "hd95": 23.131691709529385
+          },
+          "loss_config": {
+            "name": "bce_dice",
+            "bce_weight": 1.0,
+            "dice_weight": 1.0
+          },
+          "train_size": 1500,
+          "val_size": 375,
+          "max_train_batches": null,
+          "max_val_batches": null
+        },
+        {
+          "fold": 5,
+          "device": "cuda",
+          "checkpoint_path": "C:\\Users\\876762330\\Desktop\\projects\\Agent\\artifacts\\checkpoints\\segmenter_recal_unetplusplus_resnet34_bce_dice_fold5.pt",
+          "metrics": {
+            "dice": 0.7927484732758588,
+            "iou": 0.689423107281334,
+            "boundary_f1": 0.5880495313005338,
+            "hd95": 30.263413183844566
+          },
+          "loss_config": {
+            "name": "bce_dice",
+            "bce_weight": 1.0,
+            "dice_weight": 1.0
+          },
+          "train_size": 1500,
+          "val_size": 375,
+          "max_train_batches": null,
+          "max_val_batches": null
+        }
+      ],
+      "internal_mean_metrics": {
+        "boundary_f1": 0.6248216668639144,
+        "dice": 0.8358057775596617,
+        "hd95": 21.04253809884806,
+        "iou": 0.7436587332888691
+      },
+      "oof_roi_cache": "C:\\Users\\876762330\\Desktop\\projects\\Agent\\artifacts\\reports\\Chinese reports\\08_segmenter_recalibrated_roi\\oof_predictions\\unetplusplus_resnet34_bce_dice_roi_oof.json",
+      "frozen_config": "C:\\Users\\876762330\\Desktop\\projects\\Agent\\artifacts\\reports\\Chinese reports\\08_segmenter_recalibrated_roi\\frozen_configs\\demo_unetplusplus_resnet34_bce_dice_recalibrated.yml",
+      "oof": {
+        "full_pair": {
+          "auc": 0.9195843445813563,
+          "threshold": 0.21,
+          "sensitivity": 0.871499176276771,
+          "recall": 0.871499176276771,
+          "precision": 0.6852331606217616,
+          "specificity": 0.8083596214511041,
+          "accuracy": 0.8288,
+          "f1_score": 0.7672226250906454,
+          "confusion": {
+            "tn": 1025,
+            "fp": 243,
+            "fn": 78,
+            "tp": 529
+          }
+        },
+        "roi_pair": {
+          "auc": 0.8847398125964693,
+          "threshold": 0.51,
+          "sensitivity": 0.8023064250411862,
+          "recall": 0.8023064250411862,
+          "precision": 0.6898016997167139,
+          "specificity": 0.8272870662460567,
+          "accuracy": 0.8192,
+          "f1_score": 0.7418126428027418,
+          "confusion": {
+            "tn": 1049,
+            "fp": 219,
+            "fn": 120,
+            "tp": 487
+          }
+        },
+        "stacker_cv_auc": 0.924048560693071,
+        "stacker_threshold": 0.56,
+        "area_ratio_mean": 0.5413779378255208,
+        "area_ratio_median": 0.5194091796875
+      },
+      "stacker": {
+        "feature_mode": "logit",
+        "C": 0.03,
+        "class_weight": "balanced",
+        "cv_auc": 0.924048560693071,
+        "fold_auc_mean": 0.9251571238891202,
+        "fold_auc_std": 0.017664598810807678,
+        "threshold_from_oof": 0.56,
+        "scaler_mean": [
+          -3.3017036370527126,
+          -1.2088158182710247
+        ],
+        "scaler_scale": [
+          5.5323306060369974,
+          4.148688099030263
+        ],
+        "coef": [
+          1.5185646069668668,
+          0.9792036585759534
+        ],
+        "intercept": -0.6821274344084514
+      },
+      "selected_gate": {
+        "min_area_ratio": 0.08,
+        "max_area_ratio": 1.01,
+        "fallback_count": 17,
+        "metrics": {
+          "auc": 0.9240784433969618,
+          "threshold": 0.56,
+          "sensitivity": 0.8336079077429983,
+          "recall": 0.8336079077429983,
+          "precision": 0.7496296296296296,
+          "specificity": 0.8667192429022083,
+          "accuracy": 0.856,
+          "f1_score": 0.7893915756630264,
+          "confusion": {
+            "tn": 1099,
+            "fp": 169,
+            "fn": 101,
+            "tp": 506
+          }
+        }
+      },
+      "top_gates": [
+        {
+          "min_area_ratio": 0.08,
+          "max_area_ratio": 1.01,
+          "fallback_count": 17,
+          "metrics": {
+            "auc": 0.9240784433969618,
+            "threshold": 0.56,
+            "sensitivity": 0.8336079077429983,
+            "recall": 0.8336079077429983,
+            "precision": 0.7496296296296296,
+            "specificity": 0.8667192429022083,
+            "accuracy": 0.856,
+            "f1_score": 0.7893915756630264,
+            "confusion": {
+              "tn": 1099,
+              "fp": 169,
+              "fn": 101,
+              "tp": 506
+            }
+          }
+        },
+        {
+          "min_area_ratio": 0.0,
+          "max_area_ratio": 1.01,
+          "fallback_count": 0,
+          "metrics": {
+            "auc": 0.924048560693071,
+            "threshold": 0.56,
+            "sensitivity": 0.8336079077429983,
+            "recall": 0.8336079077429983,
+            "precision": 0.7463126843657817,
+            "specificity": 0.8643533123028391,
+            "accuracy": 0.8544,
+            "f1_score": 0.7875486381322956,
+            "confusion": {
+              "tn": 1096,
+              "fp": 172,
+              "fn": 101,
+              "tp": 506
+            }
+          }
+        },
+        {
+          "min_area_ratio": 0.01,
+          "max_area_ratio": 1.01,
+          "fallback_count": 0,
+          "metrics": {
+            "auc": 0.924048560693071,
+            "threshold": 0.56,
+            "sensitivity": 0.8336079077429983,
+            "recall": 0.8336079077429983,
+            "precision": 0.7463126843657817,
+            "specificity": 0.8643533123028391,
+            "accuracy": 0.8544,
+            "f1_score": 0.7875486381322956,
+            "confusion": {
+              "tn": 1096,
+              "fp": 172,
+              "fn": 101,
+              "tp": 506
+            }
+          }
+        },
+        {
+          "min_area_ratio": 0.05,
+          "max_area_ratio": 1.01,
+          "fallback_count": 2,
+          "metrics": {
+            "auc": 0.9237692223740899,
+            "threshold": 0.56,
+            "sensitivity": 0.8336079077429983,
+            "recall": 0.8336079077429983,
+            "precision": 0.7463126843657817,
+            "specificity": 0.8643533123028391,
+            "accuracy": 0.8544,
+            "f1_score": 0.7875486381322956,
+            "confusion": {
+              "tn": 1096,
+              "fp": 172,
+              "fn": 101,
+              "tp": 506
+            }
+          }
+        },
+        {
+          "min_area_ratio": 0.03,
+          "max_area_ratio": 1.01,
+          "fallback_count": 1,
+          "metrics": {
+            "auc": 0.923749733654161,
+            "threshold": 0.56,
+            "sensitivity": 0.8336079077429983,
+            "recall": 0.8336079077429983,
+            "precision": 0.7463126843657817,
+            "specificity": 0.8643533123028391,
+            "accuracy": 0.8544,
+            "f1_score": 0.7875486381322956,
+            "confusion": {
+              "tn": 1096,
+              "fp": 172,
+              "fn": 101,
+              "tp": 506
+            }
+          }
+        },
+        {
+          "min_area_ratio": 0.1,
+          "max_area_ratio": 1.01,
+          "fallback_count": 31,
+          "metrics": {
+            "auc": 0.9228727412573602,
+            "threshold": 0.56,
+            "sensitivity": 0.8336079077429983,
+            "recall": 0.8336079077429983,
+            "precision": 0.7507418397626113,
+            "specificity": 0.8675078864353313,
+            "accuracy": 0.8565333333333334,
+            "f1_score": 0.790007806401249,
+            "confusion": {
+              "tn": 1100,
+              "fp": 168,
+              "fn": 101,
+              "tp": 506
+            }
+          }
+        },
+        {
+          "min_area_ratio": 0.15,
+          "max_area_ratio": 1.01,
+          "fallback_count": 148,
+          "metrics": {
+            "auc": 0.9210771805279104,
+            "threshold": 0.56,
+            "sensitivity": 0.828665568369028,
+            "recall": 0.828665568369028,
+            "precision": 0.7632776934749621,
+            "specificity": 0.8769716088328076,
+            "accuracy": 0.8613333333333333,
+            "f1_score": 0.7946287519747235,
+            "confusion": {
+              "tn": 1112,
+              "fp": 156,
+              "fn": 104,
+              "tp": 503
+            }
+          }
+        },
+        {
+          "min_area_ratio": 0.3,
+          "max_area_ratio": 1.01,
+          "fallback_count": 521,
+          "metrics": {
+            "auc": 0.9192907145344276,
+            "threshold": 0.5,
+            "sensitivity": 0.8484349258649094,
+            "recall": 0.8484349258649094,
+            "precision": 0.7431457431457431,
+            "specificity": 0.8596214511041009,
+            "accuracy": 0.856,
+            "f1_score": 0.7923076923076923,
+            "confusion": {
+              "tn": 1090,
+              "fp": 178,
+              "fn": 92,
+              "tp": 515
+            }
+          }
+        },
+        {
+          "min_area_ratio": 0.25,
+          "max_area_ratio": 1.01,
+          "fallback_count": 394,
+          "metrics": {
+            "auc": 0.9180798154028449,
+            "threshold": 0.5,
+            "sensitivity": 0.85667215815486,
+            "recall": 0.85667215815486,
+            "precision": 0.7344632768361582,
+            "specificity": 0.8517350157728707,
+            "accuracy": 0.8533333333333334,
+            "f1_score": 0.7908745247148288,
+            "confusion": {
+              "tn": 1080,
+              "fp": 188,
+              "fn": 87,
+              "tp": 520
+            }
+          }
+        },
+        {
+          "min_area_ratio": 0.3,
+          "max_area_ratio": 0.35,
+          "fallback_count": 1759,
+          "metrics": {
+            "auc": 0.9173912139653568,
+            "threshold": 0.41,
+            "sensitivity": 0.7825370675453048,
+            "recall": 0.7825370675453048,
+            "precision": 0.7761437908496732,
+            "specificity": 0.8919558359621451,
+            "accuracy": 0.8565333333333334,
+            "f1_score": 0.7793273174733389,
+            "confusion": {
+              "tn": 1131,
+              "fp": 137,
+              "fn": 132,
+              "tp": 475
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "best_by_busi_auc": null
+}

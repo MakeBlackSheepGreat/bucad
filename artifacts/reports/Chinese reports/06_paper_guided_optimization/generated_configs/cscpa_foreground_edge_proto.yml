@@ -1,0 +1,45 @@
+paths_config: configs/paths.local.yml
+task_type: segmentation
+seed: 42
+device: auto
+model:
+  architecture: cenet_lite
+  encoder_name: resnet18
+  encoder_weights: imagenet
+  in_channels: 3
+  classes: 1
+  base_channels: 24
+  use_dseb: true
+  use_cfam: true
+  use_nonlocal: true
+  boundary_head: true
+data:
+  image_size: 256
+  batch_size: 4
+  num_workers: 0
+training:
+  epochs: 5
+  learning_rate: 0.0003
+  weight_decay: 0.0001
+  fold_count: 5
+  split_path: ./artifacts/reports/busbra_5fold_splits.csv
+output:
+  checkpoint_name: paper_guided_cscpa_foreground_edge_proto_fold{fold}.pt
+  report_name: paper_guided_cscpa_foreground_edge_proto_train_fold{fold}.json
+loss:
+  name: bce_dice_boundary_pal_prototype
+  bce_weight: 1.0
+  dice_weight: 1.0
+  boundary_weight: 0.25
+  pal_weight: 0.15
+  foreground_prototype_weight: 0.08
+  edge_prototype_weight: 0.05
+paper_guided_experiment:
+  method_id: cscpa_foreground_edge_proto
+  paper_source: CSC-PA FPA + EPA
+  rationale: 在无额外无标注数据时，用 BUSBRA 训练折内前景/边界原型对比损失近似 FPA/EPA。
+  stage: full
+  generated_at: '2026-05-11T17:11:58.793389+00:00'
+  data_boundary: BUSBRA only for training/model selection; BUSI external review is
+    frozen and non-tuning.
+report_dir: C:\Users\876762330\Desktop\projects\Agent\artifacts\reports\Chinese reports\06_paper_guided_optimization

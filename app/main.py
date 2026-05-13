@@ -13,7 +13,7 @@ from app.components.status_panels import status_markdown, warnings_markdown
 from src.engine.inference import BreastUltrasoundInferenceService
 
 
-DEFAULT_THRESHOLD = 0.55
+DEFAULT_THRESHOLD = 0.51
 
 
 def bundled_resource_path(relative_path: str | Path) -> Path:
@@ -24,10 +24,34 @@ def bundled_resource_path(relative_path: str | Path) -> Path:
     return Path(relative_path)
 
 
+def build_theme() -> gr.themes.ThemeClass:
+    return gr.themes.Soft(
+        primary_hue=gr.themes.colors.blue,
+        secondary_hue=gr.themes.colors.sky,
+        neutral_hue=gr.themes.colors.slate,
+    ).set(
+        color_accent="#2563eb",
+        color_accent_soft="#dbeafe",
+        border_color_accent="#93b8ff",
+        border_color_accent_subdued="#dbe7ff",
+        loader_color="#2563eb",
+        slider_color="#2563eb",
+        checkbox_background_color_selected="#2563eb",
+        checkbox_border_color_focus="#2563eb",
+        checkbox_border_color_selected="#2563eb",
+        checkbox_label_background_fill_selected="#eff6ff",
+        checkbox_label_border_color_selected="#93b8ff",
+        checkbox_label_text_color_selected="#172554",
+        button_primary_background_fill="linear-gradient(135deg, #2563eb, #1d4ed8)",
+        button_primary_background_fill_hover="linear-gradient(135deg, #1d4ed8, #1e40af)",
+    )
+
+
 APP_CSS = """
 :root {
   --primary: #2563eb;
   --primary-dark: #1e3a8a;
+  --primary-soft: #60a5fa;
   --blue-50: #eff6ff;
   --blue-100: #dbeafe;
   --border: #dbe7ff;
@@ -41,6 +65,23 @@ APP_CSS = """
 }
 
 .gradio-container {
+  --color-accent: var(--primary) !important;
+  --color-accent-soft: var(--blue-100) !important;
+  --border-color-accent: #93b8ff !important;
+  --border-color-accent-subdued: var(--border) !important;
+  --color-accent-soft-hover: #bfdbfe !important;
+  --color-accent-soft-active: #93c5fd !important;
+  --button-primary-background-fill: linear-gradient(135deg, #2563eb, #1d4ed8) !important;
+  --button-primary-background-fill-hover: linear-gradient(135deg, #1d4ed8, #1e40af) !important;
+  --loader-color: var(--primary) !important;
+  --checkbox-background-color-selected: var(--primary) !important;
+  --checkbox-border-color-focus: var(--primary) !important;
+  --checkbox-border-color-selected: var(--primary) !important;
+  --checkbox-label-background-fill-selected: var(--blue-50) !important;
+  --checkbox-label-border-color-selected: #93b8ff !important;
+  --checkbox-label-text-color-selected: var(--text) !important;
+  --slider-color: var(--primary) !important;
+  accent-color: var(--primary);
   max-width: 1600px !important;
   min-height: 100vh;
   background:
@@ -152,6 +193,61 @@ APP_CSS = """
   border: 1.5px dashed #93b8ff !important;
   border-radius: 18px !important;
   background: rgba(239, 246, 255, 0.75) !important;
+}
+
+.upload-box button,
+.upload-box svg,
+.upload-box [role="button"],
+.upload-box .icon,
+.upload-box [aria-label*="upload" i],
+.upload-box [aria-label*="上传" i] {
+  color: var(--primary) !important;
+  stroke: var(--primary) !important;
+}
+
+.upload-box button:hover,
+.upload-box [role="button"]:hover {
+  color: var(--primary-dark) !important;
+  background: #eff6ff !important;
+}
+
+.left-panel input[type="checkbox"],
+.left-panel input[type="range"] {
+  accent-color: var(--primary) !important;
+}
+
+.left-panel input[type="checkbox"]:checked {
+  background-color: var(--primary) !important;
+  border-color: var(--primary) !important;
+}
+
+.left-panel input[type="checkbox"]:checked + *,
+.left-panel label:has(input[type="checkbox"]:checked) {
+  color: #172554 !important;
+}
+
+.left-panel [role="checkbox"][aria-checked="true"] {
+  background-color: var(--primary) !important;
+  border-color: var(--primary) !important;
+}
+
+.left-panel input[type="range"]::-webkit-slider-runnable-track {
+  accent-color: var(--primary) !important;
+}
+
+.left-panel input[type="range"]::-webkit-slider-thumb {
+  background: #ffffff !important;
+  border: 2px solid var(--primary) !important;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.25) !important;
+}
+
+.left-panel input[type="range"]::-moz-range-progress {
+  background: var(--primary) !important;
+}
+
+.left-panel input[type="range"]::-moz-range-thumb {
+  background: #ffffff !important;
+  border: 2px solid var(--primary) !important;
 }
 
 .control-caption {
@@ -640,7 +736,7 @@ def build_app(config_path: str | Path | None = None):
 
 def main() -> None:
     app = build_app()
-    app.launch(inbrowser=True, show_error=True)
+    app.launch(inbrowser=True, show_error=True, theme=build_theme())
 
 
 if __name__ == "__main__":

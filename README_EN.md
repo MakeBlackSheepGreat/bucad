@@ -449,7 +449,7 @@ BUCAD/
 
 `artifacts/reports/Chinese reports/` and `artifacts/reports/English reports/` store reports by experiment topic, making it possible to trace evidence from model screening, ROI segmentation, OOF fusion, TTA/threshold analysis, error analysis, and demo release. This README lists only the key mainline-related reports; finer-grained failed experiments and side candidates remain in the corresponding subdirectories.
 
-`.pt` weights under `artifacts/checkpoints/` are managed through Git LFS. If a teammate clones the repository and checkpoint files are only a few KB, the files are LFS pointers rather than real weights and `git lfs pull` is required. The default demo depends on the ConvNeXt-Tiny five-fold checkpoints, EfficientNetV2-S five-fold checkpoints, and `segmenter_fold1.pt` segmenter checkpoint.
+`.pt` weights under `artifacts/checkpoints/` are managed through Git LFS. If checkpoint files are only a few KB after cloning the repository, the files are LFS pointers rather than real weights and `git lfs pull` is required. The default demo depends on the ConvNeXt-Tiny five-fold checkpoints, EfficientNetV2-S five-fold checkpoints, and `segmenter_fold1.pt` segmenter checkpoint.
 
 ## Running
 

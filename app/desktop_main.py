@@ -23,6 +23,7 @@ def _ensure_standard_streams() -> None:
 _ensure_standard_streams()
 
 from app.main import build_app
+from app.main import build_theme
 
 
 DEFAULT_HOST = "127.0.0.1"
@@ -61,6 +62,7 @@ def start_gradio_server(
         server_name=host,
         server_port=server_port,
         quiet=True,
+        theme=build_theme(),
     )
     return app, local_url
 

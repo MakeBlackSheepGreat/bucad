@@ -22,12 +22,12 @@ BUCAD（Breast Ultrasound Computer-Aided Diagnosis）是一个面向乳腺超声
 当前可复现推理配置位于 `configs/inference/demo.yml`。
 
 
-| 组件         | 模型                | 算法                                      | 权重  | 说明                                               |
-| ------------ | ------------------- | ----------------------------------------- | ----- | -------------------------------------------------- |
-| 主分类分支   | ConvNeXt-Tiny       | ConvNeXt (Liu et al., 2022)               | 0.573 | 五折 checkpoint，timm-aware 预处理，crop-sweep TTA |
-| 辅助分类分支 | EfficientNetV2-S    | EfficientNetV2 (Tan & Le, 2021)           | 0.427 | 五折 checkpoint，CLAHE 预处理，identity TTA        |
-| 分割分支     | UNet-ResNet18       | U-Net decoder + ResNet-18 encoder          | —    | 运行时分割器，256 输入，输出二值病灶 mask           |
-| 融合层       | Logistic Stacker    | Logistic Regression (sklearn)             | —    | 基于 BUSBRA OOF 训练，使用 logit 空间特征          |
+| 组件         | 模型             | 算法                              | 权重  | 说明                                               |
+| ------------ | ---------------- | --------------------------------- | ----- | -------------------------------------------------- |
+| 主分类分支   | ConvNeXt-Tiny    | ConvNeXt (Liu et al., 2022)       | 0.573 | 五折 checkpoint，timm-aware 预处理，crop-sweep TTA |
+| 辅助分类分支 | EfficientNetV2-S | EfficientNetV2 (Tan & Le, 2021)   | 0.427 | 五折 checkpoint，CLAHE 预处理，identity TTA        |
+| 分割分支     | UNet-ResNet18    | U-Net decoder + ResNet-18 encoder | —    | 运行时分割器，256 输入，输出二值病灶 mask          |
+| 融合层       | Logistic Stacker | Logistic Regression (sklearn)     | —    | 基于 BUSBRA OOF 训练，使用 logit 空间特征          |
 
 主线推理流程按“完整图分类 → 分割 ROI 裁剪 → ROI 分类 → logit 空间融合 → ROI 质量门控 → 阈值化判别 → 可解释性输出”执行。完整图分支保留全局组织背景和采集上下文；ROI 分支聚焦病灶区域及其周边组织；stacker 在 BUSBRA OOF 上学习两类视图的校准关系；ROI 面积门控在 mask 过小或过大时回退到完整图预测，降低错误 ROI 对最终概率的负面影响。
 
@@ -55,8 +55,8 @@ BUCAD（Breast Ultrasound Computer-Aided Diagnosis）是一个面向乳腺超声
 ### BUSI 外部验证结果
 
 
-| 配置                      |  阈值 |    AUC | Accuracy | Sensitivity | Specificity | Precision | F1-Score |
-| ------------------------- | ----: | -----: | -------: | ----------: | ----------: | --------: | -------: |
+| 配置                                    |  阈值 |    AUC | Accuracy | Sensitivity | Specificity | Precision | F1-Score |
+| --------------------------------------- | ----: | -----: | -------: | ----------: | ----------: | --------: | -------: |
 | 完整主线（UNet-ResNet18 ROI Area Gate） | 0.510 | 0.9256 |   0.8532 |      0.8667 |      0.8467 |    0.7309 |   0.7930 |
 
 混淆矩阵：TN 370 / FP 67 / FN 28 / TP 182。
@@ -280,10 +280,10 @@ ROI 引导在 AUC 上带来 +0.0057 的稳定提升。最大连通域（LCC）�
 **消融结果（BUSI 外部）：**
 
 
-| 配置                |         AUC | Sensitivity | Specificity |   Precision |    F1-Score |      FP |     FN |
-| ------------------- | ----------: | ----------: | ----------: | ----------: | ----------: | ------: | -----: |
-| ROI OOF LCC（基线） |      0.9208 |      0.8524 |      0.8169 |      0.6911 |      0.7633 |      80 |     31 |
-| 当前面积门控配置    |  **0.9256** |  **0.8667** |  **0.8467** |  **0.7309** |  **0.7930** |      67 |     28 |
+| 配置                |        AUC | Sensitivity | Specificity |  Precision |   F1-Score | FP | FN |
+| ------------------- | ---------: | ----------: | ----------: | ---------: | ---------: | -: | -: |
+| ROI OOF LCC（基线） |     0.9208 |      0.8524 |      0.8169 |     0.6911 |     0.7633 | 80 | 31 |
+| 当前面积门控配置    | **0.9256** |  **0.8667** |  **0.8467** | **0.7309** | **0.7930** | 67 | 28 |
 
 在 UNet-ResNet18 ROI 消融中，面积门控是唯一同时提升全部六项指标的技术。被拒绝的替代方案包括：仅调阈值（增益过小）、移除 LCC（AUC/Sensitivity 回退）、门控 < 0.25（AUC -0.0116）。当前主线保留该面积质量门控配置作为默认 demo 的 ROI 防护机制。
 
@@ -408,7 +408,7 @@ ConvNeXt-Small 是合理的升级候选，但还不是可以直接进入默认�
 以下为主线相关技术从基线到当前冻结配置的 BUSI 外部 AUC 演进，表中标明当前 `demo.yml` 实际部署点。
 
 
-| 阶段                        | 配置              |   BUSI AUC |     说明 |
+| 阶段                        | 配置              |   BUSI AUC |         说明 |
 | --------------------------- | ----------------- | ---------: | -----------: |
 | 单折 ConvNeXt-Tiny          | fold1, identity   |     0.8943 |         基线 |
 | + timm-aware 配方           | 修正预处理失配    |     0.8943 |     前提条件 |
@@ -466,7 +466,7 @@ BUCAD/
 
 `artifacts/reports/Chinese reports/` 和 `artifacts/reports/English reports/` 按实验主题分类保存报告，便于从模型筛选、ROI 分割、OOF 融合、TTA/阈值、错误分析、demo 发布等方向追溯证据。默认 README 只列出主线相关的关键报告；更细的失败实验和旁路候选保留在对应子目录中。
 
-`artifacts/checkpoints/` 中的 `.pt` 权重由 Git LFS 管理。队友首次 clone 后如果发现权重文件只有几 KB，通常说明尚未下载 LFS 实体，需要执行 `git lfs pull`。默认演示程序依赖 ConvNeXt-Tiny 五折、EfficientNetV2-S 五折和 `segmenter_fold1.pt` 分割器 checkpoint。
+`artifacts/checkpoints/` 中的 `.pt` 权重由 Git LFS 管理。首次 clone 后如果发现权重文件只有几 KB，通常说明尚未下载 LFS 实体，需要执行 `git lfs pull`。默认演示程序依赖 ConvNeXt-Tiny 五折、EfficientNetV2-S 五折和 `segmenter_fold1.pt` 分割器 checkpoint。
 
 ## 运行方式
 
@@ -571,20 +571,20 @@ python scripts\eval_busi.py --config configs\inference\demo.yml --output artifac
 ## 关键实验报告索引
 
 
-| 报告                                                               | 内容                                 |
-| ------------------------------------------------------------------ | ------------------------------------ |
-| `01_baseline_model_screening/native_single_model_retest.md`        | timm-aware vs 非 timm-aware 配方对比 |
-| `01_baseline_model_screening/fivefold_single_model_comparison.md`  | 四模型 5-fold vs 单折对比            |
-| `04_tta_threshold_external_eval/convnext_tta_optimization.md`      | ConvNeXt TTA 策略消融                |
-| `02_roi_segmentation/roi_oof_experiment.md`                        | ROI 引导 vs 完整图对比               |
-| `02_roi_segmentation/roi_oof_lcc_optimization.md`                  | LCC 后处理消融                       |
-| `02_roi_segmentation/roi_precision_f1_study.md`                    | ROI 面积门控消融                     |
+| 报告                                                                              | 内容                                 |
+| --------------------------------------------------------------------------------- | ------------------------------------ |
+| `01_baseline_model_screening/native_single_model_retest.md`                       | timm-aware vs 非 timm-aware 配方对比 |
+| `01_baseline_model_screening/fivefold_single_model_comparison.md`                 | 四模型 5-fold vs 单折对比            |
+| `04_tta_threshold_external_eval/convnext_tta_optimization.md`                     | ConvNeXt TTA 策略消融                |
+| `02_roi_segmentation/roi_oof_experiment.md`                                       | ROI 引导 vs 完整图对比               |
+| `02_roi_segmentation/roi_oof_lcc_optimization.md`                                 | LCC 后处理消融                       |
+| `02_roi_segmentation/roi_precision_f1_study.md`                                   | ROI 面积门控消融                     |
 | `08_segmenter_recalibrated_roi/segmenter_recalibrated_roi_all_methods_summary.md` | 分割器替换与 ROI 重新标定对比        |
-| `03_ensemble_oof_stacking/oof_two_model_stacking.md`               | OOF Stacking vs 静态权重             |
-| `03_ensemble_oof_stacking/formal_best_ensemble_external_eval.md`   | 双模型 vs 三模型正式评估             |
-| `01_baseline_model_screening/convnext_small_upgrade_experiment.md` | ConvNeXt-Small vs Tiny 对比          |
-| `01_baseline_model_screening/yolo_cls_yolo26x-cls_fold1.md`        | YOLO26x-cls fold1 旁路分类对比       |
-| `01_baseline_model_screening/six_model_comparison_report.md`       | 六模型全面对比（BUSBRA + BUSI）      |
+| `03_ensemble_oof_stacking/oof_two_model_stacking.md`                              | OOF Stacking vs 静态权重             |
+| `03_ensemble_oof_stacking/formal_best_ensemble_external_eval.md`                  | 双模型 vs 三模型正式评估             |
+| `01_baseline_model_screening/convnext_small_upgrade_experiment.md`                | ConvNeXt-Small vs Tiny 对比          |
+| `01_baseline_model_screening/yolo_cls_yolo26x-cls_fold1.md`                       | YOLO26x-cls fold1 旁路分类对比       |
+| `01_baseline_model_screening/six_model_comparison_report.md`                      | 六模型全面对比（BUSBRA + BUSI）      |
 
 完整报告目录见 `artifacts/reports/Chinese reports/`，分类说明见 `artifacts/reports/README.md`。
 

@@ -31,7 +31,7 @@ def _display_model_version(model_version: str, metadata: dict | None = None) -> 
         and "convnext_tiny" in model_version
         and "tf_efficientnetv2_s" in model_version
     ):
-        return "ConvNeXt-Tiny 主模型 + EfficientNetV2-S 双模型集成"
+        return "ConvNeXt-Tiny + EfficientNetV2-S + ROI Area Gate"
     if model_version.startswith("mixed-ensemble:") and "densenet121" in model_version:
         return "EfficientNetV2-S + DenseNet121 混合集成"
     if model_version.startswith("ensemble:") and "efficientnetv2_s" in model_version:
@@ -53,6 +53,8 @@ def diagnosis_markdown(response: InferenceResponse) -> str:
     benign_pct = result.benign_probability * 100
     final_label = localize_final_label(result.final_label)
     confidence = localize_confidence_band(result.confidence_band)
+    confidence_pct = malignant_pct if result.final_label == "malignant" else benign_pct
+    confidence_display = f"{confidence_pct:.1f}%（{confidence}）"
     risk_level = _risk_level(result.final_label, result.confidence_band)
     risk_class = "danger" if result.final_label == "malignant" else "safe"
     recommendation = escape(localize_recommendation(result.final_label, result.confidence_band))
@@ -82,7 +84,7 @@ def diagnosis_markdown(response: InferenceResponse) -> str:
   </div>
   <div class="result-strip compact">
     <span>阈值 <b>{decision_threshold:.3f}</b></span>
-    <span>置信度 <b>{confidence}</b></span>
+    <span>置信度 <b>{confidence_display}</b></span>
     <span class="model-chip" title="{model_version}">模型 <b>{model_version}</b></span>
   </div>
   <div class="recommendation-box">{recommendation}</div>

@@ -279,9 +279,16 @@ APP_CSS = """
 .result-strip .model-chip {
   max-width: 100%;
   flex: 1 1 100%;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  align-items: flex-start;
+  white-space: normal;
+  overflow: visible;
+  overflow-wrap: anywhere;
+  line-height: 1.4;
+}
+
+.result-strip .model-chip b {
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .recommendation-box,
@@ -492,7 +499,7 @@ def build_app(config_path: str | Path | None = None):
     ensemble_display_name = str(
         service.runtime_config.get(
             "ensemble_display_name",
-            "ConvNeXt-Tiny 主模型 + EfficientNetV2-S 双模型集成",
+            "ConvNeXt-Tiny + EfficientNetV2-S + ROI Area Gate",
         )
     )
     with gr.Blocks(
@@ -506,7 +513,7 @@ def build_app(config_path: str | Path | None = None):
   <div class="logo-mark">⌁</div>
   <div>
     <h1>乳腺超声肿瘤良恶性分类辅助诊断系统（BUCAD）</h1>
-    <p>Breast Ultrasound Computer-Aided Diagnosis · {ensemble_display_name} · 分割定位 · Grad-CAM 解释</p>
+    <p>Breast Ultrasound Computer-Aided Diagnosis · {ensemble_display_name} · ROI 定位 · Grad-CAM 解释</p>
   </div>
 </div>
 """
@@ -529,7 +536,7 @@ def build_app(config_path: str | Path | None = None):
                         value=default_threshold,
                         step=0.001,
                         label="恶性判定阈值",
-                        info=f"当前推荐 {default_threshold:.3f}；该运行点来自 BUSBRA ROI OOF 阈值选择，ROI 使用 0.40 mask 阈值与最大连通域裁剪，不使用 BUSI 调参。",
+                        info=f"当前主线推荐 {default_threshold:.3f}；分割器为 UNet-ResNet18，ROI 使用 0.40 mask 阈值、最大连通域与面积质量门控。",
                     )
                     with gr.Row():
                         need_segmentation = gr.Checkbox(value=True, label="生成病灶定位图")

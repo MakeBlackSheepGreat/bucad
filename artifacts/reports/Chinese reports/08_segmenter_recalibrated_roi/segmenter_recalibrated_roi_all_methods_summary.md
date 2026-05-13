@@ -2,10 +2,9 @@
 
 - Generated at: `2026-05-12T08:11:24.906389+00:00`
 - Protocol: train/recalibrate only on BUSBRA; BUSI is frozen external review only.
-- Mainline: `ConvNeXt-Tiny + EfficientNetV2-S + ROI Area Gate`.
-- Mainline BUSI AUC: `0.925580` at threshold `0.51`.
+- Current mainline comparison baseline: `ConvNeXt-Tiny + EfficientNetV2-S + ROI Area Gate`, BUSI AUC `0.925580` at threshold `0.51`.
 - Tested recalibrated segmenter methods: `10`.
-- Candidate above mainline: `False`.
+- Candidate above current mainline: `False`.
 
 ## Ranking By BUSI AUC
 
@@ -24,10 +23,10 @@
 
 ## Interpretation
 
-- Best recalibrated method is `unetplusplus_resnet34_bce_dice` with BUSI AUC `0.923739`, still `0.001842` below the mainline.
+- Best recalibrated method is `unetplusplus_resnet34_bce_dice` with BUSI AUC `0.923739`, still `0.001842` below the current mainline comparison baseline.
 - Recalibration is necessary: it gives each replacement segmenter its own predicted-mask OOF cache, ROI stacker and area gate. The experiment therefore tests the downstream pipeline under the new mask distribution rather than reusing an old calibration.
 - Better segmentation Dice or stronger encoder does not automatically improve classification AUC. The current classifier ensemble and area gate appear tuned to the existing ROI distribution; several stronger/heavier segmenters increase sensitivity but lose specificity or global ranking quality.
-- No method should be merged into `configs/inference/demo.yml` based on this run. Keep these outputs as negative/ablation evidence unless a later protocol changes the classifier-side training or ROI fusion strategy.
+- No recalibrated replacement segmenter exceeded the current mainline; all methods in this report should be treated as negative/ablation evidence unless a later protocol changes classifier-side training or ROI fusion.
 
 ## Output Artifacts
 

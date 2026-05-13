@@ -22,12 +22,12 @@ BUCAD（Breast Ultrasound Computer-Aided Diagnosis）是一个面向乳腺超声
 当前可复现推理配置位于 `configs/inference/demo.yml`。
 
 
-| 组件         | 模型             | 算法                                                | 权重  | 说明                                               |
-| ------------ | ---------------- | --------------------------------------------------- | ----- | -------------------------------------------------- |
-| 主分类分支   | ConvNeXt-Tiny    | ConvNeXt (Liu et al., 2022)                         | 0.573 | 五折 checkpoint，timm-aware 预处理，crop-sweep TTA |
-| 辅助分类分支 | EfficientNetV2-S | EfficientNetV2 (Tan & Le, 2021)                     | 0.427 | 五折 checkpoint，CLAHE 预处理，identity TTA        |
-| 分割分支     | UNet-ResNet18    | UNet (Ronneberger et al., 2015) + ResNet-18 encoder | —    | ImageNet 预训练编码器，输出二值病灶 mask           |
-| 融合层       | Logistic Stacker | Logistic Regression (sklearn)                       | —    | 基于 BUSBRA OOF 训练，使用 logit 空间特征          |
+| 组件         | 模型                | 算法                                      | 权重  | 说明                                               |
+| ------------ | ------------------- | ----------------------------------------- | ----- | -------------------------------------------------- |
+| 主分类分支   | ConvNeXt-Tiny       | ConvNeXt (Liu et al., 2022)               | 0.573 | 五折 checkpoint，timm-aware 预处理，crop-sweep TTA |
+| 辅助分类分支 | EfficientNetV2-S    | EfficientNetV2 (Tan & Le, 2021)           | 0.427 | 五折 checkpoint，CLAHE 预处理，identity TTA        |
+| 分割分支     | UNet-ResNet18       | U-Net decoder + ResNet-18 encoder          | —    | 运行时分割器，256 输入，输出二值病灶 mask           |
+| 融合层       | Logistic Stacker    | Logistic Regression (sklearn)             | —    | 基于 BUSBRA OOF 训练，使用 logit 空间特征          |
 
 主线推理流程按“完整图分类 → 分割 ROI 裁剪 → ROI 分类 → logit 空间融合 → ROI 质量门控 → 阈值化判别 → 可解释性输出”执行。完整图分支保留全局组织背景和采集上下文；ROI 分支聚焦病灶区域及其周边组织；stacker 在 BUSBRA OOF 上学习两类视图的校准关系；ROI 面积门控在 mask 过小或过大时回退到完整图预测，降低错误 ROI 对最终概率的负面影响。
 
@@ -41,14 +41,15 @@ BUCAD（Breast Ultrasound Computer-Aided Diagnosis）是一个面向乳腺超声
 | 分割 mask 阈值   | 0.40         | BUSBRA Dice 扫描：0.30→0.7971,**0.40→0.8085**, 0.50→0.8074, 0.60→0.7797 |
 | ROI 边界扩展系数 | 0.35         | 保留病灶周边组织上下文的折中设置                                            |
 | ROI 面积门控     | [0.08, 0.75] | 超出范围回退至完整图预测，由 BUSBRA OOF 协议选定                            |
-| 分类阈值         | 0.510        | BUSBRA OOF 证据选定                                                        |
+| 分类阈值         | 0.510        | 当前冻结推理配置的默认运行阈值                                              |
 | 边界样本标记     | ±0.08       | 预测概率距阈值 ±0.08 内标记为不确定                                        |
 
 补充说明：
 
 - ConvNeXt-Tiny 分支使用 5 个 fold checkpoint，每个成员权重为 0.573，采用 CLAHE、timm mean/std、bicubic 插值、`crop_pct=0.95` 和 6 视图 crop-sweep TTA。
 - EfficientNetV2-S 分支使用 5 个 fold checkpoint，每个成员权重为 0.427，采用 CLAHE、224 输入、area 插值和 identity TTA。该分支主要提供与 ConvNeXt 不同的结构归纳偏置和恶性召回倾向。
-- ROI stacker 使用 logit 空间特征，系数为 `[2.1359, 0.9337]`，截距为 `-0.8671`。该设置表明完整图概率仍是主要排序来源，ROI 概率作为局部病灶视角进行补充。
+- UNet-ResNet18 分割分支使用运行时 checkpoint `segmenter_fold1.pt`。
+- ROI stacker 使用 logit 空间特征，系数为 `[2.1359, 0.9337]`，截距为 `-0.8671`。
 - `borderline_margin=0.08` 只用于界面层面的边界样本提示，不参与 AUC 计算，也不改变排序指标。
 
 ### BUSI 外部验证结果
@@ -56,9 +57,11 @@ BUCAD（Breast Ultrasound Computer-Aided Diagnosis）是一个面向乳腺超声
 
 | 配置                      |  阈值 |    AUC | Accuracy | Sensitivity | Specificity | Precision | F1-Score |
 | ------------------------- | ----: | -----: | -------: | ----------: | ----------: | --------: | -------: |
-| 完整主线（ROI Area Gate） | 0.510 | 0.9256 |   0.8532 |      0.8667 |      0.8467 |    0.7309 |   0.7930 |
+| 完整主线（UNet-ResNet18 ROI Area Gate） | 0.510 | 0.9256 |   0.8532 |      0.8667 |      0.8467 |    0.7309 |   0.7930 |
 
 混淆矩阵：TN 370 / FP 67 / FN 28 / TP 182。
+
+该结果来自 `artifacts/reports/busi_demo_current_external.json`。报告内 threshold analysis 的 Youden J 最优点同为 `0.51`，README 以当前 `demo.yml` 的默认阈值为准。
 
 ## 系统运行流程
 
@@ -234,11 +237,11 @@ crop-sweep 在 AUC（+0.0063）、Sensitivity（+0.0333）和 F1（+0.0262）上
 
 ### 3. ROI 分割引导
 
-完整图分类器接收整张超声图像，可能同时包含黑边、设备标注、探头区域及正常组织纹理等非病灶信息。ROI 分支通过语义分割模型（UNet + ResNet-18 encoder）预测病灶 mask，经最大连通域提取和边界扩展裁剪后生成 ROI 图像，再由分类模型评估局部病灶视角下的恶性概率。
+完整图分类器接收整张超声图像，可能同时包含黑边、设备标注、探头区域及正常组织纹理等非病灶信息。ROI 分支通过 UNet-ResNet18 分割模型预测病灶 mask，经最大连通域提取和边界扩展裁剪后生成 ROI 图像，再由分类模型评估局部病灶视角下的恶性概率。
 
 ROI 分支不是为了替代完整图分支，而是补充病灶局部观察。完整图保留采集背景和周围组织上下文，ROI 图减少非病灶区域干扰；两者经过 stacker 融合后，可以在不同样本上动态平衡全局视角和局部视角。为了避免“使用 GT mask 得到不可部署上界”的问题，正式候选选择只使用预测 mask，Oracle ROI 仅作为理论对照。
 
-分割器相关优化集中在可部署的 mask 后处理和 ROI 几何约束上，而不是把人工真值 mask 作为推理输入。具体包括：在 BUSBRA 分割验证中扫描 mask 阈值，选择 Dice 最高的 `0.40`；对预测 mask 提取最大连通域，抑制散点和设备标注附近的伪阳性区域；在裁剪时加入 `margin_ratio=0.35`，保留病灶周边组织和声学阴影等上下文；所有 ROI/full 融合均使用预测 mask 生成的 OOF 缓存，避免用 GT mask 参与候选选择。
+分割器相关优化集中在可部署的 mask 后处理、ROI 几何约束和下游 ROI 标定上，而不是把人工真值 mask 作为推理输入。具体包括：在 BUSBRA 分割验证中扫描 mask 阈值，选择稳定的 `0.40`；对预测 mask 提取最大连通域，抑制散点和设备标注附近的伪阳性区域；在裁剪时加入 `margin_ratio=0.35`，保留病灶周边组织和声学阴影等上下文；再通过 logit stacker 和面积门控控制 ROI 证据进入最终概率的方式。
 
 **分割与 ROI 后处理依据：**
 
@@ -262,15 +265,15 @@ ROI 分支不是为了替代完整图分支，而是补充病灶局部观察。�
 | + LCC 后处理          | 0.9208 |      0.8524 | +0.0057 vs 基线        |
 | Oracle ROI（GT mask） | 0.9202 |          — | 理论上界对照，不可部署 |
 
-ROI 引导在 AUC 上带来 +0.0057 的稳定提升。最大连通域（LCC）后处理通过抑制碎片化 mask 进一步提升 AUC +0.0012、Sensitivity +0.0095。
+ROI 引导在 AUC 上带来 +0.0057 的稳定提升。最大连通域（LCC）后处理通过抑制碎片化 mask 进一步提升 AUC +0.0012、Sensitivity +0.0095。后续更强分割结构与重新标定实验没有超过当前面积门控主线，说明下游分类收益仍受 ROI 分布和 stacker 校准共同约束，不能只由分割 Dice 判断。
 
 该结果说明，ROI 的收益来自可部署的预测 mask，而不是借助人工标注 mask 的信息泄漏。Oracle ROI 没有显著高于预测 ROI，也提示当前分类性能瓶颈不完全由分割重叠度决定，而与 ROI 裁剪尺度、分类器视角和概率校准共同相关。
 
-详细数据见 `artifacts/reports/Chinese reports/02_roi_segmentation/roi_oof_experiment.md` 和 `artifacts/reports/Chinese reports/02_roi_segmentation/roi_oof_lcc_optimization.md`。
+详细数据见 `artifacts/reports/Chinese reports/02_roi_segmentation/roi_oof_experiment.md`、`artifacts/reports/Chinese reports/02_roi_segmentation/roi_oof_lcc_optimization.md` 和 `artifacts/reports/Chinese reports/08_segmenter_recalibrated_roi/segmenter_recalibrated_roi_all_methods_summary.md`。
 
 ### 4. ROI 面积质量门控
 
-分割预测并非始终可靠。面积过小（< 0.08）可能表示分割器仅捕获噪声区域；面积过大（> 0.75）则说明 mask 接近覆盖全图，ROI 失去聚焦意义。面积门控在 ROI 质量异常时回退至完整图预测。
+分割预测并非始终可靠。面积过小（< 0.08）可能表示分割器仅捕获噪声区域；面积过大（> 0.75）可能表示 ROI 裁剪已经接近完整图或包含过多非病灶区域。面积门控在 ROI 质量异常时回退至完整图预测。
 
 面积门控的设计来自错误样本分析：部分良性样本被 ROI 裁剪后失去周围组织信息，概率被局部纹理误导；部分分割 mask 只覆盖很小区域或几乎覆盖全图，说明 ROI 本身不再可信。面积门控用一个可解释、可复现的规则识别这些异常情况，在 ROI 证据不足时让完整图分支接管。
 
@@ -280,12 +283,11 @@ ROI 引导在 AUC 上带来 +0.0057 的稳定提升。最大连通域（LCC）�
 | 配置                |         AUC | Sensitivity | Specificity |   Precision |    F1-Score |      FP |     FN |
 | ------------------- | ----------: | ----------: | ----------: | ----------: | ----------: | ------: | -----: |
 | ROI OOF LCC（基线） |      0.9208 |      0.8524 |      0.8169 |      0.6911 |      0.7633 |      80 |     31 |
-| + 面积门控          |  **0.9256** |  **0.8667** |  **0.8467** |  **0.7309** |  **0.7930** |      67 |     28 |
-| **提升**            | **+0.0048** | **+0.0143** | **+0.0297** | **+0.0398** | **+0.0297** | **-13** | **-3** |
+| 当前面积门控配置    |  **0.9256** |  **0.8667** |  **0.8467** |  **0.7309** |  **0.7930** |      67 |     28 |
 
-在该组消融中，面积门控是唯一同时提升全部六项指标的技术。被拒绝的替代方案包括：仅调阈值（增益过小）、移除 LCC（AUC/Sensitivity 回退）、门控 < 0.25（AUC -0.0116）。
+在 UNet-ResNet18 ROI 消融中，面积门控是唯一同时提升全部六项指标的技术。被拒绝的替代方案包括：仅调阈值（增益过小）、移除 LCC（AUC/Sensitivity 回退）、门控 < 0.25（AUC -0.0116）。当前主线保留该面积质量门控配置作为默认 demo 的 ROI 防护机制。
 
-面积门控的关键收益在于同时减少 FP 和 FN：FP 从 80 降到 67，FN 从 31 降到 28。对于良恶性辅助诊断任务，这比单独提高某一个指标更有价值，因为它说明门控没有简单地通过提高阈值牺牲敏感性，而是在 ROI 质量异常样本上改善了分支选择。
+面积门控的关键收益在于识别异常 ROI 并回退到完整图分支。对于良恶性辅助诊断任务，这比单独移动阈值更有价值，因为门控改变的是分支选择和证据来源，而不是只改变判别点。
 
 详细数据见 `artifacts/reports/Chinese reports/02_roi_segmentation/roi_precision_f1_study.md`。
 
@@ -367,7 +369,7 @@ ConvNeXt-Small 是合理的升级候选，但还不是可以直接进入默认�
 
 ### 8. 阈值选择与指标权衡
 
-项目同时报告 AUC 和固定阈值指标。AUC 反映排序能力，不依赖某一个阈值；Sensitivity、Specificity、Precision 和 F1-Score 则反映实际判别点的临床含义。主线阈值 `0.510` 来自 BUSBRA OOF 证据和固定复核流程。
+项目同时报告 AUC 和固定阈值指标。AUC 反映排序能力，不依赖某一个阈值；Sensitivity、Specificity、Precision 和 F1-Score 则反映实际判别点的临床含义。当前主线阈值 `0.510` 与 `configs/inference/demo.yml` 保持一致，默认演示界面采用该冻结配置阈值。
 
 阈值调优曾作为独立方向测试，但单纯移动阈值只能改变 FP/FN 的分布，不能改善概率排序质量。ROI 面积门控能够同时提升 AUC 和固定阈值指标，说明它改变的是输入分支选择和概率质量，而不是只做后验阈值偏移。
 
@@ -385,7 +387,7 @@ ConvNeXt-Small 是合理的升级候选，但还不是可以直接进入默认�
 | 温和困难样本重训练        | fold1 AUC 0.9086 | 未进入 BUSI   | 样本权重降低 AUC，未达到完整五折训练标准                                 |
 | 面积感知动态权重          | AUC 0.9232       | AUC 0.9185    | 未超过主线 0.9208                                                        |
 | OOF Meta-Learner          | AUC 0.9241       | AUC 0.9115    | 外部 AUC 回退 0.0093                                                     |
-| ROI 软门控 + 多尺度裁剪   | AUC 0.9221       | AUC 0.9189    | 外部 AUC 低于主线 0.9256                                                 |
+| ROI 软门控 + 多尺度裁剪   | AUC 0.9221       | AUC 0.9189    | 外部 AUC 低于当前主线                                                    |
 | ROI 面积门控 OOF 协议     | AUC 0.9233       | —            | 候选配置未超过主线                                                       |
 | 非 0.40 mask 阈值         | Dice 低于 0.8085 | 未进入主线    | 0.40 在 BUSBRA 分割验证中 Dice 最高，低阈值 ROI 过大，高阈值易损失弱边界 |
 | 去掉最大连通域 LCC        | —               | AUC 0.9196    | 低于 LCC 后处理后的 AUC 0.9208，Sensitivity 也回退                       |
@@ -401,12 +403,12 @@ ConvNeXt-Small 是合理的升级候选，但还不是可以直接进入默认�
 
 这些失败实验的共同特征是：内部 OOF 或单折指标可以局部改善，但外部验证没有形成稳定收益。项目因此采用较严格的合并条件，避免把复杂但不可迁移的方案写入默认 demo。该策略也解释了为什么主线保持相对克制：在 BUSI 外部复核中，简单、稳定、可解释的 ROI area gate 比更复杂的后验融合更可靠。
 
-## 完整管线累计提升
+## 完整管线配置演进
 
-以下为主线中各技术从基线到最终配置的 BUSI 外部 AUC 累积路径：
+以下为主线相关技术从基线到当前冻结配置的 BUSI 外部 AUC 演进，表中标明当前 `demo.yml` 实际部署点。
 
 
-| 阶段                        | 配置              |   BUSI AUC |     累积提升 |
+| 阶段                        | 配置              |   BUSI AUC |     说明 |
 | --------------------------- | ----------------- | ---------: | -----------: |
 | 单折 ConvNeXt-Tiny          | fold1, identity   |     0.8943 |         基线 |
 | + timm-aware 配方           | 修正预处理失配    |     0.8943 |     前提条件 |
@@ -415,10 +417,9 @@ ConvNeXt-Small 是合理的升级候选，但还不是可以直接进入默认�
 | + EfficientNetV2-S 辅助分支 | 双模型静态加权    |     0.9130 |      +0.0076 |
 | + OOF Logistic Stacking     | logit 融合        |     0.9138 |      +0.0008 |
 | + ROI 分割引导              | UNet + LCC        |     0.9208 |      +0.0070 |
-| + 面积质量门控              | [0.08, 0.75] 回退 | **0.9256** |  **+0.0048** |
-| **总提升**                  |                   |            |  **+0.0313** |
+| + 面积质量门控              | [0.08, 0.75] 回退 | **0.9256** | **当前主线** |
 
-该累计路径反映了主线优化的实际来源。最大增益来自 timm-aware 预处理修正、五折集成、双模型互补和 ROI area gate；OOF stacking 的单独 AUC 增益较小，但提供了更规范的融合训练方式；ROI 分割引导的收益依赖后处理和质量门控，不能只看分割 Dice。
+该演进路径反映了主线优化的实际来源。最大增益来自 timm-aware 预处理修正、五折集成、双模型互补和 ROI area gate；OOF stacking 的单独 AUC 增益较小，但提供了更规范的融合训练方式；ROI 分割引导的收益依赖后处理、质量门控和 stacker 标定，不能只看分割 Dice。当前 `demo.yml` 采用 UNet-ResNet18 ROI 与 [0.08, 0.75] 面积质量门控，对应外部 AUC 0.9256、默认阈值 0.51 的稳定主线。
 
 从工程角度看，最终主线没有追求“模型数量越多越好”，而是把每个新增模块都要求落到可解释的误差改善上。面积门控能减少 FP 和 FN，crop-sweep 能提升 ConvNeXt 的外部 AUC 与 F1，五折集成能降低单折波动，这些都是可以通过消融表直接验证的收益。
 
@@ -458,14 +459,14 @@ BUCAD/
 └── artifacts/
     ├── checkpoints/                  # 模型权重（通过 Git LFS 或本地资产管理）
     └── reports/                      # 实验报告与评估结果
-        ├── Chinese reports/          # 中文实验报告（按实验主题分类，139 份）
-        ├── English reports/          # 英文实验报告（按实验主题分类，139 份）
+        ├── Chinese reports/          # 中文实验报告（按实验主题分类，190 份）
+        ├── English reports/          # 英文实验报告（按实验主题分类，140 份）
         └── README.md                 # 报告目录分类说明
 ```
 
 `artifacts/reports/Chinese reports/` 和 `artifacts/reports/English reports/` 按实验主题分类保存报告，便于从模型筛选、ROI 分割、OOF 融合、TTA/阈值、错误分析、demo 发布等方向追溯证据。默认 README 只列出主线相关的关键报告；更细的失败实验和旁路候选保留在对应子目录中。
 
-`artifacts/checkpoints/` 中的 `.pt` 权重由 Git LFS 管理。队友首次 clone 后如果发现权重文件只有几 KB，通常说明尚未下载 LFS 实体，需要执行 `git lfs pull`。默认演示程序依赖 ConvNeXt-Tiny 五折、EfficientNetV2-S 五折和分割器 checkpoint。
+`artifacts/checkpoints/` 中的 `.pt` 权重由 Git LFS 管理。队友首次 clone 后如果发现权重文件只有几 KB，通常说明尚未下载 LFS 实体，需要执行 `git lfs pull`。默认演示程序依赖 ConvNeXt-Tiny 五折、EfficientNetV2-S 五折和 `segmenter_fold1.pt` 分割器 checkpoint。
 
 ## 运行方式
 
@@ -482,7 +483,7 @@ conda activate BUCAD
 python -m pip install -r requirements.txt
 ```
 
-`configs/inference/demo.yml` 引用的主线演示权重位于 `artifacts/checkpoints/`，包括 ConvNeXt-Tiny 五折、EfficientNetV2-S 五折和 `segmenter_fold1.pt`。安装 Git LFS 后，正常 `git clone` 通常会自动拉取这些 `.pt` 文件；如果 `.pt` 文件只有几 KB，说明本地拿到的是 pointer 文件，需要执行 `git lfs pull`。
+`configs/inference/demo.yml` 引用的主线演示权重位于 `artifacts/checkpoints/`，包括 ConvNeXt-Tiny 五折、EfficientNetV2-S 五折，以及 `segmenter_fold1.pt`。安装 Git LFS 后，正常 `git clone` 通常会自动拉取这些 `.pt` 文件；如果 `.pt` 文件只有几 KB，说明本地拿到的是 pointer 文件，需要执行 `git lfs pull`。
 
 项目主要运行环境为 `BUCAD` conda 环境。Windows 本地演示只需要推理依赖；训练和批量评估还需要 CUDA、PyTorch、timm、segmentation_models_pytorch、scikit-learn、OpenCV、pandas、PyYAML、tqdm、Gradio 和 Grad-CAM 相关依赖。若只运行 demo，优先确认以下三项：
 
@@ -578,6 +579,7 @@ python scripts\eval_busi.py --config configs\inference\demo.yml --output artifac
 | `02_roi_segmentation/roi_oof_experiment.md`                        | ROI 引导 vs 完整图对比               |
 | `02_roi_segmentation/roi_oof_lcc_optimization.md`                  | LCC 后处理消融                       |
 | `02_roi_segmentation/roi_precision_f1_study.md`                    | ROI 面积门控消融                     |
+| `08_segmenter_recalibrated_roi/segmenter_recalibrated_roi_all_methods_summary.md` | 分割器替换与 ROI 重新标定对比        |
 | `03_ensemble_oof_stacking/oof_two_model_stacking.md`               | OOF Stacking vs 静态权重             |
 | `03_ensemble_oof_stacking/formal_best_ensemble_external_eval.md`   | 双模型 vs 三模型正式评估             |
 | `01_baseline_model_screening/convnext_small_upgrade_experiment.md` | ConvNeXt-Small vs Tiny 对比          |

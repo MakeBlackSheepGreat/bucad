@@ -25,7 +25,7 @@ The current reproducible inference configuration is at `configs/inference/demo.y
 |---|---|---|---|---|
 | Primary classifier | ConvNeXt-Tiny | ConvNeXt (Liu et al., 2022) | 0.573 | 5-fold checkpoints, timm-aware preprocessing, crop-sweep TTA |
 | Auxiliary classifier | EfficientNetV2-S | EfficientNetV2 (Tan & Le, 2021) | 0.427 | 5-fold checkpoints, CLAHE preprocessing, identity TTA |
-| Segmenter | UNet-ResNet18 | UNet (Ronneberger et al., 2015) + ResNet-18 encoder | - | ImageNet-pretrained encoder, binary lesion mask output |
+| Segmenter | UNet-ResNet18 | U-Net decoder + ResNet-18 encoder | - | Runtime segmenter, 256 input, binary lesion mask output |
 | Fusion layer | Logistic Stacker | Logistic Regression (sklearn) | - | Trained on BUSBRA OOF predictions, using logit-space features |
 
 The mainline inference path is: full-image classification -> segmentation-based ROI crop -> ROI classification -> logit-space fusion -> ROI quality gate -> thresholded decision -> explainability output. The full-image branch preserves global tissue context and acquisition background. The ROI branch focuses on the lesion and perilesional tissue. The stacker learns calibration relationships between these two views from BUSBRA OOF predictions. The ROI area gate falls back to full-image prediction when the predicted mask is too small or too large, reducing the effect of unreliable ROI crops.
@@ -39,23 +39,26 @@ The configuration does not use simple majority voting or manual post-hoc weighti
 | Segmentation mask threshold | 0.40 | BUSBRA Dice sweep: 0.30->0.7971, **0.40->0.8085**, 0.50->0.8074, 0.60->0.7797 |
 | ROI margin ratio | 0.35 | Compromise for preserving perilesional tissue context |
 | ROI area gate | [0.08, 0.75] | Falls back to full-image prediction outside range; selected by BUSBRA OOF protocol |
-| Classification threshold | 0.510 | Selected from BUSBRA OOF evidence |
+| Classification threshold | 0.510 | Default operating threshold in the current frozen inference configuration |
 | Borderline marking | +/-0.08 | Samples with predicted probability within +/-0.08 of threshold are marked as uncertain |
 
 Additional notes:
 
 - The ConvNeXt-Tiny branch uses 5 fold checkpoints. Each member has weight 0.573 and applies CLAHE, timm mean/std, bicubic interpolation, `crop_pct=0.95`, and 6-view crop-sweep TTA.
 - The EfficientNetV2-S branch uses 5 fold checkpoints. Each member has weight 0.427 and applies CLAHE, 224 input, area interpolation, and identity-only TTA. This branch provides a different convolutional inductive bias and a complementary malignant-recall tendency.
-- The ROI stacker uses logit-space features with coefficients `[2.1359, 0.9337]` and intercept `-0.8671`. This indicates that full-image probability remains the main ranking source, while ROI probability supplements it as a local lesion view.
+- The UNet-ResNet18 segmenter uses runtime checkpoint `segmenter_fold1.pt`.
+- The ROI stacker uses logit-space features with coefficients `[2.1359, 0.9337]` and intercept `-0.8671`.
 - `borderline_margin=0.08` is only a user-interface caution marker for borderline samples. It does not participate in AUC computation and does not change ranking metrics.
 
 ### BUSI External Validation Result
 
 | Configuration | Threshold | AUC | Accuracy | Sensitivity | Specificity | Precision | F1-Score |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| Full mainline (ROI Area Gate) | 0.510 | 0.9256 | 0.8532 | 0.8667 | 0.8467 | 0.7309 | 0.7930 |
+| Full mainline (UNet-ResNet18 ROI Area Gate) | 0.510 | 0.9256 | 0.8532 | 0.8667 | 0.8467 | 0.7309 | 0.7930 |
 
 Confusion matrix: TN 370 / FP 67 / FN 28 / TP 182.
+
+This result comes from `artifacts/reports/busi_demo_current_external.json`. Its threshold analysis reports the same Youden-J point at `0.51`; this README follows the current `demo.yml` default threshold.
 
 ## System Runtime Flow
 
@@ -227,11 +230,11 @@ Detailed data in `artifacts/reports/English reports/04_tta_threshold_external_ev
 
 ### 3. ROI Segmentation Guidance
 
-Full-image classifiers receive the entire ultrasound frame, which may include borders, device annotations, probe regions, and normal tissue textures. The ROI branch uses a semantic segmentation model (UNet + ResNet-18 encoder) to predict a lesion mask, then crops the ROI region after largest connected component extraction and margin expansion, and evaluates lesion-focused malignant probability with the classifier.
+Full-image classifiers receive the entire ultrasound frame, which may include borders, device annotations, probe regions, and normal tissue textures. The ROI branch uses a UNet-ResNet18 segmentation model to predict a lesion mask, then crops the ROI region after largest connected component extraction and margin expansion, and evaluates lesion-focused malignant probability with the classifier.
 
 The ROI branch is not intended to displace the full-image branch. It provides a complementary local lesion view. The full image preserves acquisition context and surrounding tissue, while the ROI image suppresses non-lesion regions. After stacker fusion, the two views can be balanced per sample. To avoid the non-deployable upper bound caused by ground-truth masks, formal candidate selection uses predicted masks only; Oracle ROI is retained only as a theoretical control.
 
-Segmenter-related optimization is focused on deployable mask post-processing and ROI geometry constraints, not on using manual ground-truth masks as inference input. The project scans mask thresholds on BUSBRA segmentation validation and selects `0.40`, the threshold with the highest Dice. It then extracts the largest connected component from predicted masks to suppress fragmented regions and false positives near annotations or device marks. ROI cropping applies `margin_ratio=0.35` to retain perilesional tissue and acoustic-shadow context. All ROI/full fusion experiments use OOF caches generated from predicted masks, avoiding GT-mask leakage during candidate selection.
+Segmenter-related optimization is focused on deployable mask post-processing, ROI geometry constraints, and downstream ROI calibration, not on using manual ground-truth masks as inference input. The project scans mask thresholds on BUSBRA segmentation validation and keeps the stable `0.40` setting. It then extracts the largest connected component from predicted masks to suppress fragmented regions and false positives near annotations or device marks. ROI cropping applies `margin_ratio=0.35` to retain perilesional tissue and acoustic-shadow context. The logit stacker and area gate then control how ROI evidence contributes to the final probability.
 
 **Segmentation and ROI post-processing evidence:**
 
@@ -253,15 +256,15 @@ Segmenter-related optimization is focused on deployable mask post-processing and
 | + LCC post-processing | 0.9208 | 0.8524 | +0.0057 vs baseline |
 | Oracle ROI (GT mask) | 0.9202 | - | Theoretical upper-bound control, not deployable |
 
-ROI guidance provides a stable +0.0057 AUC improvement. LCC post-processing further improves AUC by +0.0012 and Sensitivity by +0.0095 by suppressing fragmented masks.
+ROI guidance provides a stable +0.0057 AUC improvement. LCC post-processing further improves AUC by +0.0012 and Sensitivity by +0.0095 by suppressing fragmented masks. Later stronger-segmenter and recalibration experiments did not exceed the current area-gate mainline, showing that downstream classification gain is jointly constrained by ROI distribution and stacker calibration rather than segmentation Dice alone.
 
 This result shows that ROI benefit comes from deployable predicted masks rather than information leakage from manual masks. Oracle ROI is not substantially higher than predicted ROI, which also suggests that the remaining classification bottleneck is not determined by segmentation overlap alone. ROI crop scale, classifier viewpoint, and probability calibration all contribute to downstream behavior.
 
-Detailed data in `artifacts/reports/English reports/02_roi_segmentation/roi_oof_experiment.md` and `artifacts/reports/English reports/02_roi_segmentation/roi_oof_lcc_optimization.md`.
+Detailed data in `artifacts/reports/English reports/02_roi_segmentation/roi_oof_experiment.md`, `artifacts/reports/English reports/02_roi_segmentation/roi_oof_lcc_optimization.md`, and the Chinese-only segmenter replacement summary `artifacts/reports/Chinese reports/08_segmenter_recalibrated_roi/segmenter_recalibrated_roi_all_methods_summary.md`.
 
 ### 4. ROI Area Quality Gate
 
-Segmentation predictions are not always reliable. Area too small (< 0.08) may indicate the segmenter captured only noise; area too large (> 0.75) means the mask nearly covers the entire image, losing the focusing benefit. The area gate falls back to full-image prediction when ROI quality is abnormal.
+Segmentation predictions are not always reliable. Area too small (< 0.08) may indicate the segmenter captured only noise. Area too large (> 0.75) may indicate that the crop is close to the full image or contains too much non-lesion background. The area gate falls back to full-image prediction when ROI quality is abnormal.
 
 The area gate is motivated by error-case analysis. Some benign cases lose surrounding tissue context after ROI cropping and are pushed toward malignant probability by local texture. Some predicted masks cover only a tiny region or almost the whole frame, indicating that the ROI is no longer trustworthy. The gate uses an interpretable and reproducible rule to identify these cases and lets the full-image branch take over when ROI evidence is weak.
 
@@ -270,12 +273,11 @@ The area gate is motivated by error-case analysis. Some benign cases lose surrou
 | Configuration | AUC | Sensitivity | Specificity | Precision | F1-Score | FP | FN |
 |---|---:|---:|---:|---:|---:|---:|---:|
 | ROI OOF LCC (baseline) | 0.9208 | 0.8524 | 0.8169 | 0.6911 | 0.7633 | 80 | 31 |
-| + Area gate | **0.9256** | **0.8667** | **0.8467** | **0.7309** | **0.7930** | 67 | 28 |
-| **Improvement** | **+0.0048** | **+0.0143** | **+0.0297** | **+0.0398** | **+0.0297** | **-13** | **-3** |
+| Current area-gate configuration | **0.9256** | **0.8667** | 0.8467 | **0.7309** | **0.7930** | 67 | 28 |
 
-In this ablation group, the area gate is the only technique that simultaneously improves all six metrics. Rejected alternatives include threshold-only tuning (insufficient gain), removing LCC (AUC/Sensitivity regression), and gate < 0.25 (AUC -0.0116).
+In the UNet-ResNet18 ROI ablation, the area gate is the only technique that simultaneously improves all six metrics. Rejected alternatives include threshold-only tuning (insufficient gain), removing LCC (AUC/Sensitivity regression), and gate < 0.25 (AUC -0.0116). The current mainline keeps this area-quality-gate configuration as the default demo ROI safeguard.
 
-The key benefit of the area gate is that it reduces both FP and FN: FP decreases from 80 to 67, and FN decreases from 31 to 28. For benign/malignant auxiliary diagnosis, this is more valuable than improving only one fixed-threshold metric, because the gate is not simply trading sensitivity for specificity through a threshold shift. It improves branch selection on samples with unreliable ROI evidence.
+The key benefit of the area gate is identifying abnormal ROIs and falling back to the full-image branch. For benign/malignant auxiliary diagnosis, this is more valuable than moving only the threshold because it changes branch selection and evidence source rather than only the decision point.
 
 Detailed data in `artifacts/reports/English reports/02_roi_segmentation/roi_precision_f1_study.md`.
 
@@ -353,7 +355,7 @@ Detailed data in `artifacts/reports/English reports/01_baseline_model_screening/
 
 ### 8. Threshold Selection and Metric Trade-Offs
 
-The project reports both AUC and fixed-threshold metrics. AUC reflects ranking ability and is independent of a specific threshold. Sensitivity, Specificity, Precision, and F1-Score describe the practical behavior at a decision point. The mainline threshold `0.510` comes from BUSBRA OOF evidence and the fixed review protocol.
+The project reports both AUC and fixed-threshold metrics. AUC reflects ranking ability and is independent of a specific threshold. Sensitivity, Specificity, Precision, and F1-Score describe the practical behavior at a decision point. The current mainline threshold `0.510` matches `configs/inference/demo.yml`, and the default demo interface follows this frozen configuration threshold.
 
 Threshold tuning was tested as an independent direction, but moving only the threshold changes the FP/FN distribution without improving probability ranking quality. The ROI area gate improves both AUC and fixed-threshold metrics, indicating that it changes branch selection and probability quality rather than only applying a post-hoc threshold shift.
 
@@ -370,7 +372,7 @@ The system retains Grad-CAM and lesion-mask visualization to show the relationsh
 | Mild hard-sample retraining | fold1 AUC 0.9086 | Not sent to BUSI | Sample weighting reduced AUC and did not meet five-fold training standard |
 | Area-aware dynamic weights | AUC 0.9232 | AUC 0.9185 | Did not exceed mainline 0.9208 |
 | OOF Meta-Learner | AUC 0.9241 | AUC 0.9115 | External AUC regression of 0.0093 |
-| ROI soft gate + multi-scale | AUC 0.9221 | AUC 0.9189 | External AUC below mainline 0.9256 |
+| ROI soft gate + multi-scale | AUC 0.9221 | AUC 0.9189 | External AUC below current mainline |
 | ROI area gate OOF protocol | AUC 0.9233 | - | Candidate did not exceed mainline |
 | Non-0.40 mask thresholds | Dice below 0.8085 | Not merged | 0.40 has the best BUSBRA segmentation Dice; lower thresholds enlarge ROI, higher thresholds lose weak borders |
 | Removing LCC | - | AUC 0.9196 | Below LCC post-processing AUC 0.9208, with Sensitivity regression |
@@ -386,11 +388,11 @@ Detailed records are retained in the corresponding categorized protocol files un
 
 These rejected experiments share a common pattern: internal OOF or single-fold metrics can improve locally, but the improvement does not transfer consistently to external validation. The project therefore uses strict merge conditions to avoid putting complex but non-transferable methods into the default demo. This also explains why the mainline remains conservative: in BUSI external review, a simple, stable, and interpretable ROI area gate was more reliable than more complicated post-hoc fusion schemes.
 
-## Cumulative Pipeline Improvement
+## Pipeline Configuration Evolution
 
-The following shows the BUSI external AUC accumulation path from baseline to final configuration:
+The following shows BUSI external AUC evolution from baseline to the current frozen configuration and explicitly marks the actual deployment point in the current `demo.yml`.
 
-| Stage | Configuration | BUSI AUC | Cumulative Gain |
+| Stage | Configuration | BUSI AUC | Note |
 |---|---|---:|---:|
 | Single-fold ConvNeXt-Tiny | fold1, identity | 0.8943 | Baseline |
 | + timm-aware recipe | Corrected preprocessing mismatch | 0.8943 | Prerequisite |
@@ -399,10 +401,9 @@ The following shows the BUSI external AUC accumulation path from baseline to fin
 | + EfficientNetV2-S auxiliary | Dual-model static weighting | 0.9130 | +0.0076 |
 | + OOF Logistic Stacking | Logit fusion | 0.9138 | +0.0008 |
 | + ROI segmentation guidance | UNet + LCC | 0.9208 | +0.0070 |
-| + Area quality gate | [0.08, 0.75] fallback | **0.9256** | **+0.0048** |
-| **Total improvement** | | | **+0.0313** |
+| + Area quality gate | [0.08, 0.75] fallback | **0.9256** | **Current mainline** |
 
-This cumulative path reflects the actual sources of mainline improvement. The largest gains come from correcting timm-aware preprocessing, five-fold aggregation, two-model complementarity, and the ROI area gate. OOF stacking has a small standalone AUC gain, but it provides a disciplined fusion protocol. ROI segmentation guidance depends on post-processing and quality gating, so downstream classification performance cannot be judged from Dice alone.
+This evolution path reflects the actual sources of mainline improvement. The largest gains come from correcting timm-aware preprocessing, five-fold aggregation, two-model complementarity, and the ROI area gate. OOF stacking has a small standalone AUC gain, but it provides a disciplined fusion protocol. ROI segmentation guidance depends on post-processing, quality gating, and stacker calibration, so downstream classification performance cannot be judged from Dice alone. The current `demo.yml` uses the UNet-ResNet18 ROI branch and [0.08, 0.75] area gate, corresponding to external AUC 0.9256 and default threshold 0.51.
 
 From an engineering perspective, the final mainline does not assume that more models are always better. Each additional module is required to produce an interpretable error reduction. The area gate reduces both FP and FN, crop-sweep improves ConvNeXt external AUC and F1, and five-fold aggregation reduces fold variance; these benefits are directly traceable in the ablation tables.
 
@@ -441,14 +442,14 @@ BUCAD/
 └── artifacts/
     ├── checkpoints/                  # Model weights (managed through Git LFS or local assets)
     └── reports/                      # Experiment reports and evaluation results
-        ├── Chinese reports/          # Chinese experiment reports, categorized by experiment topic
-        ├── English reports/          # English experiment reports, categorized by experiment topic
+        ├── Chinese reports/          # Chinese experiment reports, categorized by experiment topic, 190 files
+        ├── English reports/          # English experiment reports, categorized by experiment topic, 140 files
         └── README.md                 # Report directory taxonomy
 ```
 
 `artifacts/reports/Chinese reports/` and `artifacts/reports/English reports/` store reports by experiment topic, making it possible to trace evidence from model screening, ROI segmentation, OOF fusion, TTA/threshold analysis, error analysis, and demo release. This README lists only the key mainline-related reports; finer-grained failed experiments and side candidates remain in the corresponding subdirectories.
 
-`.pt` weights under `artifacts/checkpoints/` are managed through Git LFS. If a teammate clones the repository and checkpoint files are only a few KB, the files are LFS pointers rather than real weights and `git lfs pull` is required. The default demo depends on the ConvNeXt-Tiny five-fold checkpoints, EfficientNetV2-S five-fold checkpoints, and the segmenter checkpoint.
+`.pt` weights under `artifacts/checkpoints/` are managed through Git LFS. If a teammate clones the repository and checkpoint files are only a few KB, the files are LFS pointers rather than real weights and `git lfs pull` is required. The default demo depends on the ConvNeXt-Tiny five-fold checkpoints, EfficientNetV2-S five-fold checkpoints, and `segmenter_fold1.pt` segmenter checkpoint.
 
 ## Running
 
@@ -559,6 +560,7 @@ python scripts\eval_busi.py --config configs\inference\demo.yml --output artifac
 | `02_roi_segmentation/roi_oof_experiment.md` | ROI guidance vs full-image comparison |
 | `02_roi_segmentation/roi_oof_lcc_optimization.md` | LCC post-processing ablation |
 | `02_roi_segmentation/roi_precision_f1_study.md` | ROI area gate ablation |
+| `Chinese reports/08_segmenter_recalibrated_roi/segmenter_recalibrated_roi_all_methods_summary.md` | Segmenter replacement and ROI recalibration comparison, Chinese-only |
 | `03_ensemble_oof_stacking/oof_two_model_stacking.md` | OOF Stacking vs static weights |
 | `03_ensemble_oof_stacking/formal_best_ensemble_external_eval.md` | Two-model vs three-model formal evaluation |
 | `01_baseline_model_screening/convnext_small_upgrade_experiment.md` | ConvNeXt-Small vs Tiny comparison |

@@ -46,12 +46,13 @@ def _split_manifest_for_fold(
     return train_manifest, val_manifest
 
 
-def _evaluate_model(model, loader, device: str) -> dict[str, Any]:
+def _collect_validation_probabilities(model, loader, device: str) -> tuple[list[int], list[float]]:
     require_dependency("torch", torch)
-    model.eval()
     y_true: list[int] = []
     malignant_probabilities: list[float] = []
-    with torch.no_grad():
+    model.eval()
+    inference_context = torch.inference_mode if hasattr(torch, "inference_mode") else torch.no_grad
+    with inference_context():
         for batch in loader:
             images = batch["image"].to(device=device, dtype=torch.float32)
             labels = batch["label"].to(device=device)
@@ -59,6 +60,11 @@ def _evaluate_model(model, loader, device: str) -> dict[str, Any]:
             probs = torch.softmax(logits, dim=1)
             y_true.extend(labels.cpu().tolist())
             malignant_probabilities.extend(probs[:, 1].cpu().tolist())
+    return y_true, malignant_probabilities
+
+
+def _evaluate_model(model, loader, device: str) -> dict[str, Any]:
+    y_true, malignant_probabilities = _collect_validation_probabilities(model, loader, device)
     return classification_metrics(y_true, malignant_probabilities)
 
 
@@ -297,27 +303,151 @@ def _set_optimizer_lr(optimizer, learning_rate: float) -> None:
         group["lr"] = float(learning_rate)
 
 
-def run_classifier_training(
-    config_path: str | Path,
+def _train_classifier_epoch(
+    model,
+    train_loader,
+    optimizer,
     *,
-    fold: int = 1,
-    epochs_override: int | None = None,
-) -> dict[str, Any]:
-    require_dependency("torch", torch)
-    require_dependency("torch.optim", optim)
-    require_dependency("torch.utils.data", torch_utils_data)
+    device: str,
+    class_weights,
+    sample_weights: dict[str, float],
+    label_smoothing: float,
+    loss_name: str,
+    focal_gamma: float,
+    mixup_alpha: float,
+    cutmix_alpha: float,
+    mix_probability: float,
+) -> float:
+    model.train()
+    losses: list[float] = []
+    for batch in train_loader:
+        images = batch["image"].to(device=device, dtype=torch.float32)
+        labels = batch["label"].to(device=device)
+        batch_weights = _batch_sample_weights(
+            [str(value) for value in batch["sample_id"]],
+            sample_weights,
+            device=device,
+        )
+        (
+            images,
+            labels_a,
+            labels_b,
+            mix_lambda,
+            weights_a,
+            weights_b,
+        ) = _maybe_apply_mix_augmentation(
+            images,
+            labels,
+            batch_weights,
+            mixup_alpha=mixup_alpha,
+            cutmix_alpha=cutmix_alpha,
+            mix_probability=mix_probability,
+        )
+        optimizer.zero_grad()
+        logits = model(images)
+        if labels_b is None:
+            loss = _classification_loss(
+                logits,
+                labels_a,
+                class_weights=class_weights,
+                sample_weights=weights_a,
+                label_smoothing=label_smoothing,
+                loss_name=loss_name,
+                focal_gamma=focal_gamma,
+            )
+        else:
+            loss_a = _classification_loss(
+                logits,
+                labels_a,
+                class_weights=class_weights,
+                sample_weights=weights_a,
+                label_smoothing=label_smoothing,
+                loss_name=loss_name,
+                focal_gamma=focal_gamma,
+            )
+            loss_b = _classification_loss(
+                logits,
+                labels_b,
+                class_weights=class_weights,
+                sample_weights=weights_b,
+                label_smoothing=label_smoothing,
+                loss_name=loss_name,
+                focal_gamma=focal_gamma,
+            )
+            loss = float(mix_lambda) * loss_a + (1.0 - float(mix_lambda)) * loss_b
+        loss.backward()
+        optimizer.step()
+        losses.append(float(loss.item()))
+    return float(np.mean(losses))
 
-    config, paths = load_project_config(config_path)
-    logger = get_logger("train_cls")
-    seed = int(config.get("seed", 42))
-    seed_everything(seed)
-    device = select_device(str(config.get("device", "auto")))
 
-    manifest = load_busbra_manifest(paths.busbra_root)
-    training_cfg = config.get("training", {})
-    data_cfg = config.get("data", {})
-    output_cfg = config.get("output", {})
+def _score_checkpoint_candidate(
+    *,
+    epoch_metrics: dict[str, Any],
+    y_true: list[int],
+    malignant_probabilities: list[float],
+    checkpoint_strategy: str,
+    selection_threshold: float,
+    sensitivity_weight: float,
+    min_specificity: float,
+) -> tuple[dict[str, Any], float]:
+    # Selection strategies reuse the validation probabilities already computed
+    # for epoch metrics, so one epoch does one validation forward pass.
+    if checkpoint_strategy in {"selected_threshold", "sensitivity", "high_sensitivity"}:
+        threshold_metrics = classification_metrics(
+            y_true,
+            malignant_probabilities,
+            threshold=selection_threshold,
+        )
+        score_metrics = threshold_metrics | {"auc": epoch_metrics.get("auc")}
+    elif checkpoint_strategy == "youden":
+        score_metrics = best_threshold_by_youden(y_true, malignant_probabilities)
+    else:
+        score_metrics = epoch_metrics
 
+    if checkpoint_strategy in {"best_auc", "auc"}:
+        score = float(score_metrics.get("auc") or 0.0)
+    else:
+        score = _constrained_score(
+            score_metrics,
+            sensitivity_weight=sensitivity_weight,
+            min_specificity=min_specificity,
+        )
+    return score_metrics, score
+
+
+def _snapshot_state_dict(model) -> dict[str, Any]:
+    return {
+        key: value.detach().cpu().clone()
+        for key, value in model.state_dict().items()
+    }
+
+
+def _atomic_torch_save(payload: dict[str, Any], destination: Path) -> None:
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    temporary_path = destination.with_name(f".{destination.name}.tmp")
+    torch.save(payload, temporary_path)
+    temporary_path.replace(destination)
+
+
+def _resolve_sample_weight_path(paths, training_cfg: dict[str, Any]) -> Path | None:
+    sample_weight_path = training_cfg.get("sample_weight_path")
+    if sample_weight_path is None:
+        return None
+    resolved = Path(sample_weight_path)
+    if not resolved.is_absolute():
+        resolved = (paths.project_root / resolved).resolve()
+    return resolved
+
+
+def _prepare_fold_manifests(
+    *,
+    manifest: pd.DataFrame,
+    paths,
+    training_cfg: dict[str, Any],
+    fold: int,
+    seed: int,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
     split_path = Path(training_cfg.get("split_path", paths.reports_root / "busbra_5fold_splits.csv"))
     if not split_path.is_absolute():
         split_path = (paths.project_root / split_path).resolve()
@@ -330,7 +460,15 @@ def run_classifier_training(
     train_manifest, val_manifest = _split_manifest_for_fold(manifest, assignments, fold)
     if train_manifest.empty or val_manifest.empty:
         raise ValueError(f"Fold {fold} produced an empty train or validation split.")
+    return train_manifest, val_manifest
 
+
+def _build_classifier_model_and_transforms(
+    *,
+    config: dict[str, Any],
+    data_cfg: dict[str, Any],
+    device: str,
+):
     preprocess_cfg = data_cfg.get("preprocess", {})
     augmentation_cfg = data_cfg.get("augmentation", {})
     model_cfg = config.get("model", {})
@@ -371,32 +509,48 @@ def run_classifier_training(
         interpolation=preprocess_settings["interpolation"],
         crop_pct=preprocess_settings["crop_pct"],
     )
+    return model, image_size, train_transform, eval_transform, preprocess_settings
 
+
+def _build_classifier_loaders(
+    *,
+    train_manifest: pd.DataFrame,
+    val_manifest: pd.DataFrame,
+    image_size: int,
+    train_transform,
+    eval_transform,
+    data_cfg: dict[str, Any],
+    device: str,
+):
     train_dataset = BUSBRAClassificationDataset(
         train_manifest, image_size=image_size, transform=train_transform
     )
     val_dataset = BUSBRAClassificationDataset(
         val_manifest, image_size=image_size, transform=eval_transform
     )
+    num_workers = int(data_cfg.get("num_workers", 0))
+    pin_memory = device.startswith("cuda")
+    loader_kwargs = {
+        "batch_size": int(data_cfg.get("batch_size", 8)),
+        "num_workers": num_workers,
+        "pin_memory": pin_memory,
+    }
+    if num_workers > 0:
+        loader_kwargs["persistent_workers"] = True
     train_loader = torch_utils_data.DataLoader(
         train_dataset,
-        batch_size=int(data_cfg.get("batch_size", 8)),
         shuffle=True,
-        num_workers=int(data_cfg.get("num_workers", 0)),
+        **loader_kwargs,
     )
     val_loader = torch_utils_data.DataLoader(
         val_dataset,
-        batch_size=int(data_cfg.get("batch_size", 8)),
         shuffle=False,
-        num_workers=int(data_cfg.get("num_workers", 0)),
+        **loader_kwargs,
     )
+    return train_loader, val_loader
 
-    base_learning_rate = float(training_cfg.get("learning_rate", 3e-4))
-    optimizer = optim.AdamW(
-        model.parameters(),
-        lr=base_learning_rate,
-        weight_decay=float(training_cfg.get("weight_decay", 1e-4)),
-    )
+
+def _build_class_weights(train_manifest: pd.DataFrame, training_cfg: dict[str, Any], *, device: str):
     class_weight_cfg = training_cfg.get("class_weights")
     class_weights = None
     if class_weight_cfg == "balanced":
@@ -414,184 +568,43 @@ def run_classifier_training(
         class_weights = _class_weights(train_manifest, positive_weight=float(positive_weight))
     if class_weights is not None:
         class_weights = class_weights.to(device=device)
-    label_smoothing = float(training_cfg.get("label_smoothing", 0.0))
-    loss_name = str(training_cfg.get("loss", "cross_entropy")).lower()
-    focal_gamma = float(training_cfg.get("focal_gamma", 2.0))
-    mixup_alpha = float(training_cfg.get("mixup_alpha", 0.0))
-    cutmix_alpha = float(training_cfg.get("cutmix_alpha", 0.0))
-    mix_probability = float(training_cfg.get("mix_probability", 0.0))
-    sample_weight_path = training_cfg.get("sample_weight_path")
-    if sample_weight_path is not None:
-        sample_weight_path = Path(sample_weight_path)
-        if not sample_weight_path.is_absolute():
-            sample_weight_path = (paths.project_root / sample_weight_path).resolve()
-    sample_weights = _load_sample_weights(
-        sample_weight_path,
-        weight_column=str(training_cfg.get("sample_weight_column", "sample_weight")),
-    )
+    return class_weights
 
-    epochs = int(epochs_override or training_cfg.get("epochs", 5))
-    scheduler_cfg = training_cfg.get("scheduler", {}) or {}
-    checkpoint_strategy = str(training_cfg.get("checkpoint_strategy", "last")).lower()
-    selection_threshold = float(training_cfg.get("selection_threshold", 0.5))
-    sensitivity_weight = float(training_cfg.get("sensitivity_weight", 0.0))
-    min_specificity = float(training_cfg.get("min_specificity", 0.0))
-    best_state_dict = None
-    best_metrics: dict[str, Any] | None = None
-    best_epoch = 0
-    best_score = float("-inf")
-    epoch_reports: list[dict[str, Any]] = []
-    for epoch in range(epochs):
-        current_lr = _lr_for_epoch(
-            epoch,
-            base_lr=base_learning_rate,
-            epochs=epochs,
-            scheduler_cfg=scheduler_cfg,
-        )
-        _set_optimizer_lr(optimizer, current_lr)
-        model.train()
-        losses: list[float] = []
-        for batch in train_loader:
-            images = batch["image"].to(device=device, dtype=torch.float32)
-            labels = batch["label"].to(device=device)
-            batch_weights = _batch_sample_weights(
-                [str(value) for value in batch["sample_id"]],
-                sample_weights,
-                device=device,
-            )
-            (
-                images,
-                labels_a,
-                labels_b,
-                mix_lambda,
-                weights_a,
-                weights_b,
-            ) = _maybe_apply_mix_augmentation(
-                images,
-                labels,
-                batch_weights,
-                mixup_alpha=mixup_alpha,
-                cutmix_alpha=cutmix_alpha,
-                mix_probability=mix_probability,
-            )
-            optimizer.zero_grad()
-            logits = model(images)
-            if labels_b is None:
-                loss = _classification_loss(
-                    logits,
-                    labels_a,
-                    class_weights=class_weights,
-                    sample_weights=weights_a,
-                    label_smoothing=label_smoothing,
-                    loss_name=loss_name,
-                    focal_gamma=focal_gamma,
-                )
-            else:
-                loss_a = _classification_loss(
-                    logits,
-                    labels_a,
-                    class_weights=class_weights,
-                    sample_weights=weights_a,
-                    label_smoothing=label_smoothing,
-                    loss_name=loss_name,
-                    focal_gamma=focal_gamma,
-                )
-                loss_b = _classification_loss(
-                    logits,
-                    labels_b,
-                    class_weights=class_weights,
-                    sample_weights=weights_b,
-                    label_smoothing=label_smoothing,
-                    loss_name=loss_name,
-                    focal_gamma=focal_gamma,
-                )
-                loss = float(mix_lambda) * loss_a + (1.0 - float(mix_lambda)) * loss_b
-            loss.backward()
-            optimizer.step()
-            losses.append(float(loss.item()))
-        mean_loss = float(np.mean(losses))
-        epoch_metrics = _evaluate_model(model, val_loader, device)
-        threshold_metrics = classification_metrics(
-            [0, 1],
-            [0.0, 1.0],
-            threshold=selection_threshold,
-        )
-        if checkpoint_strategy in {"selected_threshold", "sensitivity", "high_sensitivity"}:
-            y_true: list[int] = []
-            malignant_probabilities: list[float] = []
-            model.eval()
-            with torch.no_grad():
-                for val_batch in val_loader:
-                    images = val_batch["image"].to(device=device, dtype=torch.float32)
-                    labels = val_batch["label"].to(device=device)
-                    probs = torch.softmax(model(images), dim=1)
-                    y_true.extend(labels.cpu().tolist())
-                    malignant_probabilities.extend(probs[:, 1].cpu().tolist())
-            threshold_metrics = classification_metrics(
-                y_true,
-                malignant_probabilities,
-                threshold=selection_threshold,
-            )
-            score_metrics = threshold_metrics | {"auc": epoch_metrics.get("auc")}
-        elif checkpoint_strategy == "youden":
-            y_true = []
-            malignant_probabilities = []
-            model.eval()
-            with torch.no_grad():
-                for val_batch in val_loader:
-                    images = val_batch["image"].to(device=device, dtype=torch.float32)
-                    labels = val_batch["label"].to(device=device)
-                    probs = torch.softmax(model(images), dim=1)
-                    y_true.extend(labels.cpu().tolist())
-                    malignant_probabilities.extend(probs[:, 1].cpu().tolist())
-            score_metrics = best_threshold_by_youden(y_true, malignant_probabilities)
-        else:
-            score_metrics = epoch_metrics
-        if checkpoint_strategy in {"best_auc", "auc"}:
-            score = float(score_metrics.get("auc") or 0.0)
-        else:
-            score = _constrained_score(
-                score_metrics,
-                sensitivity_weight=sensitivity_weight,
-                min_specificity=min_specificity,
-            )
-        if score > best_score:
-            best_score = score
-            best_epoch = epoch + 1
-            best_metrics = score_metrics
-            best_state_dict = {
-                key: value.detach().cpu().clone()
-                for key, value in model.state_dict().items()
-            }
-        epoch_reports.append(
-            {
-                "epoch": epoch + 1,
-                "learning_rate": current_lr,
-                "loss": mean_loss,
-                "metrics": epoch_metrics,
-                "score_metrics": score_metrics,
-                "selection_score": score,
-            }
-        )
-        logger.info(
-            "fold=%s epoch=%s loss=%.4f auc=%.4f sens=%.4f score=%.4f",
-            fold,
-            epoch + 1,
-            mean_loss,
-            float(epoch_metrics.get("auc") or 0.0),
-            float(score_metrics.get("sensitivity", 0.0)),
-            score,
-        )
 
-    if checkpoint_strategy != "last" and best_state_dict is not None:
-        model.load_state_dict(best_state_dict)
-    metrics = _evaluate_model(model, val_loader, device)
+def _write_classifier_training_outputs(
+    *,
+    config: dict[str, Any],
+    paths,
+    output_cfg: dict[str, Any],
+    fold: int,
+    device: str,
+    model,
+    metrics: dict[str, Any],
+    best_epoch: int,
+    best_metrics: dict[str, Any] | None,
+    checkpoint_strategy: str,
+    preprocess_settings: dict[str, Any],
+    scheduler_cfg: dict[str, Any],
+    class_weights,
+    label_smoothing: float,
+    loss_name: str,
+    focal_gamma: float,
+    mixup_alpha: float,
+    cutmix_alpha: float,
+    mix_probability: float,
+    sample_weight_path: Path | None,
+    sample_weights: dict[str, float],
+    min_specificity: float,
+    epoch_reports: list[dict[str, Any]],
+    train_manifest: pd.DataFrame,
+    val_manifest: pd.DataFrame,
+) -> dict[str, Any]:
     checkpoints_dir = ensure_dir(paths.checkpoints_root)
     reports_dir = ensure_dir(paths.reports_root)
     checkpoint_path = checkpoints_dir / output_cfg.get("checkpoint_name", "classifier_fold{fold}.pt").format(fold=fold)
     report_path = reports_dir / output_cfg.get("report_name", "train_cls_fold{fold}.json").format(fold=fold)
 
-    torch.save(
+    _atomic_torch_save(
         {
             "state_dict": model.state_dict(),
             "model_config": config.get("model", {}),
@@ -628,3 +641,172 @@ def run_classifier_training(
     }
     write_json_report(report_path, report)
     return report
+
+
+def run_classifier_training(
+    config_path: str | Path,
+    *,
+    fold: int = 1,
+    epochs_override: int | None = None,
+) -> dict[str, Any]:
+    require_dependency("torch", torch)
+    require_dependency("torch.optim", optim)
+    require_dependency("torch.utils.data", torch_utils_data)
+
+    config, paths = load_project_config(config_path)
+    logger = get_logger("train_cls")
+    seed = int(config.get("seed", 42))
+    seed_everything(seed)
+    device = select_device(str(config.get("device", "auto")))
+
+    manifest = load_busbra_manifest(paths.busbra_root)
+    training_cfg = config.get("training", {})
+    data_cfg = config.get("data", {})
+    output_cfg = config.get("output", {})
+
+    train_manifest, val_manifest = _prepare_fold_manifests(
+        manifest=manifest,
+        paths=paths,
+        training_cfg=training_cfg,
+        fold=fold,
+        seed=seed,
+    )
+    model, image_size, train_transform, eval_transform, preprocess_settings = (
+        _build_classifier_model_and_transforms(
+            config=config,
+            data_cfg=data_cfg,
+            device=device,
+        )
+    )
+    train_loader, val_loader = _build_classifier_loaders(
+        train_manifest=train_manifest,
+        val_manifest=val_manifest,
+        image_size=image_size,
+        train_transform=train_transform,
+        eval_transform=eval_transform,
+        data_cfg=data_cfg,
+        device=device,
+    )
+
+    base_learning_rate = float(training_cfg.get("learning_rate", 3e-4))
+    optimizer = optim.AdamW(
+        model.parameters(),
+        lr=base_learning_rate,
+        weight_decay=float(training_cfg.get("weight_decay", 1e-4)),
+    )
+    class_weights = _build_class_weights(train_manifest, training_cfg, device=device)
+    label_smoothing = float(training_cfg.get("label_smoothing", 0.0))
+    loss_name = str(training_cfg.get("loss", "cross_entropy")).lower()
+    focal_gamma = float(training_cfg.get("focal_gamma", 2.0))
+    mixup_alpha = float(training_cfg.get("mixup_alpha", 0.0))
+    cutmix_alpha = float(training_cfg.get("cutmix_alpha", 0.0))
+    mix_probability = float(training_cfg.get("mix_probability", 0.0))
+    sample_weight_path = _resolve_sample_weight_path(paths, training_cfg)
+    sample_weights = _load_sample_weights(
+        sample_weight_path,
+        weight_column=str(training_cfg.get("sample_weight_column", "sample_weight")),
+    )
+
+    epochs = int(epochs_override or training_cfg.get("epochs", 5))
+    scheduler_cfg = training_cfg.get("scheduler", {}) or {}
+    checkpoint_strategy = str(training_cfg.get("checkpoint_strategy", "last")).lower()
+    selection_threshold = float(training_cfg.get("selection_threshold", 0.5))
+    sensitivity_weight = float(training_cfg.get("sensitivity_weight", 0.0))
+    min_specificity = float(training_cfg.get("min_specificity", 0.0))
+    best_state_dict = None
+    best_metrics: dict[str, Any] | None = None
+    best_epoch = 0
+    best_score = float("-inf")
+    epoch_reports: list[dict[str, Any]] = []
+    for epoch in range(epochs):
+        current_lr = _lr_for_epoch(
+            epoch,
+            base_lr=base_learning_rate,
+            epochs=epochs,
+            scheduler_cfg=scheduler_cfg,
+        )
+        _set_optimizer_lr(optimizer, current_lr)
+        mean_loss = _train_classifier_epoch(
+            model,
+            train_loader,
+            optimizer,
+            device=device,
+            class_weights=class_weights,
+            sample_weights=sample_weights,
+            label_smoothing=label_smoothing,
+            loss_name=loss_name,
+            focal_gamma=focal_gamma,
+            mixup_alpha=mixup_alpha,
+            cutmix_alpha=cutmix_alpha,
+            mix_probability=mix_probability,
+        )
+        val_y_true, val_malignant_probabilities = _collect_validation_probabilities(
+            model,
+            val_loader,
+            device,
+        )
+        epoch_metrics = classification_metrics(val_y_true, val_malignant_probabilities)
+        score_metrics, score = _score_checkpoint_candidate(
+            epoch_metrics=epoch_metrics,
+            y_true=val_y_true,
+            malignant_probabilities=val_malignant_probabilities,
+            checkpoint_strategy=checkpoint_strategy,
+            selection_threshold=selection_threshold,
+            sensitivity_weight=sensitivity_weight,
+            min_specificity=min_specificity,
+        )
+        if score > best_score:
+            best_score = score
+            best_epoch = epoch + 1
+            best_metrics = score_metrics
+            best_state_dict = _snapshot_state_dict(model)
+        epoch_reports.append(
+            {
+                "epoch": epoch + 1,
+                "learning_rate": current_lr,
+                "loss": mean_loss,
+                "metrics": epoch_metrics,
+                "score_metrics": score_metrics,
+                "selection_score": score,
+            }
+        )
+        logger.info(
+            "fold=%s epoch=%s loss=%.4f auc=%.4f sens=%.4f score=%.4f",
+            fold,
+            epoch + 1,
+            mean_loss,
+            float(epoch_metrics.get("auc") or 0.0),
+            float(score_metrics.get("sensitivity", 0.0)),
+            score,
+        )
+
+    if checkpoint_strategy != "last" and best_state_dict is not None:
+        model.load_state_dict(best_state_dict)
+    metrics = _evaluate_model(model, val_loader, device)
+    return _write_classifier_training_outputs(
+        config=config,
+        paths=paths,
+        output_cfg=output_cfg,
+        fold=fold,
+        device=device,
+        model=model,
+        metrics=metrics,
+        best_epoch=best_epoch,
+        best_metrics=best_metrics,
+        checkpoint_strategy=checkpoint_strategy,
+        preprocess_settings=preprocess_settings,
+        scheduler_cfg=scheduler_cfg,
+        class_weights=class_weights,
+        label_smoothing=label_smoothing,
+        loss_name=loss_name,
+        focal_gamma=focal_gamma,
+        mixup_alpha=mixup_alpha,
+        cutmix_alpha=cutmix_alpha,
+        mix_probability=mix_probability,
+        sample_weight_path=sample_weight_path,
+        sample_weights=sample_weights,
+        min_specificity=min_specificity,
+        epoch_reports=epoch_reports,
+        train_manifest=train_manifest,
+        val_manifest=val_manifest,
+    )

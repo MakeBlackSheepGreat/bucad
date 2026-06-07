@@ -101,14 +101,16 @@ def load_classifier(
     return model
 
 
-def classifier_probabilities(model, batch, *, device: str = "cpu"):
+def classifier_probabilities(model, batch, *, device: str = "cpu", move_model: bool = True):
     require_dependency("torch", torch)
     require_dependency("torch.nn.functional", F)
-    model = model.to(device)
+    if move_model:
+        model = model.to(device)
     if batch.ndim == 3:
         batch = batch.unsqueeze(0)
     batch = batch.to(device=device, dtype=torch.float32)
-    with torch.no_grad():
+    inference_context = torch.inference_mode if hasattr(torch, "inference_mode") else torch.no_grad
+    with inference_context():
         logits = model(batch)
         probs = F.softmax(logits, dim=1).cpu().numpy()
     return probs

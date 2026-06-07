@@ -193,6 +193,7 @@ class RoiEnhancer:
         stacked_probability: float,
         config: dict[str, Any],
     ) -> float:
+        """Apply descriptor routing only when the ROI config enables it."""
         descriptor_router = config.get("descriptor_router")
         if not isinstance(descriptor_router, dict) or not bool(descriptor_router.get("enabled", False)):
             return float(stacked_probability)
@@ -221,6 +222,7 @@ class RoiEnhancer:
         roi_malignant_probability: float,
         config: dict[str, Any],
     ) -> float:
+        """Combine full-image and ROI probabilities through stacker, blend, and router."""
         stacked_probability = self.apply_roi_stacker(
             full_probability=full_malignant_probability,
             roi_probability=roi_malignant_probability,

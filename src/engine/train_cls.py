@@ -783,6 +783,16 @@ class _TrainingLoopConfig:
 
 
 @dataclasses.dataclass(slots=True)
+class _TrainingLoopResult:
+    """Best checkpoint candidate and per-epoch metrics from a training loop."""
+
+    best_state_dict: dict[str, Any] | None
+    best_epoch: int
+    best_metrics: dict[str, Any] | None
+    epoch_reports: list[dict[str, Any]]
+
+
+@dataclasses.dataclass(slots=True)
 class _PreparedTrainingRun:
     """Objects and settings prepared before classifier epochs start."""
 
@@ -798,6 +808,40 @@ class _PreparedTrainingRun:
     loop_config: _TrainingLoopConfig
     base_learning_rate: float
     optimizer: Any
+
+
+def _build_classifier_optimizer(model, training_cfg: dict[str, Any], *, learning_rate: float):
+    return optim.AdamW(
+        model.parameters(),
+        lr=learning_rate,
+        weight_decay=float(training_cfg.get("weight_decay", 1e-4)),
+    )
+
+
+def _build_training_loop_config(
+    *,
+    training_cfg: dict[str, Any],
+    epochs_override: int | None,
+    class_weights,
+    sample_weights: dict[str, float],
+) -> _TrainingLoopConfig:
+    """Normalize training config values needed inside the epoch loop."""
+    return _TrainingLoopConfig(
+        epochs=int(epochs_override or training_cfg.get("epochs", 5)),
+        scheduler_cfg=training_cfg.get("scheduler", {}) or {},
+        checkpoint_strategy=str(training_cfg.get("checkpoint_strategy", "last")).lower(),
+        selection_threshold=float(training_cfg.get("selection_threshold", 0.5)),
+        sensitivity_weight=float(training_cfg.get("sensitivity_weight", 0.0)),
+        min_specificity=float(training_cfg.get("min_specificity", 0.0)),
+        class_weights=class_weights,
+        label_smoothing=float(training_cfg.get("label_smoothing", 0.0)),
+        loss_name=str(training_cfg.get("loss", "cross_entropy")).lower(),
+        focal_gamma=float(training_cfg.get("focal_gamma", 2.0)),
+        mixup_alpha=float(training_cfg.get("mixup_alpha", 0.0)),
+        cutmix_alpha=float(training_cfg.get("cutmix_alpha", 0.0)),
+        mix_probability=float(training_cfg.get("mix_probability", 0.0)),
+        sample_weights=sample_weights,
+    )
 
 
 def _prepare_classifier_training_run(
@@ -839,10 +883,10 @@ def _prepare_classifier_training_run(
     )
 
     base_learning_rate = float(training_cfg.get("learning_rate", 3e-4))
-    optimizer = optim.AdamW(
-        model.parameters(),
-        lr=base_learning_rate,
-        weight_decay=float(training_cfg.get("weight_decay", 1e-4)),
+    optimizer = _build_classifier_optimizer(
+        model,
+        training_cfg,
+        learning_rate=base_learning_rate,
     )
     class_weights = _build_class_weights(train_manifest, training_cfg, device=device)
     sample_weight_path = _resolve_sample_weight_path(paths, training_cfg)
@@ -850,20 +894,10 @@ def _prepare_classifier_training_run(
         sample_weight_path,
         weight_column=str(training_cfg.get("sample_weight_column", "sample_weight")),
     )
-    loop_config = _TrainingLoopConfig(
-        epochs=int(epochs_override or training_cfg.get("epochs", 5)),
-        scheduler_cfg=training_cfg.get("scheduler", {}) or {},
-        checkpoint_strategy=str(training_cfg.get("checkpoint_strategy", "last")).lower(),
-        selection_threshold=float(training_cfg.get("selection_threshold", 0.5)),
-        sensitivity_weight=float(training_cfg.get("sensitivity_weight", 0.0)),
-        min_specificity=float(training_cfg.get("min_specificity", 0.0)),
+    loop_config = _build_training_loop_config(
+        training_cfg=training_cfg,
+        epochs_override=epochs_override,
         class_weights=class_weights,
-        label_smoothing=float(training_cfg.get("label_smoothing", 0.0)),
-        loss_name=str(training_cfg.get("loss", "cross_entropy")).lower(),
-        focal_gamma=float(training_cfg.get("focal_gamma", 2.0)),
-        mixup_alpha=float(training_cfg.get("mixup_alpha", 0.0)),
-        cutmix_alpha=float(training_cfg.get("cutmix_alpha", 0.0)),
-        mix_probability=float(training_cfg.get("mix_probability", 0.0)),
         sample_weights=sample_weights,
     )
     return _PreparedTrainingRun(
@@ -893,8 +927,8 @@ def _run_training_loop(
     loop_config: _TrainingLoopConfig,
     base_learning_rate: float,
     logger,
-) -> tuple[dict[str, Any] | None, int, dict[str, Any] | None, list[dict[str, Any]]]:
-    """Return (best_state_dict, best_epoch, best_metrics, epoch_reports)."""
+) -> _TrainingLoopResult:
+    """Train epochs and return the selected checkpoint candidate plus reports."""
     cfg = loop_config
     best_state_dict = None
     best_metrics: dict[str, Any] | None = None
@@ -960,7 +994,75 @@ def _run_training_loop(
             float(score_metrics.get("sensitivity", 0.0)),
             score,
         )
-    return best_state_dict, best_epoch, best_metrics, epoch_reports
+    return _TrainingLoopResult(
+        best_state_dict=best_state_dict,
+        best_epoch=best_epoch,
+        best_metrics=best_metrics,
+        epoch_reports=epoch_reports,
+    )
+
+
+def _final_classifier_metrics(
+    *,
+    model,
+    val_loader,
+    device: str,
+    checkpoint_strategy: str,
+    epoch_reports: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """Return final validation metrics, reusing the last epoch pass when possible."""
+    if checkpoint_strategy == "last" and epoch_reports:
+        return dict(epoch_reports[-1]["metrics"])
+    return _evaluate_model(model, val_loader, device)
+
+
+def _finish_classifier_training_run(
+    *,
+    config: dict[str, Any],
+    paths,
+    output_cfg: dict[str, Any],
+    fold: int,
+    device: str,
+    prepared: _PreparedTrainingRun,
+    loop_result: _TrainingLoopResult,
+) -> dict[str, Any]:
+    """Restore the selected checkpoint when needed and persist training outputs."""
+    if prepared.loop_config.checkpoint_strategy != "last" and loop_result.best_state_dict is not None:
+        prepared.model.load_state_dict(loop_result.best_state_dict)
+    metrics = _final_classifier_metrics(
+        model=prepared.model,
+        val_loader=prepared.val_loader,
+        device=device,
+        checkpoint_strategy=prepared.loop_config.checkpoint_strategy,
+        epoch_reports=loop_result.epoch_reports,
+    )
+    return _write_classifier_training_outputs(
+        config=config,
+        paths=paths,
+        output_cfg=output_cfg,
+        fold=fold,
+        device=device,
+        model=prepared.model,
+        metrics=metrics,
+        best_epoch=loop_result.best_epoch,
+        best_metrics=loop_result.best_metrics,
+        checkpoint_strategy=prepared.loop_config.checkpoint_strategy,
+        preprocess_settings=prepared.preprocess_settings,
+        scheduler_cfg=prepared.loop_config.scheduler_cfg,
+        class_weights=prepared.class_weights,
+        label_smoothing=prepared.loop_config.label_smoothing,
+        loss_name=prepared.loop_config.loss_name,
+        focal_gamma=prepared.loop_config.focal_gamma,
+        mixup_alpha=prepared.loop_config.mixup_alpha,
+        cutmix_alpha=prepared.loop_config.cutmix_alpha,
+        mix_probability=prepared.loop_config.mix_probability,
+        sample_weight_path=prepared.sample_weight_path,
+        sample_weights=prepared.sample_weights,
+        min_specificity=prepared.loop_config.min_specificity,
+        epoch_reports=loop_result.epoch_reports,
+        train_manifest=prepared.train_manifest,
+        val_manifest=prepared.val_manifest,
+    )
 
 
 def run_classifier_training(
@@ -988,7 +1090,7 @@ def run_classifier_training(
         device=device,
         epochs_override=epochs_override,
     )
-    best_state_dict, best_epoch, best_metrics, epoch_reports = _run_training_loop(
+    loop_result = _run_training_loop(
         model=prepared.model,
         train_loader=prepared.train_loader,
         val_loader=prepared.val_loader,
@@ -999,34 +1101,12 @@ def run_classifier_training(
         base_learning_rate=prepared.base_learning_rate,
         logger=logger,
     )
-
-    if prepared.loop_config.checkpoint_strategy != "last" and best_state_dict is not None:
-        prepared.model.load_state_dict(best_state_dict)
-    metrics = _evaluate_model(prepared.model, prepared.val_loader, device)
-    return _write_classifier_training_outputs(
+    return _finish_classifier_training_run(
         config=config,
         paths=paths,
         output_cfg=output_cfg,
         fold=fold,
         device=device,
-        model=prepared.model,
-        metrics=metrics,
-        best_epoch=best_epoch,
-        best_metrics=best_metrics,
-        checkpoint_strategy=prepared.loop_config.checkpoint_strategy,
-        preprocess_settings=prepared.preprocess_settings,
-        scheduler_cfg=prepared.loop_config.scheduler_cfg,
-        class_weights=prepared.class_weights,
-        label_smoothing=prepared.loop_config.label_smoothing,
-        loss_name=prepared.loop_config.loss_name,
-        focal_gamma=prepared.loop_config.focal_gamma,
-        mixup_alpha=prepared.loop_config.mixup_alpha,
-        cutmix_alpha=prepared.loop_config.cutmix_alpha,
-        mix_probability=prepared.loop_config.mix_probability,
-        sample_weight_path=prepared.sample_weight_path,
-        sample_weights=prepared.sample_weights,
-        min_specificity=prepared.loop_config.min_specificity,
-        epoch_reports=epoch_reports,
-        train_manifest=prepared.train_manifest,
-        val_manifest=prepared.val_manifest,
+        prepared=prepared,
+        loop_result=loop_result,
     )

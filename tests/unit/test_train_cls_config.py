@@ -9,6 +9,7 @@ import pandas as pd
 from src.engine.train_cls import (
     _atomic_torch_save,
     _extra_model_kwargs,
+    _final_classifier_metrics,
     _score_checkpoint_candidate,
     run_classifier_training,
 )
@@ -41,6 +42,41 @@ def test_checkpoint_scoring_reuses_validation_probabilities() -> None:
     assert metrics["auc"] == 0.9
     assert metrics["sensitivity"] == 1.0
     assert score > 0.0
+
+
+def test_last_checkpoint_metrics_reuse_final_epoch_report(monkeypatch) -> None:
+    def _fail_evaluate_model(*_args, **_kwargs):
+        raise AssertionError("last checkpoint should reuse final epoch validation metrics")
+
+    monkeypatch.setattr(train_cls, "_evaluate_model", _fail_evaluate_model)
+
+    metrics = _final_classifier_metrics(
+        model=object(),
+        val_loader=object(),
+        device="cpu",
+        checkpoint_strategy="last",
+        epoch_reports=[{"metrics": {"auc": 0.75, "threshold": 0.5}}],
+    )
+
+    assert metrics == {"auc": 0.75, "threshold": 0.5}
+
+
+def test_non_last_checkpoint_metrics_revalidate_selected_state(monkeypatch) -> None:
+    monkeypatch.setattr(
+        train_cls,
+        "_evaluate_model",
+        lambda *_args, **_kwargs: {"auc": 0.91, "threshold": 0.5},
+    )
+
+    metrics = _final_classifier_metrics(
+        model=object(),
+        val_loader=object(),
+        device="cpu",
+        checkpoint_strategy="youden",
+        epoch_reports=[{"metrics": {"auc": 0.75, "threshold": 0.5}}],
+    )
+
+    assert metrics == {"auc": 0.91, "threshold": 0.5}
 
 
 def test_atomic_torch_save_replaces_destination(tmp_path: Path) -> None:

@@ -83,6 +83,7 @@ def expand_bbox(
     margin_ratio: float = 0.25,
     square: bool = True,
 ) -> tuple[int, int, int, int]:
+    """Expand a bbox with optional square normalization while staying in image bounds."""
     height, width = image_shape[:2]
     x1, y1, x2, y2 = bbox
     box_width = max(1, x2 - x1)

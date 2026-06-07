@@ -123,6 +123,7 @@ def _bind_app_events(
     explanation_output,
     warning_output,
 ) -> None:
+    """Wire Gradio actions to inference and reset callbacks."""
     analyze_button.click(
         fn=lambda image, decision_threshold, segmentation, explanation: analyze_upload(
             image,

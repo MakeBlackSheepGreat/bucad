@@ -132,6 +132,7 @@ def _build_segmentation_loaders(
 
 
 def _evaluate_model(model, loader, device: str, *, max_batches: int | None = None) -> dict[str, Any]:
+    """Evaluate segmentation metrics over a validation loader."""
     require_dependency("torch", torch)
     model.eval()
     dice_scores: list[float] = []
@@ -305,6 +306,7 @@ def _run_segmentation_loop(
     loop_config: _SegmentationLoopConfig,
     logger,
 ) -> None:
+    """Run all configured segmentation epochs and log their loss summaries."""
     cfg = loop_config
     for epoch in range(cfg.epochs):
         mean_loss, component_summary = _train_segmentation_epoch(

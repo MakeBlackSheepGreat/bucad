@@ -30,6 +30,7 @@ def _mask_path_for_sample(root: Path, sample_id: str) -> Path:
 
 
 def load_busbra_manifest(root: str | Path) -> pd.DataFrame:
+    """Load BUSBRA CSV metadata into the shared manifest schema."""
     root_path = Path(root)
     csv_path = root_path / "bus_data.csv"
     if not csv_path.exists():
@@ -93,6 +94,8 @@ def generate_busbra_split_assignments(
 
 
 class BUSBRAClassificationDataset(DatasetBase):
+    """Torch dataset wrapper for BUSBRA classification samples."""
+
     def __init__(
         self,
         manifest: pd.DataFrame,

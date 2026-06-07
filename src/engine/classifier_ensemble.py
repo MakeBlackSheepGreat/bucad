@@ -188,6 +188,7 @@ class ClassifierEnsemble:
         return np.sum(np.asarray(weighted_probabilities, dtype=np.float32), axis=0) / float(sum(weights))
 
     def tta_variants(self, member: dict[str, Any] | None = None) -> list[dict[str, Any]]:
+        """Resolve member-specific TTA variants with legacy horizontal-flip fallback."""
         configured = self.member_config_value(
             member,
             "tta_variants",

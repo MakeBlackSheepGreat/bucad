@@ -15,6 +15,8 @@ timm = optional_import("timm")
 
 if nn is not None:
     class ConvNormAct(nn.Module):
+        """Small Conv-BatchNorm-ReLU block reused by custom segmenters."""
+
         def __init__(
             self,
             in_channels: int,

@@ -24,6 +24,7 @@ def save_yaml(path: str | Path, data: Mapping[str, Any]) -> None:
 
 
 def resolve_config_reference(config_path: str | Path, reference: str | Path) -> Path:
+    """Resolve referenced config files near the caller, then near the project root."""
     config_file = Path(config_path).resolve()
     reference_path = Path(reference)
     candidates = []

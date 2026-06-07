@@ -42,6 +42,7 @@ def _build_model_run_config(
     comparison_config: dict[str, Any],
     model_entry: dict[str, Any],
 ) -> dict[str, Any]:
+    """Create the temporary per-model training config for a comparison run."""
     model_name = str(model_entry["name"])
     safe_name = _safe_model_name(model_name)
     overrides = {

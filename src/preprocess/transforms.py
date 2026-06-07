@@ -14,6 +14,7 @@ torch = optional_import("torch")
 
 
 def _random_scale_crop(image: np.ndarray, *, scale_min: float, scale_max: float) -> np.ndarray:
+    """Randomly zoom or pad an image while preserving the original output size."""
     if cv2 is None or scale_min <= 0 or scale_max <= 0:
         return image
     scale = float(np.random.uniform(scale_min, scale_max))
@@ -246,6 +247,7 @@ def build_classifier_transform(
 ):
     """Create the stochastic training/evaluation transform used by classifiers."""
     def transform(image: np.ndarray) -> Any:
+        """Apply stochastic image augmentation then standard classifier preprocessing."""
         processed = image
         if scale_min != 1.0 or scale_max != 1.0:
             processed = _random_scale_crop(

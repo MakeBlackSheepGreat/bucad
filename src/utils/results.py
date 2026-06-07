@@ -97,6 +97,7 @@ def build_diagnostic_result(
     borderline_margin: float = 0.08,
     model_version: str = "unknown",
 ) -> DiagnosticResult:
+    """Normalize probabilities and assemble the user-facing diagnostic result."""
     benign_probability, malignant_probability = normalize_binary_probs(
         benign_probability, malignant_probability
     )

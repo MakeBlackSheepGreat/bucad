@@ -132,6 +132,7 @@ class RuntimeConfig:
     def _parse_classifier_members(
         raw: dict[str, Any], *, fallback_model: str
     ) -> list[ClassifierMemberConfig]:
+        """Parse member-level ensemble config, falling back to checkpoint lists."""
         configured = raw.get("classifier_members")
         if isinstance(configured, list) and configured:
             members = []

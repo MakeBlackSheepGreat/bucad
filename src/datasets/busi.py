@@ -25,6 +25,7 @@ def _pick_mask_for_image(image_path: Path) -> Path | None:
 
 
 def load_busi_manifest(root: str | Path, *, include_normal: bool = False) -> pd.DataFrame:
+    """Scan BUSI folders into the shared manifest schema."""
     root_path = Path(root)
     if not root_path.exists():
         raise FileNotFoundError(f"BUSI root not found: {root_path}")

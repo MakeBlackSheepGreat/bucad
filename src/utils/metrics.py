@@ -147,6 +147,7 @@ def boundary_f1_score(
     tolerance: int = 2,
     eps: float = 1e-6,
 ) -> float:
+    """Score boundary overlap after tolerance dilation."""
     pred_boundary = mask_boundary(pred_mask)
     true_boundary = mask_boundary(true_mask)
     if not pred_boundary.any() and not true_boundary.any():

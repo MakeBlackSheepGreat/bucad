@@ -256,6 +256,7 @@ def build_router_feature_map(
     stacked_probability: float,
     descriptors: dict[str, float] | None = None,
 ) -> dict[str, float]:
+    """Build numeric features consumed by the optional descriptor router."""
     full = float(full_probability)
     roi = float(roi_probability)
     stacked = float(stacked_probability)

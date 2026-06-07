@@ -16,6 +16,7 @@ from src.utils.reporting import write_json_report
 
 
 def build_parser() -> argparse.ArgumentParser:
+    """Build CLI options for case-level BUSBRA fold generation."""
     parser = argparse.ArgumentParser(description="Generate leakage-safe BUSBRA splits.")
     parser.add_argument("--config", required=True, help="Path to paths.local.yml")
     parser.add_argument("--fold-count", type=int, default=5)
@@ -29,6 +30,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main() -> int:
+    """Generate split CSV and write a compact validation summary."""
     args = build_parser().parse_args()
     paths_config = load_yaml(args.config)
     paths = ProjectPaths.from_mapping(paths_config, config_path=args.config)

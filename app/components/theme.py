@@ -6,6 +6,7 @@ import gradio as gr
 
 
 def build_theme() -> gr.themes.ThemeClass:
+    """Build the shared Gradio theme used by browser and desktop launchers."""
     return gr.themes.Soft(
         primary_hue=gr.themes.colors.blue,
         secondary_hue=gr.themes.colors.sky,

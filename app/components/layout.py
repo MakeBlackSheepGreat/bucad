@@ -26,6 +26,7 @@ EMPTY_WARNING_HTML = """
 
 
 def hero_html(ensemble_display_name: str) -> str:
+    """Render the top header section with the active ensemble name."""
     return f"""
 <div class="hero">
   <div class="logo-mark">⌁</div>
@@ -38,6 +39,7 @@ def hero_html(ensemble_display_name: str) -> str:
 
 
 def viewer_header_html() -> str:
+    """Render the image viewer header for original/mask/heatmap outputs."""
     return """
 <div class="viewer-title">
   <span>图像分析结果</span>
@@ -47,4 +49,5 @@ def viewer_header_html() -> str:
 
 
 def footer_note_html() -> str:
+    """Render the clinical-use disclaimer shown below image outputs."""
     return '<div class="footer-note">提示：分割图和热力图用于辅助理解模型输出，不代表临床标注或最终诊断。</div>'

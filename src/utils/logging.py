@@ -7,6 +7,7 @@ from pathlib import Path
 
 
 def get_logger(name: str, log_path: str | Path | None = None) -> logging.Logger:
+    """Return a configured logger, reusing existing handlers on repeat calls."""
     logger = logging.getLogger(name)
     if logger.handlers:
         return logger

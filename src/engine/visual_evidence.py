@@ -31,6 +31,7 @@ class VisualEvidenceService:
         *,
         paths=None,
     ) -> None:
+        """Initialize lazy segmenter caches and the classifier dependency."""
         self.runtime_config = runtime_config
         self.classifier_ensemble = classifier_ensemble
         self.paths = paths
@@ -40,13 +41,16 @@ class VisualEvidenceService:
 
     @property
     def segmenter_model(self):
+        """Return the primary loaded segmenter model, if any."""
         return self._segmenter_model
 
     @property
     def segmenter_models(self):
+        """Return all loaded segmenter models, if they have been loaded."""
         return self._segmenter_models
 
     def resolved_segmenter_checkpoints(self) -> list[str]:
+        """Return configured segmenter checkpoints, falling back to the project default."""
         if self.runtime_config.segmenter_checkpoints:
             return list(self.runtime_config.segmenter_checkpoints)
         if self.paths is not None and self.paths.default_segmenter_ckpt.exists():
@@ -54,10 +58,12 @@ class VisualEvidenceService:
         return []
 
     def resolved_segmenter_checkpoint(self) -> str | None:
+        """Return the first resolved segmenter checkpoint, if any."""
         checkpoints = self.resolved_segmenter_checkpoints()
         return checkpoints[0] if checkpoints else None
 
     def segmenter_device(self) -> str:
+        """Resolve the segmenter device from runtime config with CUDA fallback."""
         requested = self.runtime_config.get(
             "segmenter_device",
             self.runtime_config.get("device", "cpu"),
@@ -65,6 +71,7 @@ class VisualEvidenceService:
         return resolve_torch_device(requested, torch)
 
     def _ensure_segmenters_on_device(self, device: str) -> None:
+        """Move cached segmenter models to the selected device only when needed."""
         if self._segmenter_models is None or self._segmenter_device == device:
             return
         # Segmenter visuals are optional but expensive; cache the chosen device
@@ -75,6 +82,7 @@ class VisualEvidenceService:
 
     @staticmethod
     def _default_segmenter_model_config() -> dict[str, Any]:
+        """Return the default segmenter architecture used for runtime checkpoints."""
         return {
             "architecture": "unet",
             "encoder_name": "resnet18",
@@ -84,6 +92,7 @@ class VisualEvidenceService:
         }
 
     def _ensure_segmenters_loaded(self, checkpoints: list[str]) -> None:
+        """Lazy-load all configured segmenter checkpoints on CPU."""
         if self._segmenter_models is not None:
             return
         self._segmenter_models = []
@@ -98,6 +107,7 @@ class VisualEvidenceService:
         self._segmenter_model = self._segmenter_models[0] if self._segmenter_models else None
 
     def _segmenter_input_batch(self, image: np.ndarray, *, device: str):
+        """Convert a single image into a one-item segmenter input batch."""
         input_tensor = prepare_classifier_input(
             image, int(self.runtime_config.get("segmenter_image_size", 256))
         )
@@ -107,6 +117,7 @@ class VisualEvidenceService:
 
     @staticmethod
     def _average_masks(masks: list[np.ndarray]) -> np.ndarray:
+        """Average a list of predicted probability masks."""
         if not masks:
             raise OptionalOutputUnavailableError("Segmentation weights are not available.")
         return np.mean(np.asarray(masks, dtype=np.float32), axis=0)

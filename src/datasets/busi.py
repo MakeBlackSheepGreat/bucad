@@ -20,6 +20,7 @@ LABEL_TO_INDEX = {"benign": 0, "malignant": 1, "normal": 0}
 
 
 def _pick_mask_for_image(image_path: Path) -> Path | None:
+    """Return the first BUSI mask file associated with an image, if present."""
     candidates = sorted(image_path.parent.glob(f"{image_path.stem}_mask*.png"))
     return candidates[0] if candidates else None
 
@@ -66,15 +67,18 @@ class BUSIDataset(DatasetBase):
         transform: Callable[[np.ndarray], Any] | None = None,
         segmentation: bool = False,
     ) -> None:
+        """Store BUSI rows and decide whether masks should be returned."""
         self.manifest = manifest.reset_index(drop=True)
         self.image_size = image_size
         self.transform = transform
         self.segmentation = segmentation
 
     def __len__(self) -> int:
+        """Return the number of BUSI samples."""
         return len(self.manifest)
 
     def __getitem__(self, index: int) -> dict[str, Any]:
+        """Load one BUSI image and optional mask for evaluation batches."""
         row = self.manifest.iloc[index]
         image = read_image(row["image_path"], grayscale=True)
         item = {

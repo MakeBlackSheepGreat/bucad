@@ -13,6 +13,7 @@ from src.utils.document_reports import export_report_documents
 
 
 def build_parser() -> argparse.ArgumentParser:
+    """Build CLI options for DOCX report export."""
     parser = argparse.ArgumentParser(description="Export a readable Word DOCX report document.")
     parser.add_argument("--reports-dir", default="artifacts/reports")
     parser.add_argument("--output-dir", default="artifacts/reports/documents")
@@ -22,6 +23,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main() -> int:
+    """Export requested report document formats and print written paths."""
     args = build_parser().parse_args()
     formats = [item.strip() for item in args.formats.split(",") if item.strip()]
     outputs = export_report_documents(

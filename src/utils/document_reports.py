@@ -34,6 +34,8 @@ SUPPORTED_FORMATS = {"docx"}
 
 @dataclass
 class ReportBlock:
+    """Single structural element such as a heading, paragraph, table, or code block."""
+
     kind: str
     text: str = ""
     level: int = 1
@@ -41,14 +43,17 @@ class ReportBlock:
 
 
 def _clean_markdown_inline(text: str) -> str:
+    """Strip inline code markers used by the report generator."""
     return text.replace("`", "")
 
 
 def _split_table_row(line: str) -> list[str]:
+    """Split a pipe-delimited Markdown table row into cells."""
     return [_clean_markdown_inline(cell.strip()) for cell in line.strip().strip("|").split("|")]
 
 
 def _is_table_separator(line: str) -> bool:
+    """Return True when the line is a Markdown table separator row."""
     stripped = line.replace("|", "").replace(":", "").replace("-", "").strip()
     return not stripped
 
@@ -101,6 +106,7 @@ def _markdown_to_blocks(text: str) -> list[ReportBlock]:
 
 
 def _format_value(value: Any) -> str:
+    """Format a scalar or dict/list value for a report table cell."""
     if value is None:
         return ""
     if isinstance(value, float):
@@ -111,6 +117,7 @@ def _format_value(value: Any) -> str:
 
 
 def _metrics_table(metrics: dict[str, Any]) -> ReportBlock:
+    """Render a metrics dict as a two-column report table."""
     rows = [["指标", "数值"]]
     preferred_keys = (
         "auc",
@@ -136,6 +143,7 @@ def _metrics_table(metrics: dict[str, Any]) -> ReportBlock:
 
 
 def _comparison_table(results: list[Any]) -> ReportBlock:
+    """Render the first 20 model comparison results into a table block."""
     rows = [["模型", "状态", "AUC", "Accuracy", "Sensitivity", "Precision", "Specificity", "F1-Score", "运行时间(秒)"]]
     for item in results[:20]:
         metrics = item.get("metrics", {}) if isinstance(item, dict) else {}
@@ -242,12 +250,14 @@ def collect_report_blocks(reports_dir: str | Path) -> list[ReportBlock]:
 
 
 def _iter_table_rows(rows: list[list[str]]) -> Iterable[list[str]]:
+    """Pad table rows to equal width so they can be written into DOCX tables."""
     width = max((len(row) for row in rows), default=0)
     for row in rows:
         yield row + [""] * (width - len(row))
 
 
 def _set_docx_font(run: Any, font_name: str, size_pt: float | None = None) -> None:
+    """Apply a font name and optional size to a python-docx run element."""
     from docx.oxml.ns import qn
     from docx.shared import Pt
 
@@ -258,6 +268,7 @@ def _set_docx_font(run: Any, font_name: str, size_pt: float | None = None) -> No
 
 
 def _style_docx(document: Any) -> None:
+    """Apply the default DOCX style theme for Chinese report documents."""
     from docx.oxml.ns import qn
     from docx.shared import Pt
 
@@ -333,6 +344,7 @@ def export_report_documents(
     basename: str = "bucad_report_summary",
     formats: Iterable[str] = ("docx",),
 ) -> dict[str, Path]:
+    """Build a DOCX report from the canonical report directory and return output paths."""
     selected = {item.lower() for item in formats}
     if not selected:
         raise ValueError("At least one report format must be selected.")

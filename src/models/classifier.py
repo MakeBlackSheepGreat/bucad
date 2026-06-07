@@ -17,7 +17,10 @@ torchvision_models = optional_import("torchvision.models")
 
 if nn is not None:
     class TinyCNNClassifier(nn.Module):
+        """Small CNN fallback used for smoke tests and missing heavy dependencies."""
+
         def __init__(self, in_chans: int = 3, num_classes: int = 2) -> None:
+            """Build a compact three-block convolutional classifier."""
             super().__init__()
             self.features = nn.Sequential(
                 nn.Conv2d(in_chans, 16, kernel_size=3, padding=1),
@@ -33,11 +36,15 @@ if nn is not None:
             self.classifier = nn.Linear(64, num_classes)
 
         def forward(self, x):
+            """Return class logits for one image batch."""
             features = self.features(x)
             return self.classifier(features.flatten(1))
 else:  # pragma: no cover - torch missing
     class TinyCNNClassifier:  # type: ignore[override]
+        """Placeholder classifier used when torch is unavailable."""
+
         def __init__(self, *args, **kwargs) -> None:
+            """Raise a dependency error on construction."""
             raise RuntimeError("Torch is required to construct the classifier.")
 
 
@@ -85,6 +92,7 @@ def load_classifier(
     *,
     map_location: str = "cpu",
 ):
+    """Create a classifier and load a checkpoint when the path exists."""
     extra_model_kwargs = {
         key: value
         for key, value in model_config.items()
@@ -105,6 +113,7 @@ def load_classifier(
 
 
 def classifier_probabilities(model, batch, *, device: str = "cpu", move_model: bool = True):
+    """Return softmax class probabilities for one batch."""
     require_dependency("torch", torch)
     require_dependency("torch.nn.functional", F)
     if move_model:
@@ -120,6 +129,7 @@ def classifier_probabilities(model, batch, *, device: str = "cpu", move_model: b
 
 
 def resolve_gradcam_target_layer(model) -> Any | None:
+    """Find a reasonable final feature layer for Grad-CAM on common model families."""
     for candidate in ("layer4", "features", "stages", "blocks", "conv_head", "backbone"):
         layer = getattr(model, candidate, None)
         if layer is not None:

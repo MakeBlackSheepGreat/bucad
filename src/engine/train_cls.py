@@ -29,6 +29,7 @@ torch_utils_data = optional_import("torch.utils.data")
 def _load_or_create_splits(
     manifest: pd.DataFrame, split_path: Path, *, fold_count: int, seed: int
 ) -> pd.DataFrame:
+    """Load existing fold assignments or create a case-level BUSBRA split file."""
     if split_path.exists():
         return pd.read_csv(split_path)
     split_path.parent.mkdir(parents=True, exist_ok=True)
@@ -42,6 +43,7 @@ def _load_or_create_splits(
 def _split_manifest_for_fold(
     manifest: pd.DataFrame, assignments: pd.DataFrame, fold: int
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Split a manifest into train/validation rows for one fold."""
     fold_assignments = assignments[assignments["fold_id"] == fold]
     train_ids = set(fold_assignments.loc[fold_assignments["stage"] == "train", "sample_id"])
     val_ids = set(fold_assignments.loc[fold_assignments["stage"] == "val", "sample_id"])
@@ -51,6 +53,7 @@ def _split_manifest_for_fold(
 
 
 def _collect_validation_probabilities(model, loader, device: str) -> tuple[list[int], list[float]]:
+    """Collect labels and malignant probabilities from one validation pass."""
     require_dependency("torch", torch)
     y_true: list[int] = []
     malignant_probabilities: list[float] = []
@@ -68,11 +71,13 @@ def _collect_validation_probabilities(model, loader, device: str) -> tuple[list[
 
 
 def _evaluate_model(model, loader, device: str) -> dict[str, Any]:
+    """Evaluate classification metrics over a validation loader."""
     y_true, malignant_probabilities = _collect_validation_probabilities(model, loader, device)
     return classification_metrics(y_true, malignant_probabilities)
 
 
 def _weighted_score(metrics: dict[str, Any], *, sensitivity_weight: float) -> float:
+    """Score metrics with optional extra emphasis on sensitivity."""
     auc = float(metrics.get("auc") or 0.0)
     sensitivity = float(metrics.get("sensitivity", 0.0))
     specificity = float(metrics.get("specificity", 0.0))
@@ -85,6 +90,7 @@ def _constrained_score(
     sensitivity_weight: float,
     min_specificity: float,
 ) -> float:
+    """Score metrics while penalizing specificity below a configured floor."""
     score = _weighted_score(metrics, sensitivity_weight=sensitivity_weight)
     specificity = float(metrics.get("specificity", 0.0))
     if min_specificity > 0 and specificity < min_specificity:
@@ -93,6 +99,7 @@ def _constrained_score(
 
 
 def _class_weights(train_manifest: pd.DataFrame, positive_weight: float | None):
+    """Build class weights from the training fold label distribution."""
     require_dependency("torch", torch)
     labels = train_manifest["pathology_label"].astype(str).str.lower()
     benign_count = int((labels == "benign").sum())
@@ -105,6 +112,7 @@ def _class_weights(train_manifest: pd.DataFrame, positive_weight: float | None):
 
 
 def _load_sample_weights(config_path: str | Path | None, *, weight_column: str) -> dict[str, float]:
+    """Load optional per-sample weights from a CSV file."""
     if config_path is None:
         return {}
     path = Path(config_path)
@@ -128,6 +136,7 @@ def _batch_sample_weights(
     *,
     device: str,
 ):
+    """Return a tensor of sample weights aligned with the current batch."""
     require_dependency("torch", torch)
     if not sample_weights:
         return None
@@ -173,6 +182,7 @@ def _classification_loss(
 
 
 def _rand_bbox(width: int, height: int, lam: float) -> tuple[int, int, int, int]:
+    """Sample a CutMix patch box from the Beta-mixed area ratio."""
     cut_ratio = math.sqrt(max(0.0, 1.0 - float(lam)))
     cut_width = int(width * cut_ratio)
     cut_height = int(height * cut_ratio)
@@ -225,6 +235,7 @@ def _maybe_apply_mix_augmentation(
 
 
 def _pretrained_data_settings(model, preprocess_cfg: dict[str, Any]) -> dict[str, Any]:
+    """Read timm pretrained data settings when config enables them."""
     if not bool(preprocess_cfg.get("use_timm_data_config", False)):
         return {}
     pretrained_cfg = getattr(model, "pretrained_cfg", {}) or {}
@@ -239,6 +250,7 @@ def _pretrained_data_settings(model, preprocess_cfg: dict[str, Any]) -> dict[str
 
 
 def _extra_model_kwargs(model_cfg: dict[str, Any]) -> dict[str, Any]:
+    """Return model config keys that should be passed through to timm."""
     return {
         key: value
         for key, value in model_cfg.items()
@@ -292,6 +304,7 @@ def _lr_for_epoch(
     epochs: int,
     scheduler_cfg: dict[str, Any],
 ) -> float:
+    """Compute the learning rate for the current epoch scheduler step."""
     scheduler_name = str(scheduler_cfg.get("name", "none")).lower()
     if scheduler_name not in {"cosine", "warmup_cosine"}:
         return base_lr
@@ -306,11 +319,13 @@ def _lr_for_epoch(
 
 
 def _set_optimizer_lr(optimizer, learning_rate: float) -> None:
+    """Apply one learning rate value to every optimizer parameter group."""
     for group in optimizer.param_groups:
         group["lr"] = float(learning_rate)
 
 
 def _prepare_classifier_batch(batch: dict[str, Any], sample_weights: dict[str, float], *, device: str):
+    """Move one training batch to device and attach optional sample weights."""
     images = batch["image"].to(device=device, dtype=torch.float32)
     labels = batch["label"].to(device=device)
     batch_weights = _batch_sample_weights(
@@ -463,6 +478,7 @@ def _score_checkpoint_candidate(
 
 
 def _snapshot_state_dict(model) -> dict[str, Any]:
+    """Clone model weights to CPU for best-checkpoint restoration."""
     return {
         key: value.detach().cpu().clone()
         for key, value in model.state_dict().items()
@@ -470,10 +486,12 @@ def _snapshot_state_dict(model) -> dict[str, Any]:
 
 
 def _atomic_torch_save(payload: dict[str, Any], destination: Path) -> None:
+    """Compatibility wrapper around the shared atomic checkpoint writer."""
     atomic_torch_save(payload, destination)
 
 
 def _resolve_sample_weight_path(paths, training_cfg: dict[str, Any]) -> Path | None:
+    """Resolve the optional sample-weight CSV path relative to project root."""
     sample_weight_path = training_cfg.get("sample_weight_path")
     if sample_weight_path is None:
         return None
@@ -491,6 +509,7 @@ def _prepare_fold_manifests(
     fold: int,
     seed: int,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Prepare non-empty train/validation manifests for one classifier fold."""
     split_path = Path(training_cfg.get("split_path", paths.reports_root / "busbra_5fold_splits.csv"))
     if not split_path.is_absolute():
         split_path = (paths.project_root / split_path).resolve()
@@ -597,6 +616,7 @@ def _build_classifier_loaders(
 
 
 def _build_class_weights(train_manifest: pd.DataFrame, training_cfg: dict[str, Any], *, device: str):
+    """Resolve configured class weights and move them to the training device."""
     class_weight_cfg = training_cfg.get("class_weights")
     class_weights = None
     if class_weight_cfg == "balanced":
@@ -811,6 +831,7 @@ class _PreparedTrainingRun:
 
 
 def _build_classifier_optimizer(model, training_cfg: dict[str, Any], *, learning_rate: float):
+    """Build the AdamW optimizer used by classifier training."""
     return optim.AdamW(
         model.parameters(),
         lr=learning_rate,

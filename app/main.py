@@ -30,6 +30,8 @@ DEFAULT_THRESHOLD = 0.51
 
 @dataclass(slots=True)
 class _ControlPanel:
+    """Grouped references for the upload, action, and text-result controls."""
+
     image_input: gr.Image
     threshold: gr.Slider
     need_segmentation: gr.Checkbox
@@ -43,12 +45,15 @@ class _ControlPanel:
 
 @dataclass(slots=True)
 class _ViewerPanel:
+    """Grouped references for image outputs rendered in the diagnostic workspace."""
+
     original_output: gr.Image
     lesion_output: gr.Image
     explanation_output: gr.Image
 
 
 def bundled_resource_path(relative_path: str | Path) -> Path:
+    """Resolve a resource path inside a PyInstaller bundle or the source tree."""
     base_dir = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parents[1]))
     bundled_path = base_dir / relative_path
     if bundled_path.exists():
@@ -95,6 +100,7 @@ def reset_workspace():
 
 
 def _runtime_display_name(service: BreastUltrasoundInferenceService) -> str:
+    """Return the user-facing ensemble name from runtime config defaults."""
     return str(
         service.runtime_config.get(
             "ensemble_display_name",
@@ -104,6 +110,7 @@ def _runtime_display_name(service: BreastUltrasoundInferenceService) -> str:
 
 
 def _runtime_default_threshold(service: BreastUltrasoundInferenceService) -> float:
+    """Return the configured malignancy threshold used to initialize the slider."""
     return float(service.runtime_config.get("default_threshold", DEFAULT_THRESHOLD))
 
 

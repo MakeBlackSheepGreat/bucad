@@ -25,6 +25,7 @@ LABEL_TO_INDEX = {"benign": 0, "malignant": 1}
 
 
 def _mask_path_for_sample(root: Path, sample_id: str) -> Path:
+    """Infer the BUSBRA mask path from a BUS image sample id."""
     return root / "Masks" / sample_id.replace("bus_", "mask_").replace(".png", "") \
         if sample_id.endswith(".png") else root / "Masks" / sample_id.replace("bus_", "mask_")
 
@@ -59,6 +60,7 @@ def load_busbra_manifest(root: str | Path) -> pd.DataFrame:
 
 
 def _build_group_splitter(n_splits: int, seed: int):
+    """Prefer StratifiedGroupKFold, falling back to GroupKFold when unavailable."""
     model_selection = optional_import("sklearn.model_selection")
     if model_selection is not None and hasattr(model_selection, "StratifiedGroupKFold"):
         return model_selection.StratifiedGroupKFold(
@@ -70,6 +72,7 @@ def _build_group_splitter(n_splits: int, seed: int):
 def generate_busbra_split_assignments(
     manifest: pd.DataFrame, *, n_splits: int = 5, seed: int = 42
 ) -> pd.DataFrame:
+    """Generate case-level BUSBRA fold assignments with pathology stratification when possible."""
     splitter = _build_group_splitter(n_splits=n_splits, seed=seed)
     y = manifest["pathology_label"].map(LABEL_TO_INDEX).to_numpy()
     groups = manifest["case_id"].to_numpy()
@@ -103,14 +106,17 @@ class BUSBRAClassificationDataset(DatasetBase):
         image_size: int = 224,
         transform: Callable[[np.ndarray], Any] | None = None,
     ) -> None:
+        """Store the manifest and preprocessing settings for classification batches."""
         self.manifest = manifest.reset_index(drop=True)
         self.image_size = image_size
         self.transform = transform
 
     def __len__(self) -> int:
+        """Return the number of manifest rows."""
         return len(self.manifest)
 
     def __getitem__(self, index: int) -> dict[str, Any]:
+        """Load one BUSBRA image and return classifier input, label, and identifiers."""
         row = self.manifest.iloc[index]
         image = read_image(row["image_path"], grayscale=True)
         data = (
@@ -127,14 +133,19 @@ class BUSBRAClassificationDataset(DatasetBase):
 
 
 class BUSBRASegmentationDataset(DatasetBase):
+    """Torch dataset wrapper for BUSBRA segmentation masks."""
+
     def __init__(self, manifest: pd.DataFrame, *, image_size: int = 256) -> None:
+        """Store the manifest and target size for segmentation batches."""
         self.manifest = manifest.reset_index(drop=True)
         self.image_size = image_size
 
     def __len__(self) -> int:
+        """Return the number of manifest rows."""
         return len(self.manifest)
 
     def __getitem__(self, index: int) -> dict[str, Any]:
+        """Load one BUSBRA image/mask pair, substituting an empty mask when absent."""
         row = self.manifest.iloc[index]
         image = read_image(row["image_path"], grayscale=True)
         mask = read_mask(row["mask_path"])

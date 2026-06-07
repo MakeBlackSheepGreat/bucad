@@ -46,18 +46,22 @@ WARNING_TEXT = {
 
 
 def localize_status(status: str) -> str:
+    """Translate an inference status code into Chinese UI text."""
     return STATUS_TEXT.get(status, status)
 
 
 def localize_final_label(label: str) -> str:
+    """Translate a final diagnosis label into Chinese UI text."""
     return FINAL_LABEL_TEXT.get(label, label)
 
 
 def localize_confidence_band(band: str) -> str:
+    """Translate a confidence band into Chinese UI text."""
     return CONFIDENCE_BAND_TEXT.get(band, band)
 
 
 def localize_recommendation(final_label: str, confidence_band: str) -> str:
+    """Return the Chinese recommendation text for a label/confidence pair."""
     localized_label = localize_final_label(final_label)
     if confidence_band == "borderline":
         return "结果接近判定阈值，建议人工复核并结合原始超声图像判断。"
@@ -69,10 +73,12 @@ def localize_recommendation(final_label: str, confidence_band: str) -> str:
 
 
 def localize_disclaimer(message: str) -> str:
+    """Translate known disclaimer text into Chinese."""
     return WARNING_TEXT.get(message, message)
 
 
 def localize_warning(message: str) -> str:
+    """Translate known warning messages while preserving dynamic suffix text."""
     if message in WARNING_TEXT:
         return WARNING_TEXT[message]
     prefix_map = {

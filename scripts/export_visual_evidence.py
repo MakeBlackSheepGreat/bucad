@@ -28,6 +28,7 @@ def export_visual_evidence(
     segmenter_predictor: Callable[[np.ndarray], np.ndarray] | None = None,
     explanation_generator: Callable[[np.ndarray], np.ndarray] | None = None,
 ) -> dict[str, object]:
+    """Export representative BUSI overlays and a review table for reports."""
     config, paths = load_project_config(config_path)
     destination = Path(output_dir)
     if not destination.is_absolute():
@@ -70,6 +71,7 @@ def export_visual_evidence(
 
 
 def _visual_review_lines(rows: list[dict[str, object]], output_dir: Path) -> list[str]:
+    """Format the visual evidence review Markdown table."""
     lines = [
         "# Visual Evidence Review",
         "",
@@ -88,6 +90,7 @@ def _visual_review_lines(rows: list[dict[str, object]], output_dir: Path) -> lis
 
 
 def build_parser() -> argparse.ArgumentParser:
+    """Build CLI options for visual evidence export."""
     parser = argparse.ArgumentParser(description="Export report-ready visual evidence samples.")
     parser.add_argument("--config", default="configs/inference/demo.yml")
     parser.add_argument("--output-dir", default="artifacts/reports/visual_evidence")
@@ -96,6 +99,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main() -> int:
+    """Export visual evidence samples and print the result summary."""
     args = build_parser().parse_args()
     result = export_visual_evidence(args.config, args.output_dir, limit=args.limit)
     print(result)

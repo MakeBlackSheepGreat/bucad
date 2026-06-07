@@ -8,10 +8,12 @@ from typing import Any, Mapping
 
 
 def project_root() -> Path:
+    """Return the repository root inferred from this file's location."""
     return Path(__file__).resolve().parents[2]
 
 
 def resolve_path(value: str | Path, *, base_dir: str | Path | None = None) -> Path:
+    """Expand *value* to an absolute path, resolving relative paths against *base_dir*."""
     path = Path(value).expanduser()
     if path.is_absolute():
         return path

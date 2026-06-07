@@ -16,7 +16,10 @@ smp = optional_import("segmentation_models_pytorch")
 
 if nn is not None:
     class TinySegmentationNet(nn.Module):
+        """Small encoder-decoder fallback used for segmentation smoke tests."""
+
         def __init__(self, in_channels: int = 3, classes: int = 1) -> None:
+            """Build a compact two-stage segmentation network."""
             super().__init__()
             self.encoder = nn.Sequential(
                 nn.Conv2d(in_channels, 16, kernel_size=3, padding=1),
@@ -33,10 +36,14 @@ if nn is not None:
             )
 
         def forward(self, x):
+            """Return raw mask logits for one image batch."""
             return self.decoder(self.encoder(x))
 else:  # pragma: no cover - torch missing
     class TinySegmentationNet:  # type: ignore[override]
+        """Placeholder segmenter used when torch is unavailable."""
+
         def __init__(self, *args, **kwargs) -> None:
+            """Raise a dependency error on construction."""
             raise RuntimeError("Torch is required to construct the segmenter.")
 
 

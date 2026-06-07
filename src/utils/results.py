@@ -16,6 +16,8 @@ AUXILIARY_USE_DISCLAIMER = (
 
 @dataclass(slots=True)
 class DiagnosticResult:
+    """User-facing diagnosis payload with label, confidence, and recommendation."""
+
     benign_probability: float
     malignant_probability: float
     final_label: str
@@ -26,22 +28,28 @@ class DiagnosticResult:
     auxiliary_use_disclaimer: str = AUXILIARY_USE_DISCLAIMER
 
     def to_dict(self) -> dict[str, Any]:
+        """Serialize the result to a plain dict for JSON or report output."""
         return asdict(self)
 
 
 @dataclass(slots=True)
 class VisualEvidence:
+    """Optional overlay description for segmentation or explanation maps."""
+
     overlay_type: str
     generation_status: str
     artifact_path: str | None = None
     reason_if_missing: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
+        """Serialize the evidence record to a plain dict."""
         return asdict(self)
 
 
 @dataclass(slots=True)
 class InferenceResponse:
+    """Top-level response returned by the diagnosis service."""
+
     status: str
     input_filename: str
     result: DiagnosticResult | None
@@ -54,6 +62,7 @@ class InferenceResponse:
     metadata: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
+        """Serialize the full inference response for logging or JSON export."""
         payload = {
             "status": self.status,
             "input_filename": self.input_filename,
@@ -70,6 +79,7 @@ class InferenceResponse:
 def confidence_band_from_probability(
     malignant_probability: float, *, threshold: float = 0.5, borderline_margin: float = 0.08
 ) -> str:
+    """Map a malignant probability into a coarse confidence band."""
     distance = abs(malignant_probability - threshold)
     max_prob = max(malignant_probability, 1.0 - malignant_probability)
     if distance <= borderline_margin:
@@ -80,6 +90,7 @@ def confidence_band_from_probability(
 
 
 def recommendation_for_band(confidence_band: str, final_label: str) -> str:
+    """Return a short clinical recommendation sentence for the given band."""
     if confidence_band == "borderline":
         return "Result is borderline. Manual review is strongly recommended."
     if confidence_band == "low":

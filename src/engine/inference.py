@@ -32,6 +32,7 @@ from src.utils.results import InferenceResponse, build_diagnostic_result
 def _resolve_runtime_checkpoint_paths(
     runtime_config: dict[str, Any], *, project_root: Path
 ) -> dict[str, Any]:
+    """Resolve runtime checkpoint paths relative to the project root."""
     return resolve_runtime_checkpoint_paths(runtime_config, project_root=project_root)
 
 
@@ -40,6 +41,7 @@ def _inference_service_from_project_config(
     *,
     classifier_predictor: Callable[[np.ndarray], tuple[float, float]] | None = None,
 ) -> tuple["BreastUltrasoundInferenceService", Any]:
+    """Create an inference service and resolved project paths from a config file."""
     config, paths = load_project_config(config_path)
     runtime_config = dict(config.get("runtime", {}))
     runtime_config = _resolve_runtime_checkpoint_paths(runtime_config, project_root=paths.project_root)
@@ -73,6 +75,7 @@ class BreastUltrasoundInferenceService:
         segmenter_predictor: Callable[[np.ndarray], np.ndarray] | None = None,
         explanation_generator: Callable[[np.ndarray], np.ndarray] | None = None,
     ) -> None:
+        """Initialize inference collaborators and optional injected predictors."""
         self.runtime = RuntimeConfig.from_mapping(runtime_config)
         self.runtime_config = self.runtime.raw
         self.paths = paths
@@ -90,22 +93,27 @@ class BreastUltrasoundInferenceService:
 
     @property
     def _classifier_model(self):
+        """Proxy to the primary classifier model on the ensemble."""
         return self.classifier_ensemble.primary_model
 
     @property
     def _classifier_models(self):
+        """Proxy to all loaded classifier models on the ensemble."""
         return self.classifier_ensemble._classifier_models
 
     @property
     def _classifier_members(self):
+        """Proxy to classifier member dicts on the ensemble."""
         return self.classifier_ensemble._classifier_members
 
     @property
     def _segmenter_model(self):
+        """Proxy to the primary segmenter model on the visual evidence service."""
         return self.visual_evidence.segmenter_model
 
     @property
     def _segmenter_models(self):
+        """Proxy to all loaded segmenter models on the visual evidence service."""
         return self.visual_evidence.segmenter_models
 
     @classmethod
@@ -157,6 +165,7 @@ class BreastUltrasoundInferenceService:
             return InferenceResponse(status="unexpected_runtime_error", input_filename=filename, result=None, warnings=[str(wrapped)])
 
     def _validated_input_image(self, image_input: str | Path | np.ndarray) -> np.ndarray:
+        """Read, validate, and quality-check an uploaded image before inference."""
         image = read_image(image_input, grayscale=True)
         validate_image_array(image)
         quality = assess_image_quality(image)
@@ -167,6 +176,7 @@ class BreastUltrasoundInferenceService:
         return image
 
     def _decision_threshold(self, override: float | None) -> float:
+        """Return the override threshold when provided, else the configured default."""
         return float(
             override
             if override is not None
@@ -174,6 +184,7 @@ class BreastUltrasoundInferenceService:
         )
 
     def _response_metadata(self, decision_threshold: float) -> dict[str, Any]:
+        """Build the metadata dict attached to every completed response."""
         return {
             "model_identifier": self._model_identifier(),
             "decision_threshold": decision_threshold,
@@ -194,6 +205,7 @@ class BreastUltrasoundInferenceService:
         malignant_probability: float,
         decision_threshold: float | None,
     ) -> InferenceResponse:
+        """Wrap classification probabilities into a completed InferenceResponse."""
         threshold = self._decision_threshold(decision_threshold)
         result = build_diagnostic_result(
             benign_probability,
@@ -211,21 +223,27 @@ class BreastUltrasoundInferenceService:
         )
 
     def _resolved_classifier_checkpoint(self) -> str | None:
+        """Return the first resolved classifier checkpoint."""
         return self.classifier_ensemble.resolved_classifier_checkpoint()
 
     def _resolved_classifier_member_configs(self) -> list[dict[str, Any]]:
+        """Return classifier member configs for compatibility callers."""
         return self.classifier_ensemble.resolved_classifier_member_configs()
 
     def _resolved_classifier_checkpoints(self) -> list[str]:
+        """Return all resolved classifier checkpoint paths."""
         return self.classifier_ensemble.resolved_classifier_checkpoints()
 
     def _resolved_segmenter_checkpoints(self) -> list[str]:
+        """Return all resolved segmenter checkpoint paths."""
         return self.visual_evidence.resolved_segmenter_checkpoints()
 
     def _resolved_segmenter_checkpoint(self) -> str | None:
+        """Return the first resolved segmenter checkpoint."""
         return self.visual_evidence.resolved_segmenter_checkpoint()
 
     def _model_identifier(self) -> str:
+        """Return the active classifier ensemble identifier."""
         return self.classifier_ensemble.model_identifier()
 
     def _member_config_value(
@@ -235,6 +253,7 @@ class BreastUltrasoundInferenceService:
         runtime_key: str,
         default: Any,
     ) -> Any:
+        """Look up a member-level runtime override through the ensemble."""
         return self.classifier_ensemble.member_config_value(member, key, runtime_key, default)
 
     def _classifier_preprocess_kwargs(
@@ -242,15 +261,19 @@ class BreastUltrasoundInferenceService:
         variant: dict[str, Any] | None = None,
         member: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
+        """Return classifier preprocessing kwargs for compatibility callers."""
         return self.classifier_ensemble.preprocess_kwargs(variant, member)
 
     def _classifier_device(self) -> str:
+        """Return the resolved classifier device."""
         return self.classifier_ensemble.device()
 
     def _classifier_tta_variants(self, member: dict[str, Any] | None = None) -> list[dict[str, Any]]:
+        """Return classifier TTA variants for a member."""
         return self.classifier_ensemble.tta_variants(member)
 
     def _apply_classifier_tta_variant(self, image: np.ndarray, variant: dict[str, Any]) -> np.ndarray:
+        """Apply one classifier TTA variant to an image."""
         return self.classifier_ensemble.apply_tta_variant(image, variant)
 
     def _classifier_input_tensors(
@@ -258,6 +281,7 @@ class BreastUltrasoundInferenceService:
         image: np.ndarray,
         member: dict[str, Any] | None = None,
     ) -> list[Any]:
+        """Build classifier input tensors for compatibility callers."""
         return self.classifier_ensemble.input_tensors(image, member)
 
     def _predict_classifier_ensemble_on_image(
@@ -266,16 +290,19 @@ class BreastUltrasoundInferenceService:
         *,
         member_weight_overrides: dict[str, float] | None = None,
     ) -> tuple[float, float]:
+        """Predict benign/malignant probabilities with the classifier ensemble."""
         return self.classifier_ensemble.predict_on_image(
             image,
             member_weight_overrides=member_weight_overrides,
         )
 
     def _roi_enhancement_config(self) -> dict[str, Any] | None:
+        """Return the enabled ROI enhancement config, if present."""
         return self.runtime.roi_enhancement_config()
 
     @staticmethod
     def _stacker_features(full_probability: float, roi_probability: float, feature_mode: str) -> np.ndarray:
+        """Build ROI stacker features from full-image and ROI probabilities."""
         return RoiEnhancer.stacker_features(full_probability, roi_probability, feature_mode)
 
     def _apply_roi_stacker(
@@ -285,6 +312,7 @@ class BreastUltrasoundInferenceService:
         roi_probability: float,
         stacker: dict[str, Any],
     ) -> float:
+        """Apply the ROI stacker through the RoiEnhancer service."""
         return self.roi_enhancer.apply_roi_stacker(
             full_probability=full_probability,
             roi_probability=roi_probability,
@@ -300,6 +328,7 @@ class BreastUltrasoundInferenceService:
         descriptors: dict[str, float],
         router: dict[str, Any],
     ) -> float:
+        """Apply descriptor-based routing through the RoiEnhancer service."""
         return self.roi_enhancer.apply_descriptor_router(
             full_probability=full_probability,
             roi_probability=roi_probability,
@@ -310,10 +339,12 @@ class BreastUltrasoundInferenceService:
 
     @staticmethod
     def _roi_area_ratio(mask: np.ndarray | None, config: dict[str, Any]) -> tuple[float, bool]:
+        """Return the ROI crop area ratio for a segmentation mask."""
         return RoiEnhancer.roi_area_ratio(mask, config)
 
     @staticmethod
     def _roi_area_gate_config(config: dict[str, Any]) -> dict[str, Any] | None:
+        """Parse ROI area gate settings from an ROI config dict."""
         return RoiEnhancer.roi_area_gate_config(config)
 
     def _should_fallback_roi_by_area(
@@ -321,6 +352,7 @@ class BreastUltrasoundInferenceService:
         mask: np.ndarray | None,
         config: dict[str, Any],
     ) -> bool:
+        """Return True when ROI mask area should fall back to full-image prediction."""
         return self.roi_enhancer.should_fallback_by_area(mask, config)
 
     def _predict_roi_enhanced_classification(
@@ -348,6 +380,7 @@ class BreastUltrasoundInferenceService:
         return benign_probability, malignant_probability
 
     def _predict_classification(self, image: np.ndarray) -> tuple[float, float]:
+        """Run full-image classification and optional ROI-enhanced refinement."""
         self._last_roi_fallback_reason = None
         if self.classifier_predictor is not None:
             benign, malignant = self.classifier_predictor(image)
@@ -378,6 +411,7 @@ class BreastUltrasoundInferenceService:
         need_segmentation: bool,
         need_explanation: bool,
     ) -> None:
+        """Attach optional lesion and explanation views to a completed response."""
         self.visual_evidence.attach_optional_visuals(
             response,
             image,
@@ -388,9 +422,11 @@ class BreastUltrasoundInferenceService:
         )
 
     def _predict_segmentation(self, image: np.ndarray) -> np.ndarray:
+        """Predict a lesion mask through the visual evidence service."""
         return self.visual_evidence.predict_segmentation(image)
 
     def _predict_explanation(self, image: np.ndarray) -> np.ndarray:
+        """Generate a Grad-CAM explanation through the visual evidence service."""
         return self.visual_evidence.predict_explanation(image)
 
 

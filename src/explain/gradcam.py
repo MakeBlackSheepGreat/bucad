@@ -14,6 +14,7 @@ pytorch_grad_cam = optional_import("pytorch_grad_cam")
 
 
 def generate_gradcam_map(model, input_tensor, *, target_layer=None) -> np.ndarray:
+    """Generate a normalized Grad-CAM map for one classifier input tensor."""
     if torch is None or pytorch_grad_cam is None:
         raise OptionalOutputUnavailableError(
             "Grad-CAM dependency is not installed in the current environment."

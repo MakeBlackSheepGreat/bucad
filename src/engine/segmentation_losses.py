@@ -12,6 +12,7 @@ F = optional_import("torch.nn.functional")
 
 
 def _resize_like(values, target):
+    """Resize feature maps to match the target spatial dimensions."""
     require_dependency("torch.nn.functional", F)
     if values.shape[-2:] == target.shape[-2:]:
         return values
@@ -19,10 +20,12 @@ def _resize_like(values, target):
 
 
 def _binary_target(mask):
+    """Convert a probability mask to a binary target tensor."""
     return (mask > 0.5).to(dtype=mask.dtype)
 
 
 def dice_loss_from_logits(logits, targets, *, eps: float = 1e-6):
+    """Compute a soft Dice loss from raw logits and binary targets."""
     require_dependency("torch", torch)
     probabilities = torch.sigmoid(_resize_like(logits, targets))
     targets = targets.to(dtype=probabilities.dtype)
@@ -34,6 +37,7 @@ def dice_loss_from_logits(logits, targets, *, eps: float = 1e-6):
 
 
 def boundary_target_from_mask(mask, *, kernel_size: int = 3):
+    """Derive a single-pixel boundary target from a mask using dilation minus erosion."""
     require_dependency("torch", torch)
     require_dependency("torch.nn.functional", F)
     target = _binary_target(mask)
@@ -44,6 +48,7 @@ def boundary_target_from_mask(mask, *, kernel_size: int = 3):
 
 
 def boundary_bce_loss(boundary_logits, targets):
+    """Compute binary cross-entropy between predicted and target boundaries."""
     require_dependency("torch.nn.functional", F)
     resized_logits = _resize_like(boundary_logits, targets)
     boundary_targets = boundary_target_from_mask(targets)
@@ -51,6 +56,7 @@ def boundary_bce_loss(boundary_logits, targets):
 
 
 def pixel_affinity_loss(mask_logits, targets, *, shifts: tuple[tuple[int, int], ...] | None = None):
+    """Penalize neighboring pixel prediction inconsistency for mask refinement."""
     require_dependency("torch", torch)
     require_dependency("torch.nn.functional", F)
     if shifts is None:
@@ -74,6 +80,7 @@ def pixel_affinity_loss(mask_logits, targets, *, shifts: tuple[tuple[int, int], 
 
 
 def _weighted_prototype(features, weights):
+    """Compute a spatially weighted feature prototype."""
     require_dependency("torch", torch)
     weights = weights.to(dtype=features.dtype)
     numerator = (features * weights).sum(dim=(2, 3))
@@ -116,6 +123,7 @@ def prototype_contrast_loss(features, targets, *, positive_region: str = "foregr
 
 
 def _extract_mask_logits(outputs: Any):
+    """Unwrap mask logits from dict or raw model outputs."""
     if isinstance(outputs, dict):
         return outputs.get("mask")
     return outputs

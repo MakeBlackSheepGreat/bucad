@@ -13,6 +13,7 @@ from src.engine.train_seg import run_segmentation_training
 
 
 def build_parser() -> argparse.ArgumentParser:
+    """Build CLI options for one segmenter fold training run."""
     parser = argparse.ArgumentParser(description="Train the baseline segmenter.")
     parser.add_argument("--config", required=True, help="Path to segmenter config YAML")
     parser.add_argument("--fold", type=int, default=1)
@@ -21,6 +22,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main() -> int:
+    """Run segmentation training and print the selected checkpoint path."""
     args = build_parser().parse_args()
     report = run_segmentation_training(args.config, fold=args.fold, epochs_override=args.epochs)
     print(report["checkpoint_path"])

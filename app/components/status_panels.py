@@ -9,6 +9,7 @@ from src.utils.results import InferenceResponse
 
 
 def status_markdown(response: InferenceResponse) -> str:
+    """Render the current inference status card."""
     status = escape(localize_status(response.status))
     status_class = "ok" if response.status == "completed" else "warn"
     return f"""
@@ -23,6 +24,7 @@ def status_markdown(response: InferenceResponse) -> str:
 
 
 def warnings_markdown(response: InferenceResponse) -> str:
+    """Render warning messages or an empty-state hint."""
     if not response.warnings:
         return """
 <div class="status-card">

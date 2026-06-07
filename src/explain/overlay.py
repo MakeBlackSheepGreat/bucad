@@ -8,6 +8,7 @@ from src.preprocess.io import cv2, ensure_three_channels
 
 
 def _resize_like(image: np.ndarray, target_shape: tuple[int, int]) -> np.ndarray:
+    """Resize an overlay input to a target height and width."""
     if image.shape[:2] == target_shape:
         return image
     if cv2 is not None:
@@ -16,6 +17,7 @@ def _resize_like(image: np.ndarray, target_shape: tuple[int, int]) -> np.ndarray
 
 
 def normalize_uint8(image: np.ndarray) -> np.ndarray:
+    """Scale an image-like array to uint8 display range."""
     array = image.astype(np.float32)
     if array.max() <= 1.0:
         array *= 255.0
@@ -29,6 +31,7 @@ def render_mask_overlay(
     color: tuple[int, int, int] = (255, 64, 64),
     alpha: float = 0.35,
 ) -> np.ndarray:
+    """Blend a binary lesion mask over the original image."""
     base = normalize_uint8(ensure_three_channels(image))
     resized_mask = _resize_like(mask.astype(np.float32), base.shape[:2])
     binary_mask = resized_mask > 0.5
@@ -40,6 +43,7 @@ def render_mask_overlay(
 
 
 def render_heatmap_overlay(image: np.ndarray, heatmap: np.ndarray, *, alpha: float = 0.4) -> np.ndarray:
+    """Blend a normalized heatmap over the original image."""
     base = normalize_uint8(ensure_three_channels(image))
     heat = _resize_like(heatmap.astype(np.float32), base.shape[:2])
     heat = heat - heat.min()

@@ -14,6 +14,7 @@ from src.utils.results import InferenceResponse
 
 
 def _risk_level(final_label: str, confidence_band: str) -> str:
+    """Map model label and confidence into a compact risk badge."""
     if final_label == "malignant" and confidence_band == "high":
         return "高风险"
     if confidence_band == "borderline":
@@ -24,6 +25,7 @@ def _risk_level(final_label: str, confidence_band: str) -> str:
 
 
 def _display_model_version(model_version: str, metadata: dict | None = None) -> str:
+    """Prefer a configured display name while preserving legacy model identifiers."""
     metadata = metadata or {}
     display_name = metadata.get("ensemble_display_name")
     if display_name:

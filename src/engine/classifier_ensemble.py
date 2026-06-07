@@ -23,6 +23,7 @@ class ClassifierEnsemble:
     """Load configured classifier members, apply TTA, and average probabilities."""
 
     def __init__(self, runtime_config: RuntimeConfig, *, paths=None) -> None:
+        """Initialize lazy model caches from parsed runtime config and project paths."""
         self.runtime_config = runtime_config
         self.paths = paths
         self._classifier_model = None
@@ -32,13 +33,16 @@ class ClassifierEnsemble:
 
     @property
     def primary_model(self):
+        """Return the first loaded classifier model, or None when unloaded."""
         return self._classifier_model
 
     def resolved_classifier_checkpoint(self) -> str | None:
+        """Return the first resolved checkpoint path, if any."""
         checkpoints = self.resolved_classifier_checkpoints()
         return checkpoints[0] if checkpoints else None
 
     def resolved_classifier_member_configs(self) -> list[dict[str, Any]]:
+        """Return the configured ensemble member dicts, falling back to single-checkpoint mode."""
         members = self.runtime_config.classifier_member_dicts()
         if members:
             return members
@@ -52,6 +56,7 @@ class ClassifierEnsemble:
         ]
 
     def resolved_classifier_checkpoints(self) -> list[str]:
+        """Return the resolved checkpoint path list from config or project defaults."""
         if self.runtime_config.classifier_checkpoints:
             return list(self.runtime_config.classifier_checkpoints)
         if self.paths is not None and self.paths.default_classifier_ckpt.exists():
@@ -59,6 +64,7 @@ class ClassifierEnsemble:
         return []
 
     def model_identifier(self) -> str:
+        """Return a short human-readable name for the current classifier ensemble."""
         members = self.resolved_classifier_member_configs()
         if len(members) > 1:
             model_names = sorted({member["model"] for member in members})
@@ -74,6 +80,7 @@ class ClassifierEnsemble:
         runtime_key: str,
         default: Any,
     ) -> Any:
+        """Look up a member-level override, then fall back to the runtime config."""
         return self.runtime_config.member_config_value(member, key, runtime_key, default)
 
     def preprocess_kwargs(
@@ -81,6 +88,7 @@ class ClassifierEnsemble:
         variant: dict[str, Any] | None = None,
         member: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
+        """Return classifier preprocessing kwargs for the given variant and member."""
         variant = variant or {}
         crop_pct = self.member_config_value(member, "crop_pct", "classifier_crop_pct", 1.0)
         return {
@@ -101,6 +109,7 @@ class ClassifierEnsemble:
         }
 
     def device(self) -> str:
+        """Resolve the classifier device string, preferring CUDA when available."""
         requested = self.runtime_config.get(
             "classifier_device",
             self.runtime_config.get("device", "cpu"),
@@ -108,6 +117,7 @@ class ClassifierEnsemble:
         return resolve_torch_device(requested, torch)
 
     def _ensure_models_on_device(self, device: str) -> None:
+        """Move cached models to *device* only when it differs from the current cache."""
         if self._classifier_models is None or self._model_device == device:
             return
         # Keep model migration explicit so repeated inference calls do not hide
@@ -117,6 +127,7 @@ class ClassifierEnsemble:
         self._model_device = device
 
     def _model_config_for_member(self, member: dict[str, Any]) -> dict[str, Any]:
+        """Build the model constructor dict for a single ensemble member."""
         return {
             "name": member["model"],
             "pretrained": bool(
@@ -132,6 +143,7 @@ class ClassifierEnsemble:
         }
 
     def _ensure_classifier_members_loaded(self, member_configs: list[dict[str, Any]]) -> None:
+        """Lazy-load all member checkpoints once, caching models and metadata."""
         if self._classifier_members is not None:
             return
         # Classifier checkpoints are loaded lazily because Gradio can build the
@@ -154,6 +166,7 @@ class ClassifierEnsemble:
         member: dict[str, Any],
         member_weight_overrides: dict[str, float] | None,
     ) -> float:
+        """Return the ensemble weight for one member, honoring optional overrides."""
         weight = float(member.get("weight", 1.0))
         if member_weight_overrides:
             return float(member_weight_overrides.get(str(member.get("model")), weight))
@@ -166,6 +179,7 @@ class ClassifierEnsemble:
         *,
         device: str,
     ) -> np.ndarray:
+        """Run TTA variants for one member and return averaged class probabilities."""
         input_tensors = self.input_tensors(image, member)
         if not input_tensors or not hasattr(input_tensors[0], "unsqueeze"):
             raise ClassificationUnavailableError("Torch tensor conversion failed for classifier input.")
@@ -183,6 +197,7 @@ class ClassifierEnsemble:
         weighted_probabilities: list[np.ndarray],
         weights: list[float],
     ) -> np.ndarray:
+        """Average weighted probability arrays and normalize by the total weight."""
         if not weights:
             raise ClassificationUnavailableError("No classifier member has a positive weight.")
         return np.sum(np.asarray(weighted_probabilities, dtype=np.float32), axis=0) / float(sum(weights))
@@ -217,6 +232,7 @@ class ClassifierEnsemble:
         return variants
 
     def apply_tta_variant(self, image: np.ndarray, variant: dict[str, Any]) -> np.ndarray:
+        """Apply a single TTA variant such as horizontal flip or rotation."""
         name = str(variant.get("name", "identity")).lower()
         if name in {"identity", "none", "original"}:
             return image
@@ -246,6 +262,7 @@ class ClassifierEnsemble:
         image: np.ndarray,
         member: dict[str, Any] | None = None,
     ) -> list[Any]:
+        """Build one input tensor per TTA variant for the given member."""
         tensors = []
         image_size = int(
             self.member_config_value(member, "image_size", "classifier_image_size", 224)

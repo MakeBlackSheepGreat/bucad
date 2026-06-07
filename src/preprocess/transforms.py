@@ -43,6 +43,7 @@ def _random_scale_crop(image: np.ndarray, *, scale_min: float, scale_max: float)
 
 
 def _random_rotate(image: np.ndarray, *, max_degrees: float) -> np.ndarray:
+    """Randomly rotate an image within +/- max_degrees, preserving size."""
     if cv2 is None or max_degrees <= 0:
         return image
     angle = float(np.random.uniform(-max_degrees, max_degrees))
@@ -65,6 +66,7 @@ def _random_brightness_contrast(
     brightness: float,
     contrast: float,
 ) -> np.ndarray:
+    """Randomly adjust brightness and contrast while preserving dtype."""
     if brightness <= 0 and contrast <= 0:
         return image
     array = image.astype(np.float32)
@@ -75,6 +77,7 @@ def _random_brightness_contrast(
 
 
 def _cv2_interpolation(name: str):
+    """Map a readable interpolation name to an OpenCV interpolation code."""
     if cv2 is None:
         return None
     normalized = str(name).lower()
@@ -91,6 +94,7 @@ def _cv2_interpolation(name: str):
 
 
 def resize_image(image: np.ndarray, size: int, *, interpolation: str = "area") -> np.ndarray:
+    """Resize an image or mask to a square size."""
     if cv2 is not None:
         interpolation_code = _cv2_interpolation(interpolation)
         return cv2.resize(image, (size, size), interpolation=interpolation_code)
@@ -104,6 +108,7 @@ def resize_image(image: np.ndarray, size: int, *, interpolation: str = "area") -
 
 
 def _resize_shorter_side(image: np.ndarray, size: int, *, interpolation: str) -> np.ndarray:
+    """Resize an image so its shorter side equals the requested size."""
     if cv2 is None:
         pil_module = optional_import("PIL.Image")
         if pil_module is None:
@@ -128,6 +133,7 @@ def _resize_shorter_side(image: np.ndarray, size: int, *, interpolation: str) ->
 
 
 def center_crop(image: np.ndarray, size: int) -> np.ndarray:
+    """Crop the center square region, resizing first when the image is too small."""
     height, width = image.shape[:2]
     if height < size or width < size:
         return resize_image(image, size)
@@ -143,6 +149,7 @@ def resize_with_optional_crop(
     interpolation: str = "area",
     crop_pct: float = 1.0,
 ) -> np.ndarray:
+    """Resize directly or use timm-style resize-then-center-crop preprocessing."""
     crop_pct = float(crop_pct or 1.0)
     if crop_pct >= 0.999:
         return resize_image(image, size, interpolation=interpolation)
@@ -152,6 +159,7 @@ def resize_with_optional_crop(
 
 
 def _channel_values(values: Sequence[float] | None) -> np.ndarray | None:
+    """Normalize one or three channel constants into broadcastable RGB shape."""
     if values is None:
         return None
     array = np.asarray(list(values), dtype=np.float32)
@@ -168,6 +176,7 @@ def normalize_image(
     mean: Sequence[float] | None = None,
     std: Sequence[float] | None = None,
 ) -> np.ndarray:
+    """Scale image pixels to float range and apply optional mean/std normalization."""
     array = image.astype(np.float32)
     if array.max() > 1.0:
         array /= 255.0
@@ -197,11 +206,13 @@ def apply_clahe(image: np.ndarray, *, clip_limit: float = 2.0, tile_grid_size: i
 
 
 def to_chw(image: np.ndarray) -> np.ndarray:
+    """Convert an image from HWC to CHW float32 layout."""
     image = ensure_three_channels(image)
     return np.transpose(image, (2, 0, 1)).astype(np.float32)
 
 
 def to_tensor_if_available(array: np.ndarray) -> Any:
+    """Convert a NumPy array to torch.Tensor when PyTorch is installed."""
     if torch is None:
         return array
     return torch.from_numpy(array)
@@ -217,6 +228,7 @@ def prepare_classifier_input(
     interpolation: str = "area",
     crop_pct: float = 1.0,
 ) -> Any:
+    """Apply classifier preprocessing and return a CHW tensor/array."""
     processed = apply_clahe(image) if apply_clahe_enabled else image
     resized = resize_with_optional_crop(
         ensure_three_channels(processed),
@@ -279,6 +291,7 @@ def build_classifier_transform(
 
 
 def prepare_mask_target(mask: np.ndarray, image_size: int) -> Any:
+    """Resize a binary mask target and return it with a channel dimension."""
     resized = resize_image(mask.astype(np.uint8), image_size)
     channel = resized.astype(np.float32)[None, ...]
     return to_tensor_if_available(channel)

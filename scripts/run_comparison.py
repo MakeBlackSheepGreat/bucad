@@ -13,6 +13,7 @@ from src.engine.compare_cls import run_classifier_comparison
 
 
 def build_parser() -> argparse.ArgumentParser:
+    """Build CLI options for classifier comparison runs."""
     parser = argparse.ArgumentParser(description="Run classifier comparison experiments.")
     parser.add_argument("--config", default="configs/classifier/comparison.yml")
     parser.add_argument("--fold", type=int, default=1)
@@ -23,6 +24,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main() -> int:
+    """Run comparison experiments and print a compact execution summary."""
     args = build_parser().parse_args()
     report = run_classifier_comparison(
         args.config,

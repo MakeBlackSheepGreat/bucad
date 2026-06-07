@@ -13,6 +13,7 @@ from src.engine.inference import evaluate_busi_dataset
 
 
 def build_parser() -> argparse.ArgumentParser:
+    """Build CLI options for BUSI external evaluation."""
     parser = argparse.ArgumentParser(description="Run BUSI external evaluation.")
     parser.add_argument("--config", required=True, help="Path to inference config YAML")
     parser.add_argument("--output", default=None, help="Optional output path for the report")
@@ -20,6 +21,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main() -> int:
+    """Evaluate the frozen inference config and print headline metrics."""
     args = build_parser().parse_args()
     report = evaluate_busi_dataset(args.config, output_path=args.output)
     print(report["metrics"])

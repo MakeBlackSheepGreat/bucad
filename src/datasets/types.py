@@ -8,6 +8,8 @@ from typing import Any
 
 @dataclass(slots=True)
 class CaseSample:
+    """Normalized metadata for one breast ultrasound image sample."""
+
     sample_id: str
     case_id: str
     dataset_name: str
@@ -18,4 +20,5 @@ class CaseSample:
     quality_flag: str = "valid"
 
     def to_dict(self) -> dict[str, Any]:
+        """Serialize the sample metadata to a plain dict."""
         return asdict(self)

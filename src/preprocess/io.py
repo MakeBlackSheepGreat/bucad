@@ -21,12 +21,14 @@ SUPPORTED_SUFFIXES = {".png", ".jpg", ".jpeg", ".bmp"}
 
 
 def validate_suffix(path: str | Path) -> None:
+    """Validate that an image path uses a supported file suffix."""
     suffix = Path(path).suffix.lower()
     if suffix not in SUPPORTED_SUFFIXES:
         raise InvalidInputError(f"Unsupported image file type: {suffix}")
 
 
 def _read_with_cv2(path: Path, grayscale: bool) -> np.ndarray:
+    """Read an image with OpenCV while preserving Windows Unicode paths."""
     require_dependency("cv2", cv2)
     flag = cv2.IMREAD_GRAYSCALE if grayscale else cv2.IMREAD_COLOR
     buffer = np.fromfile(path, dtype=np.uint8)
@@ -39,6 +41,7 @@ def _read_with_cv2(path: Path, grayscale: bool) -> np.ndarray:
 
 
 def _read_with_pil(path: Path, grayscale: bool) -> np.ndarray:
+    """Read an image with Pillow when OpenCV is unavailable."""
     if PIL_Image is None:
         raise InvalidInputError(
             "No image backend is installed. Install opencv-python or Pillow."
@@ -52,6 +55,7 @@ def _read_with_pil(path: Path, grayscale: bool) -> np.ndarray:
 
 
 def read_image(image: str | Path | np.ndarray, *, grayscale: bool = True) -> np.ndarray:
+    """Read a path or copy an existing array into the requested channel format."""
     if isinstance(image, np.ndarray):
         array = image.copy()
         if grayscale and array.ndim == 3:
@@ -69,6 +73,7 @@ def read_image(image: str | Path | np.ndarray, *, grayscale: bool = True) -> np.
 
 
 def save_image(path: str | Path, image: np.ndarray) -> Path:
+    """Save an image with OpenCV or Pillow and return the output path."""
     output_path = Path(path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     if cv2 is not None:
@@ -88,6 +93,7 @@ def save_image(path: str | Path, image: np.ndarray) -> Path:
 
 
 def read_mask(mask_path: str | Path | None) -> np.ndarray | None:
+    """Read a mask path as a binary uint8 mask, returning None when absent."""
     if mask_path is None:
         return None
     mask = read_image(mask_path, grayscale=True)
@@ -95,6 +101,7 @@ def read_mask(mask_path: str | Path | None) -> np.ndarray | None:
 
 
 def ensure_three_channels(image: np.ndarray) -> np.ndarray:
+    """Convert grayscale or single-channel arrays to RGB-like three-channel arrays."""
     if image.ndim == 2:
         return np.repeat(image[..., None], 3, axis=2)
     if image.ndim == 3 and image.shape[2] == 1:
@@ -103,6 +110,7 @@ def ensure_three_channels(image: np.ndarray) -> np.ndarray:
 
 
 def validate_image_array(image: np.ndarray) -> None:
+    """Validate that an uploaded image array is non-empty and image-shaped."""
     if image.size == 0:
         raise InvalidInputError("Image is empty.")
     if image.ndim not in (2, 3):

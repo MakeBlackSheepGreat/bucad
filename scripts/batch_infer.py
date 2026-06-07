@@ -25,6 +25,7 @@ def batch_infer(
     *,
     classifier_predictor: Callable[[np.ndarray], tuple[float, float]] | None = None,
 ) -> Path:
+    """Run folder-level diagnosis and write one CSV row per supported image."""
     config, paths = load_project_config(config_path)
     source_dir = Path(input_dir)
     if not source_dir.is_absolute():
@@ -78,6 +79,7 @@ def batch_infer(
 
 
 def build_parser() -> argparse.ArgumentParser:
+    """Build CLI options for batch inference export."""
     parser = argparse.ArgumentParser(description="Run batch inference for a folder of ultrasound images.")
     parser.add_argument("--config", default="configs/inference/demo.yml")
     parser.add_argument("--input-dir", required=True)
@@ -86,6 +88,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main() -> int:
+    """Run batch inference from CLI arguments and print the CSV path."""
     args = build_parser().parse_args()
     output = batch_infer(args.config, args.input_dir, args.output)
     print(output)

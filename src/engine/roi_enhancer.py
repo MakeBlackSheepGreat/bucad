@@ -22,6 +22,7 @@ class RoiEnhancer:
     def stacker_features(
         full_probability: float, roi_probability: float, feature_mode: str
     ) -> np.ndarray:
+        """Build the two-feature vector consumed by the ROI logistic stacker."""
         values = np.asarray([full_probability, roi_probability], dtype=np.float64)
         if feature_mode == "logit":
             clipped = np.clip(values, 1e-6, 1.0 - 1e-6)
@@ -94,6 +95,7 @@ class RoiEnhancer:
 
     @staticmethod
     def roi_area_ratio(mask: np.ndarray | None, config: dict[str, Any]) -> tuple[float, bool]:
+        """Return expanded ROI area ratio and whether a no-mask fallback was used."""
         if mask is None:
             return 1.0, True
         threshold = float(config.get("mask_threshold", 0.5))
@@ -119,6 +121,7 @@ class RoiEnhancer:
 
     @staticmethod
     def roi_area_gate_config(config: dict[str, Any]) -> dict[str, Any] | None:
+        """Parse optional ROI area quality gate settings."""
         gate = config.get("quality_gate")
         if not isinstance(gate, dict):
             gate = {}
@@ -153,6 +156,7 @@ class RoiEnhancer:
 
     @staticmethod
     def _member_weight_overrides(config: dict[str, Any]) -> dict[str, float] | None:
+        """Return classifier weight overrides for the ROI pass, if configured."""
         raw_weight_overrides = config.get("classifier_weight_overrides", {})
         if not isinstance(raw_weight_overrides, dict) or not raw_weight_overrides:
             return None
@@ -160,6 +164,7 @@ class RoiEnhancer:
 
     @staticmethod
     def _roi_image(image: np.ndarray, mask: np.ndarray, config: dict[str, Any]) -> np.ndarray:
+        """Crop the input image around the segmentation mask for ROI reclassification."""
         return crop_to_mask_bbox(
             image,
             mask,
@@ -175,6 +180,7 @@ class RoiEnhancer:
         roi_malignant_probability: float,
         blend_weight: float,
     ) -> float:
+        """Blend a ROI probability with the original full-image probability."""
         if blend_weight >= 1.0:
             return float(roi_malignant_probability)
         clipped_weight = float(np.clip(blend_weight, 0.0, 1.0))

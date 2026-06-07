@@ -25,6 +25,7 @@ if nn is not None:
             kernel_size: int = 3,
             groups: int = 1,
         ) -> None:
+            """Build a convolution, batch norm, and SiLU activation block."""
             super().__init__()
             padding = kernel_size // 2
             self.block = nn.Sequential(
@@ -41,6 +42,7 @@ if nn is not None:
             )
 
         def forward(self, x):
+            """Apply the convolutional block."""
             return self.block(x)
 
 
@@ -48,11 +50,13 @@ if nn is not None:
         """CENet-style multi-scale difference block for skip edge enhancement."""
 
         def __init__(self, channels: int, *, scales: tuple[int, ...] = (2, 4)) -> None:
+            """Create pooled-difference branches for skip feature sharpening."""
             super().__init__()
             self.scales = scales
             self.fuse = ConvNormAct(channels * (len(scales) + 1), channels, kernel_size=1)
 
         def forward(self, x):
+            """Concatenate original and pooled-difference features, then fuse."""
             require_dependency("torch.nn.functional", F)
             features = [x]
             for scale in self.scales:
@@ -71,6 +75,7 @@ if nn is not None:
         """Subtracts a coarse context attention map from an edge attention map."""
 
         def __init__(self, channels: int) -> None:
+            """Create edge and context attention branches."""
             super().__init__()
             hidden = max(8, channels // 4)
             self.edge_attention = nn.Sequential(
@@ -84,6 +89,7 @@ if nn is not None:
             )
 
         def forward(self, x):
+            """Apply differential attention to emphasize likely edge features."""
             attention = torch.sigmoid(self.edge_attention(x) - self.context_attention(x))
             return x * (1.0 + attention)
 
@@ -92,18 +98,23 @@ if nn is not None:
         """Differential skip enhancement block inspired by CENet."""
 
         def __init__(self, channels: int) -> None:
+            """Create edge amplification, differential attention, and output fusion."""
             super().__init__()
             self.edge = FeatureEdgeAmplifier(channels)
             self.attention = DifferentialAttention(channels)
             self.output = ConvNormAct(channels, channels, kernel_size=3)
 
         def forward(self, x):
+            """Enhance skip features and preserve the residual signal."""
             enhanced = self.attention(self.edge(x))
             return self.output(x + enhanced)
 
 
     class ChannelCalibrationUnit(nn.Module):
+        """Channel attention block using mean, max, and standard deviation descriptors."""
+
         def __init__(self, channels: int, *, reduction: int = 8) -> None:
+            """Build the channel calibration MLP."""
             super().__init__()
             hidden = max(4, channels // reduction)
             self.mlp = nn.Sequential(
@@ -113,6 +124,7 @@ if nn is not None:
             )
 
         def forward(self, x):
+            """Apply channel-wise calibration weights."""
             avg = x.mean(dim=(2, 3), keepdim=True)
             max_values = x.amax(dim=(2, 3), keepdim=True)
             std = x.std(dim=(2, 3), keepdim=True, unbiased=False)
@@ -121,7 +133,10 @@ if nn is not None:
 
 
     class MultiScaleContextAggregator(nn.Module):
+        """Depthwise multi-kernel context aggregator."""
+
         def __init__(self, channels: int, *, kernels: tuple[int, ...] = (3, 5, 7)) -> None:
+            """Build one depthwise branch per kernel size and a fusion block."""
             super().__init__()
             branches = []
             for kernel in kernels:
@@ -135,11 +150,15 @@ if nn is not None:
             self.fuse = ConvNormAct(channels * len(kernels), channels, kernel_size=1)
 
         def forward(self, x):
+            """Fuse context branches along the channel dimension."""
             return self.fuse(torch.cat([branch(x) for branch in self.branches], dim=1))
 
 
     class WeightedNonLocalLite(nn.Module):
+        """Lightweight non-local context block with learnable residual weight."""
+
         def __init__(self, channels: int, *, pool_size: int = 16) -> None:
+            """Build query/key/value projections over pooled spatial features."""
             super().__init__()
             hidden = max(8, channels // 2)
             self.pool_size = pool_size
@@ -149,6 +168,7 @@ if nn is not None:
             self.weight = nn.Parameter(torch.tensor(0.0))
 
         def forward(self, x):
+            """Apply pooled self-attention and add it back as a residual context."""
             require_dependency("torch.nn.functional", F)
             batch, _, height, width = x.shape
             pooled = F.adaptive_avg_pool2d(x, output_size=(self.pool_size, self.pool_size))
@@ -167,6 +187,7 @@ if nn is not None:
         """CENet-style channel calibration and multi-scale context fusion."""
 
         def __init__(self, channels: int, *, use_nonlocal: bool = True) -> None:
+            """Create channel calibration, context aggregation, and optional non-local block."""
             super().__init__()
             self.channel = ChannelCalibrationUnit(channels)
             self.context = MultiScaleContextAggregator(channels)
@@ -174,13 +195,17 @@ if nn is not None:
             self.output = ConvNormAct(channels, channels, kernel_size=3)
 
         def forward(self, x):
+            """Fuse calibrated context with the original residual feature."""
             calibrated = self.channel(x)
             contextual = self.context(calibrated)
             return self.output(self.nonlocal_block(contextual) + x)
 
 
     class EncoderStage(nn.Module):
+        """Two-convolution encoder stage with optional downsampling."""
+
         def __init__(self, in_channels: int, out_channels: int, *, downsample: bool) -> None:
+            """Build one encoder stage."""
             super().__init__()
             layers = []
             if downsample:
@@ -194,10 +219,13 @@ if nn is not None:
             self.block = nn.Sequential(*layers)
 
         def forward(self, x):
+            """Return encoded features for this stage."""
             return self.block(x)
 
 
     class DecoderStage(nn.Module):
+        """Decoder stage that upsamples, enhances skip features, and fuses context."""
+
         def __init__(
             self,
             in_channels: int,
@@ -208,6 +236,7 @@ if nn is not None:
             use_cfam: bool,
             use_nonlocal: bool,
         ) -> None:
+            """Build one decoder stage with optional DSEB and CFAM."""
             super().__init__()
             self.skip_enhance = DSEB(skip_channels) if use_dseb else nn.Identity()
             self.reduce = ConvNormAct(in_channels + skip_channels, out_channels)
@@ -215,6 +244,7 @@ if nn is not None:
             self.output = ConvNormAct(out_channels, out_channels)
 
         def forward(self, x, skip):
+            """Upsample decoder features, fuse with skip features, and return refined output."""
             require_dependency("torch.nn.functional", F)
             x = F.interpolate(x, size=skip.shape[-2:], mode="bilinear", align_corners=False)
             skip = self.skip_enhance(skip)
@@ -273,6 +303,7 @@ if nn is not None:
             self.boundary_head = nn.Conv2d(widths[0], classes, kernel_size=1) if boundary_head else None
 
         def _forward_features(self, x) -> dict[str, Any]:
+            """Return decoder and bottleneck features before task heads."""
             s1 = self.enc1(x)
             s2 = self.enc2(s1)
             s3 = self.enc3(s2)
@@ -284,6 +315,7 @@ if nn is not None:
             return {"decoder_feature": decoder_feature, "bottleneck": s4}
 
         def forward_with_aux(self, x) -> dict[str, Any]:
+            """Return mask logits plus auxiliary features and optional boundary logits."""
             features = self._forward_features(x)
             mask = self.mask_head(features["decoder_feature"])
             output = {
@@ -296,6 +328,7 @@ if nn is not None:
             return output
 
         def forward(self, x):
+            """Return only mask logits for standard segmentation callers."""
             return self.forward_with_aux(x)["mask"]
 
 
@@ -344,6 +377,7 @@ if nn is not None:
             self.boundary_head = nn.Conv2d(decoder_channels, classes, kernel_size=1) if boundary_head else None
 
         def forward_with_aux(self, x) -> dict[str, Any]:
+            """Run the timm feature pyramid and return mask plus auxiliary outputs."""
             require_dependency("torch.nn.functional", F)
             features = self.encoder(x)
             projected = [projection(feature) for projection, feature in zip(self.projections, features)]
@@ -367,12 +401,19 @@ if nn is not None:
             return output
 
         def forward(self, x):
+            """Return only mask logits for standard segmentation callers."""
             return self.forward_with_aux(x)["mask"]
 else:  # pragma: no cover - torch missing
     class CENetLite:  # type: ignore[override]
+        """Placeholder CENetLite used when torch is unavailable."""
+
         def __init__(self, *args, **kwargs) -> None:
+            """Raise a dependency error on construction."""
             raise RuntimeError("Torch is required to construct CENetLite.")
 
     class TimmFeaturePyramidSegmenter:  # type: ignore[override]
+        """Placeholder timm-backed segmenter used when dependencies are unavailable."""
+
         def __init__(self, *args, **kwargs) -> None:
+            """Raise a dependency error on construction."""
             raise RuntimeError("Torch and timm are required to construct the PVT-v2 segmenter.")

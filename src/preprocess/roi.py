@@ -11,6 +11,7 @@ from src.preprocess.transforms import resize_image
 
 
 def _resize_mask_to_image(mask: np.ndarray, image: np.ndarray) -> np.ndarray:
+    """Resize a mask to match an image before bbox extraction."""
     if mask.shape[:2] == image.shape[:2]:
         return mask
     height, width = image.shape[:2]
@@ -61,6 +62,7 @@ def mask_bbox(
     min_area_ratio: float = 0.001,
     largest_component: bool = False,
 ) -> tuple[int, int, int, int] | None:
+    """Return the foreground bbox for a mask, or None when the mask is too small."""
     binary = np.asarray(mask) > float(threshold)
     if binary.ndim == 3:
         binary = binary[..., 0]

@@ -16,6 +16,7 @@ def resolve_runtime_checkpoint_paths(
     resolved = dict(runtime_config)
 
     def resolve_checkpoint(value: Any) -> Any:
+        """Resolve a single checkpoint path relative to the project root."""
         if not value:
             return value
         return str(resolve_path(str(value), base_dir=project_root))
@@ -65,6 +66,7 @@ class ClassifierMemberConfig:
         *,
         fallback_model: str,
     ) -> "ClassifierMemberConfig":
+        """Parse one classifier member mapping and preserve unknown override keys."""
         settings = dict(value)
         model = str(settings.pop("model", fallback_model))
         checkpoint = str(settings.pop("checkpoint"))
@@ -72,6 +74,7 @@ class ClassifierMemberConfig:
         return cls(model=model, checkpoint=checkpoint, weight=weight, settings=settings)
 
     def to_runtime_dict(self) -> dict[str, Any]:
+        """Return this member as the legacy runtime dict shape."""
         return {
             **self.settings,
             "model": self.model,
@@ -93,6 +96,7 @@ class RuntimeConfig:
 
     @classmethod
     def from_mapping(cls, value: dict[str, Any] | None) -> "RuntimeConfig":
+        """Parse a runtime config mapping into a normalized RuntimeConfig object."""
         raw = dict(value or {})
         fallback_model = str(raw.get("classifier_model", "resnet18"))
         members = cls._parse_classifier_members(raw, fallback_model=fallback_model)
@@ -122,6 +126,7 @@ class RuntimeConfig:
         list_key: str,
         single_key: str,
     ) -> list[str]:
+        """Return checkpoint paths from a list key, falling back to a single key."""
         checkpoint_list = raw.get(list_key)
         if isinstance(checkpoint_list, list) and checkpoint_list:
             return [str(checkpoint) for checkpoint in checkpoint_list if checkpoint]
@@ -161,6 +166,7 @@ class RuntimeConfig:
         ]
 
     def get(self, key: str, default: Any = None) -> Any:
+        """Return a raw runtime config value by key."""
         return self.raw.get(key, default)
 
     def member_config_value(
@@ -170,6 +176,7 @@ class RuntimeConfig:
         runtime_key: str,
         default: Any,
     ) -> Any:
+        """Look up a member-level override, then fall back to the runtime config."""
         if member is not None:
             if key in member:
                 return member[key]
@@ -178,6 +185,7 @@ class RuntimeConfig:
         return self.raw.get(runtime_key, default)
 
     def classifier_member_dicts(self) -> list[dict[str, Any]]:
+        """Return the parsed classifier members as plain dicts."""
         return [member.to_runtime_dict() for member in self.classifier_members]
 
     def roi_enhancement_config(self) -> dict[str, Any] | None:

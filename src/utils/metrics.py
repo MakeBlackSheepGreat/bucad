@@ -15,10 +15,12 @@ scipy_ndimage = optional_import("scipy.ndimage")
 
 
 def safe_divide(numerator: float, denominator: float) -> float:
+    """Return numerator / denominator, or 0.0 when the denominator is zero."""
     return float(numerator / denominator) if denominator else 0.0
 
 
 def normalize_binary_probs(benign: float, malignant: float) -> tuple[float, float]:
+    """Renormalize two class probabilities so they sum to one."""
     total = benign + malignant
     if total <= 0:
         return 0.5, 0.5
@@ -28,6 +30,7 @@ def normalize_binary_probs(benign: float, malignant: float) -> tuple[float, floa
 
 
 def confusion_summary(y_true: list[int] | np.ndarray, y_pred: list[int] | np.ndarray) -> dict[str, int]:
+    """Return TN/FP/FN/TP counts for binary predictions."""
     tn, fp, fn, tp = confusion_matrix(y_true, y_pred, labels=[0, 1]).ravel()
     return {"tn": int(tn), "fp": int(fp), "fn": int(fn), "tp": int(tp)}
 
@@ -73,6 +76,7 @@ def threshold_sweep(
     *,
     thresholds: list[float] | np.ndarray | None = None,
 ) -> list[dict[str, Any]]:
+    """Evaluate binary classification metrics across a range of decision thresholds."""
     if thresholds is None:
         thresholds = np.round(np.arange(0.1, 0.9001, 0.01), 2)
     rows: list[dict[str, Any]] = []
@@ -97,6 +101,7 @@ def best_threshold_by_youden(
     *,
     thresholds: list[float] | np.ndarray | None = None,
 ) -> dict[str, Any]:
+    """Return the threshold row that maximizes the Youden J statistic."""
     rows = threshold_sweep(y_true, malignant_probabilities, thresholds=thresholds)
     if not rows:
         return {}
@@ -104,6 +109,7 @@ def best_threshold_by_youden(
 
 
 def dice_score(pred_mask: np.ndarray, true_mask: np.ndarray, eps: float = 1e-6) -> float:
+    """Compute the Dice coefficient between two binary masks."""
     pred = pred_mask.astype(np.float32) > 0.5
     true = true_mask.astype(np.float32) > 0.5
     intersection = float(np.logical_and(pred, true).sum())
@@ -111,6 +117,7 @@ def dice_score(pred_mask: np.ndarray, true_mask: np.ndarray, eps: float = 1e-6) 
 
 
 def iou_score(pred_mask: np.ndarray, true_mask: np.ndarray, eps: float = 1e-6) -> float:
+    """Compute the Intersection-over-Union between two binary masks."""
     pred = pred_mask.astype(np.float32) > 0.5
     true = true_mask.astype(np.float32) > 0.5
     intersection = float(np.logical_and(pred, true).sum())
@@ -119,6 +126,7 @@ def iou_score(pred_mask: np.ndarray, true_mask: np.ndarray, eps: float = 1e-6) -
 
 
 def _binary_erosion(mask: np.ndarray) -> np.ndarray:
+    """Erode a binary mask by one pixel, using OpenCV, SciPy, or a manual fallback."""
     binary = mask.astype(bool)
     if cv2 is not None:
         kernel = np.ones((3, 3), dtype=np.uint8)
@@ -134,6 +142,7 @@ def _binary_erosion(mask: np.ndarray) -> np.ndarray:
 
 
 def mask_boundary(mask: np.ndarray) -> np.ndarray:
+    """Return a single-pixel boundary ring around the foreground region of a mask."""
     binary = mask.astype(np.float32) > 0.5
     if not binary.any():
         return np.zeros_like(binary, dtype=bool)
@@ -172,6 +181,7 @@ def boundary_f1_score(
 
 
 def _surface_distances(source: np.ndarray, target: np.ndarray) -> np.ndarray:
+    """Compute directed surface distances from *source* boundary to *target* boundary."""
     source_boundary = mask_boundary(source)
     target_boundary = mask_boundary(target)
     if not source_boundary.any() or not target_boundary.any():
@@ -194,6 +204,7 @@ def _surface_distances(source: np.ndarray, target: np.ndarray) -> np.ndarray:
 
 
 def hd95_score(pred_mask: np.ndarray, true_mask: np.ndarray) -> float:
+    """Compute the 95th-percentile Hausdorff distance between two binary masks."""
     pred = pred_mask.astype(np.float32) > 0.5
     true = true_mask.astype(np.float32) > 0.5
     if not pred.any() and not true.any():

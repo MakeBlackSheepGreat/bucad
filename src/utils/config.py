@@ -11,6 +11,7 @@ from src.utils.paths import ProjectPaths
 
 
 def load_yaml(path: str | Path) -> dict[str, Any]:
+    """Load a YAML file and return it as a dict, raising on non-mapping root."""
     with Path(path).open("r", encoding="utf-8") as handle:
         data = yaml.safe_load(handle) or {}
     if not isinstance(data, dict):
@@ -19,6 +20,7 @@ def load_yaml(path: str | Path) -> dict[str, Any]:
 
 
 def save_yaml(path: str | Path, data: Mapping[str, Any]) -> None:
+    """Write a mapping to YAML, preserving insertion order and Unicode text."""
     with Path(path).open("w", encoding="utf-8") as handle:
         yaml.safe_dump(dict(data), handle, sort_keys=False, allow_unicode=True)
 
@@ -54,6 +56,7 @@ def resolve_config_reference(config_path: str | Path, reference: str | Path) -> 
 
 
 def deep_merge(base: dict[str, Any], override: Mapping[str, Any]) -> dict[str, Any]:
+    """Recursively merge *override* into *base*, preserving nested dicts."""
     merged = dict(base)
     for key, value in override.items():
         if (
@@ -68,6 +71,7 @@ def deep_merge(base: dict[str, Any], override: Mapping[str, Any]) -> dict[str, A
 
 
 def load_project_config(config_path: str | Path) -> tuple[dict[str, Any], ProjectPaths]:
+    """Load a project config YAML and resolve its associated paths."""
     config = load_yaml(config_path)
     paths_config = config.get("paths_config")
     if paths_config:

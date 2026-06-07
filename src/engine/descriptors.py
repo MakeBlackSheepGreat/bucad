@@ -46,11 +46,13 @@ DEFAULT_ROUTER_FEATURES = BASE_ROUTER_FEATURES + ROI_DESCRIPTOR_FEATURES
 
 
 def logit(value: float) -> float:
+    """Compute the log-odds transform of a probability value."""
     clipped = float(np.clip(value, 1e-6, 1.0 - 1e-6))
     return float(math.log(clipped / (1.0 - clipped)))
 
 
 def _as_unit_float_image(image: np.ndarray) -> np.ndarray:
+    """Convert an image to a clipped [0,1] grayscale float array."""
     array = np.asarray(image, dtype=np.float64)
     if array.ndim == 3:
         array = array[..., 0]
@@ -62,6 +64,7 @@ def _as_unit_float_image(image: np.ndarray) -> np.ndarray:
 
 
 def _resize_mask_to_image(mask: np.ndarray, image: np.ndarray) -> np.ndarray:
+    """Resize a mask to match the image height and width."""
     mask_array = np.asarray(mask, dtype=np.float32)
     if mask_array.ndim == 3:
         mask_array = mask_array[..., 0]
@@ -76,6 +79,7 @@ def _resize_mask_to_image(mask: np.ndarray, image: np.ndarray) -> np.ndarray:
 
 
 def _connected_component_summary(binary: np.ndarray) -> tuple[int, np.ndarray]:
+    """Return the connected component count and labeled mask for a binary image."""
     binary_bool = np.asarray(binary, dtype=bool)
     if not np.any(binary_bool):
         return 0, binary_bool
@@ -138,6 +142,7 @@ def _boundary_stats(binary: np.ndarray, image: np.ndarray) -> tuple[float, float
 
 
 def _image_sharpness(image: np.ndarray) -> float:
+    """Estimate image sharpness from Laplacian or gradient variance."""
     if image.size == 0:
         return 0.0
     if cv2 is not None:
@@ -282,6 +287,7 @@ def router_feature_vector(
     feature_map: dict[str, float],
     feature_names: list[str] | tuple[str, ...],
 ) -> np.ndarray:
+    """Extract router features in a fixed order and fail on missing values."""
     missing = [name for name in feature_names if name not in feature_map]
     if missing:
         raise KeyError(f"Router feature(s) missing: {', '.join(missing)}")

@@ -14,10 +14,12 @@ from src.utils.reporting import write_json_report
 
 
 def _safe_model_name(model_name: str) -> str:
+    """Sanitize a model name into a filesystem-safe slug."""
     return model_name.replace("/", "_").replace("\\", "_").replace(" ", "_")
 
 
 def _resolve_project_path(value: str | Path, project_root: Path) -> Path:
+    """Resolve a path relative to the project root when it is not absolute."""
     path = Path(value)
     if path.is_absolute():
         return path
@@ -25,6 +27,7 @@ def _resolve_project_path(value: str | Path, project_root: Path) -> Path:
 
 
 def _load_base_config(comparison_config: dict[str, Any], config_path: str | Path) -> dict[str, Any]:
+    """Load the base classifier config referenced by a comparison config."""
     config_file = Path(config_path).resolve()
     base_config_ref = comparison_config.get("base_config", "configs/classifier/baseline.yml")
     base_config_path = Path(base_config_ref)
@@ -66,6 +69,7 @@ def _build_model_run_config(
 
 
 def _comparison_dataset_boundary() -> dict[str, Any]:
+    """Return dataset-boundary metadata carried by comparison reports."""
     return {
         "training_dataset": "BUSBRA",
         "external_evaluation_dataset": "BUSI",
@@ -74,6 +78,7 @@ def _comparison_dataset_boundary() -> dict[str, Any]:
 
 
 def _comparison_temp_root() -> Path:
+    """Return the temp directory used for generated comparison config files."""
     temp_root = Path(tempfile.gettempdir()) / "bucad_comparison_configs"
     temp_root.mkdir(parents=True, exist_ok=True)
     return temp_root
@@ -87,6 +92,7 @@ def _write_model_run_config(
     temp_root: Path,
     fold: int,
 ) -> Path:
+    """Write a temporary YAML config for a single comparison model run."""
     model_name = str(model_entry["name"])
     run_config = _build_model_run_config(base_config, comparison_config, model_entry)
     config_file = temp_root / f"{_safe_model_name(model_name)}_fold{fold}.yml"
@@ -101,6 +107,7 @@ def _new_model_result(
     fold: int,
     dry_run: bool,
 ) -> dict[str, Any]:
+    """Create the initial result dict for a comparison model entry."""
     model_name = str(model_entry["name"])
     return {
         "model_name": model_name,
@@ -113,6 +120,7 @@ def _new_model_result(
 
 
 def _validate_model_entry(model_entry: dict[str, Any]) -> None:
+    """Instantiate a candidate classifier once to validate its model settings."""
     create_classifier(
         model_name=str(model_entry["name"]),
         pretrained=False,
@@ -170,6 +178,7 @@ def _run_model_entry(
 def _select_model_entries(
     comparison_config: dict[str, Any], model_limit: int | None
 ) -> list[dict[str, Any]]:
+    """Return configured candidate model entries with an optional limit."""
     entries = list(comparison_config.get("comparison", {}).get("models", []))
     if model_limit is not None:
         return entries[: int(model_limit)]
@@ -184,6 +193,7 @@ def _write_comparison_report(
     dry_run: bool,
     results: list[dict[str, Any]],
 ) -> dict[str, Any]:
+    """Write model comparison results to the configured report path."""
     output_ref = comparison_config.get("comparison", {}).get(
         "output_path", "./artifacts/reports/comparison_results.json"
     )

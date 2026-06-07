@@ -14,6 +14,7 @@ if __package__ is None or __package__ == "":
 
 
 def _ensure_standard_streams() -> None:
+    """Attach null streams when the packaged desktop app starts without a console."""
     if sys.stdin is None:
         sys.stdin = open(os.devnull, "r", encoding="utf-8")
     if sys.stdout is None:
@@ -34,6 +35,7 @@ WINDOW_TITLE = "BUCAD 乳腺超声辅助诊断系统"
 
 
 def _is_port_available(host: str, port: int) -> bool:
+    """Check whether the preferred local Gradio port can be bound."""
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
         sock.settimeout(0.25)
         try:
@@ -44,6 +46,7 @@ def _is_port_available(host: str, port: int) -> bool:
 
 
 def _preferred_server_port(host: str, preferred_port: int) -> int | None:
+    """Return a bindable preferred port or let Gradio select a fallback."""
     if preferred_port > 0 and _is_port_available(host, preferred_port):
         return preferred_port
     return None
@@ -55,6 +58,7 @@ def start_gradio_server(
     host: str = DEFAULT_HOST,
     preferred_port: int = DEFAULT_PORT,
 ):
+    """Start the Gradio app in a background server for the desktop WebView."""
     app = build_app(config_path)
     server_port = _preferred_server_port(host, preferred_port)
     _, local_url, _ = app.launch(
@@ -77,6 +81,7 @@ def open_desktop_window(
     height: int = 900,
     debug: bool = False,
 ) -> None:
+    """Open the local Gradio URL inside a native desktop WebView window."""
     import webview
 
     webview.create_window(
@@ -93,6 +98,7 @@ def open_desktop_window(
 
 
 def parse_args() -> argparse.Namespace:
+    """Parse desktop launcher options used by packaging and smoke tests."""
     parser = argparse.ArgumentParser(description="Launch BUCAD in a desktop WebView window.")
     parser.add_argument("--config", type=Path, default=None, help="Inference config path.")
     parser.add_argument("--host", default=DEFAULT_HOST, help="Local server host.")
@@ -110,6 +116,7 @@ def parse_args() -> argparse.Namespace:
 
 
 def main() -> None:
+    """Launch the packaged desktop flow and close the Gradio server on exit."""
     _ensure_standard_streams()
     args = parse_args()
     app, local_url = start_gradio_server(

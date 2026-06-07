@@ -26,12 +26,14 @@ torch_utils_data = optional_import("torch.utils.data")
 
 
 def _model_forward_outputs(model, images):
+    """Return model outputs, using auxiliary outputs when the model exposes them."""
     if hasattr(model, "forward_with_aux"):
         return model.forward_with_aux(images)
     return model(images)
 
 
 def _mask_logits(outputs):
+    """Extract mask logits from dict outputs or raw tensor outputs."""
     if isinstance(outputs, dict):
         return outputs["mask"]
     return outputs
@@ -40,6 +42,7 @@ def _mask_logits(outputs):
 def _load_or_create_splits(
     manifest: pd.DataFrame, split_path: Path, *, fold_count: int, seed: int
 ) -> pd.DataFrame:
+    """Load existing fold assignments or create BUSBRA split assignments."""
     if split_path.exists():
         return pd.read_csv(split_path)
     split_path.parent.mkdir(parents=True, exist_ok=True)
@@ -53,6 +56,7 @@ def _load_or_create_splits(
 def _split_manifest_for_fold(
     manifest: pd.DataFrame, assignments: pd.DataFrame, fold: int
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Split a manifest into train/validation rows for one segmentation fold."""
     fold_assignments = assignments[assignments["fold_id"] == fold]
     train_ids = set(fold_assignments.loc[fold_assignments["stage"] == "train", "sample_id"])
     val_ids = set(fold_assignments.loc[fold_assignments["stage"] == "val", "sample_id"])
@@ -69,6 +73,7 @@ def _prepare_fold_manifests(
     fold: int,
     seed: int,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Prepare non-empty train/validation manifests for one segmentation fold."""
     split_path = Path(training_cfg.get("split_path", paths.reports_root / "busbra_5fold_splits.csv"))
     if not split_path.is_absolute():
         split_path = (paths.project_root / split_path).resolve()
@@ -85,6 +90,7 @@ def _prepare_fold_manifests(
 
 
 def _build_segmenter(model_cfg: dict[str, Any], *, device: str):
+    """Construct the configured segmentation model and move it to device."""
     model_kwargs = {
         key: value
         for key, value in model_cfg.items()
@@ -114,6 +120,7 @@ def _build_segmentation_loaders(
     data_cfg: dict[str, Any],
     device: str,
 ):
+    """Create segmentation train/validation DataLoaders with Windows-safe defaults."""
     image_size = int(data_cfg.get("image_size", 256))
     train_dataset = BUSBRASegmentationDataset(train_manifest, image_size=image_size)
     val_dataset = BUSBRASegmentationDataset(val_manifest, image_size=image_size)
@@ -198,6 +205,7 @@ def _train_segmentation_epoch(
 
 
 def _atomic_torch_save(payload: dict[str, Any], destination: Path) -> None:
+    """Compatibility wrapper around the shared atomic checkpoint writer."""
     atomic_torch_save(payload, destination)
 
 
@@ -232,10 +240,12 @@ class _PreparedSegmentationRun:
 
 
 def _optional_int(value: Any) -> int | None:
+    """Convert optional numeric config values to int."""
     return int(value) if value is not None else None
 
 
 def _parse_segmentation_batch_limits(training_cfg: dict[str, Any]) -> _SegmentationBatchLimits:
+    """Parse optional smoke-test batch caps from training config."""
     return _SegmentationBatchLimits(
         max_train_batches=_optional_int(training_cfg.get("max_train_batches")),
         max_val_batches=_optional_int(training_cfg.get("max_val_batches")),
@@ -243,6 +253,7 @@ def _parse_segmentation_batch_limits(training_cfg: dict[str, Any]) -> _Segmentat
 
 
 def _build_segmentation_optimizer(model, training_cfg: dict[str, Any]):
+    """Build the AdamW optimizer used by segmentation training."""
     return optim.AdamW(
         model.parameters(),
         lr=float(training_cfg.get("learning_rate", 3e-4)),

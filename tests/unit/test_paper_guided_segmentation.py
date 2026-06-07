@@ -8,6 +8,7 @@ import numpy as np
 import pytest
 
 from src.engine import segmentation_losses
+from src.engine import train_seg
 from src.engine.train_seg import _atomic_torch_save
 from src.models import segmenter
 from src.models.segmenter import create_segmenter
@@ -96,3 +97,83 @@ def test_segmentation_checkpoint_save_is_atomic(tmp_path) -> None:
 
     assert destination.exists()
     assert not list(tmp_path.glob(".segmenter.pt.*.tmp"))
+
+
+def test_run_segmentation_training_smoke_uses_prepared_run(tmp_path, monkeypatch) -> None:
+    if train_seg.torch is None:
+        return
+    torch = train_seg.torch
+    manifest = train_seg.pd.DataFrame(
+        [
+            {"sample_id": "a", "case_id": "c1"},
+            {"sample_id": "b", "case_id": "c2"},
+            {"sample_id": "c", "case_id": "c3"},
+            {"sample_id": "d", "case_id": "c4"},
+        ]
+    )
+
+    class _Dataset(torch.utils.data.Dataset):
+        def __init__(self, frame, **_kwargs) -> None:
+            self.frame = frame.reset_index(drop=True)
+
+        def __len__(self) -> int:
+            return len(self.frame)
+
+        def __getitem__(self, index: int):
+            value = float(index % 2)
+            return {
+                "image": torch.full((3, 8, 8), value, dtype=torch.float32),
+                "mask": torch.full((1, 8, 8), value, dtype=torch.float32),
+            }
+
+    class _TinySegmenter(torch.nn.Module):
+        def __init__(self) -> None:
+            super().__init__()
+            self.conv = torch.nn.Conv2d(3, 1, kernel_size=1)
+
+        def forward(self, images):
+            return self.conv(images)
+
+    class _Paths:
+        project_root = tmp_path
+        busbra_root = tmp_path / "unused"
+        checkpoints_root = tmp_path / "checkpoints"
+        reports_root = tmp_path / "reports"
+
+    config_path = tmp_path / "config.yml"
+    config_path.write_text("seed: 42\n", encoding="utf-8")
+    monkeypatch.setattr(
+        train_seg,
+        "load_project_config",
+        lambda _path: (
+            {
+                "device": "cpu",
+                "training": {
+                    "epochs": 1,
+                    "max_train_batches": 1,
+                    "max_val_batches": 1,
+                },
+                "output": {},
+                "model": {},
+                "loss": {"name": "bce"},
+            },
+            _Paths(),
+        ),
+    )
+    monkeypatch.setattr(train_seg, "load_busbra_manifest", lambda _root: manifest)
+    monkeypatch.setattr(
+        train_seg,
+        "_prepare_fold_manifests",
+        lambda **_kwargs: (manifest.iloc[:2], manifest.iloc[2:]),
+    )
+    monkeypatch.setattr(train_seg, "BUSBRASegmentationDataset", _Dataset)
+    monkeypatch.setattr(train_seg, "_build_segmenter", lambda _model_cfg, **_kwargs: _TinySegmenter())
+
+    report = train_seg.run_segmentation_training(config_path, fold=1)
+
+    assert report["fold"] == 1
+    assert report["train_size"] == 2
+    assert report["val_size"] == 2
+    assert report["max_train_batches"] == 1
+    assert report["max_val_batches"] == 1
+    assert (tmp_path / "checkpoints" / "segmenter_fold1.pt").exists()

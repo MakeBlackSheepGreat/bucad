@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import dataclasses
 from pathlib import Path
 from typing import Any
 
@@ -198,6 +199,130 @@ def _atomic_torch_save(payload: dict[str, Any], destination: Path) -> None:
     atomic_torch_save(payload, destination)
 
 
+@dataclasses.dataclass(slots=True)
+class _SegmentationBatchLimits:
+    """Optional smoke-test caps for train and validation dataloaders."""
+
+    max_train_batches: int | None
+    max_val_batches: int | None
+
+
+@dataclasses.dataclass(slots=True)
+class _SegmentationLoopConfig:
+    """Settings needed by the segmentation epoch loop."""
+
+    epochs: int
+    loss_cfg: dict[str, Any]
+    batch_limits: _SegmentationBatchLimits
+
+
+@dataclasses.dataclass(slots=True)
+class _PreparedSegmentationRun:
+    """Objects prepared before segmentation epochs start."""
+
+    model: Any
+    train_loader: Any
+    val_loader: Any
+    train_manifest: pd.DataFrame
+    val_manifest: pd.DataFrame
+    optimizer: Any
+    loop_config: _SegmentationLoopConfig
+
+
+def _optional_int(value: Any) -> int | None:
+    return int(value) if value is not None else None
+
+
+def _parse_segmentation_batch_limits(training_cfg: dict[str, Any]) -> _SegmentationBatchLimits:
+    return _SegmentationBatchLimits(
+        max_train_batches=_optional_int(training_cfg.get("max_train_batches")),
+        max_val_batches=_optional_int(training_cfg.get("max_val_batches")),
+    )
+
+
+def _build_segmentation_optimizer(model, training_cfg: dict[str, Any]):
+    return optim.AdamW(
+        model.parameters(),
+        lr=float(training_cfg.get("learning_rate", 3e-4)),
+        weight_decay=float(training_cfg.get("weight_decay", 1e-4)),
+    )
+
+
+def _prepare_segmentation_training_run(
+    *,
+    config: dict[str, Any],
+    paths,
+    fold: int,
+    seed: int,
+    device: str,
+    epochs_override: int | None,
+) -> _PreparedSegmentationRun:
+    """Prepare fold data, model, optimizer, and loop settings."""
+    manifest = load_busbra_manifest(paths.busbra_root)
+    training_cfg = config.get("training", {})
+    data_cfg = config.get("data", {})
+    loss_cfg = config.get("loss", {"name": "bce"})
+
+    train_manifest, val_manifest = _prepare_fold_manifests(
+        manifest=manifest,
+        paths=paths,
+        training_cfg=training_cfg,
+        fold=fold,
+        seed=seed,
+    )
+    train_loader, val_loader = _build_segmentation_loaders(
+        train_manifest=train_manifest,
+        val_manifest=val_manifest,
+        data_cfg=data_cfg,
+        device=device,
+    )
+    model = _build_segmenter(config.get("model", {}), device=device)
+    optimizer = _build_segmentation_optimizer(model, training_cfg)
+    loop_config = _SegmentationLoopConfig(
+        epochs=int(epochs_override or training_cfg.get("epochs", 5)),
+        loss_cfg=loss_cfg,
+        batch_limits=_parse_segmentation_batch_limits(training_cfg),
+    )
+    return _PreparedSegmentationRun(
+        model=model,
+        train_loader=train_loader,
+        val_loader=val_loader,
+        train_manifest=train_manifest,
+        val_manifest=val_manifest,
+        optimizer=optimizer,
+        loop_config=loop_config,
+    )
+
+
+def _run_segmentation_loop(
+    *,
+    model,
+    train_loader,
+    optimizer,
+    device: str,
+    fold: int,
+    loop_config: _SegmentationLoopConfig,
+    logger,
+) -> None:
+    cfg = loop_config
+    for epoch in range(cfg.epochs):
+        mean_loss, component_summary = _train_segmentation_epoch(
+            model,
+            train_loader,
+            optimizer,
+            device=device,
+            loss_cfg=cfg.loss_cfg,
+            max_train_batches=cfg.batch_limits.max_train_batches,
+        )
+        logger.info(
+            "fold=%s epoch=%s loss=%.4f components=%s",
+            fold,
+            epoch + 1,
+            mean_loss,
+            component_summary,
+        )
+
+
 def _write_segmentation_training_outputs(
     *,
     config: dict[str, Any],
@@ -259,66 +384,43 @@ def run_segmentation_training(
     seed = int(config.get("seed", 42))
     seed_everything(seed)
     device = select_device(str(config.get("device", "auto")))
-
-    manifest = load_busbra_manifest(paths.busbra_root)
-    training_cfg = config.get("training", {})
-    data_cfg = config.get("data", {})
     output_cfg = config.get("output", {})
-    loss_cfg = config.get("loss", {"name": "bce"})
-    max_train_batches = training_cfg.get("max_train_batches")
-    max_val_batches = training_cfg.get("max_val_batches")
-    max_train_batches = int(max_train_batches) if max_train_batches is not None else None
-    max_val_batches = int(max_val_batches) if max_val_batches is not None else None
-
-    train_manifest, val_manifest = _prepare_fold_manifests(
-        manifest=manifest,
+    prepared = _prepare_segmentation_training_run(
+        config=config,
         paths=paths,
-        training_cfg=training_cfg,
         fold=fold,
         seed=seed,
-    )
-    train_loader, val_loader = _build_segmentation_loaders(
-        train_manifest=train_manifest,
-        val_manifest=val_manifest,
-        data_cfg=data_cfg,
         device=device,
+        epochs_override=epochs_override,
     )
-    model = _build_segmenter(config.get("model", {}), device=device)
-    optimizer = optim.AdamW(
-        model.parameters(),
-        lr=float(training_cfg.get("learning_rate", 3e-4)),
-        weight_decay=float(training_cfg.get("weight_decay", 1e-4)),
+    _run_segmentation_loop(
+        model=prepared.model,
+        train_loader=prepared.train_loader,
+        optimizer=prepared.optimizer,
+        device=device,
+        fold=fold,
+        loop_config=prepared.loop_config,
+        logger=logger,
     )
-    epochs = int(epochs_override or training_cfg.get("epochs", 5))
-    for epoch in range(epochs):
-        mean_loss, component_summary = _train_segmentation_epoch(
-            model,
-            train_loader,
-            optimizer,
-            device=device,
-            loss_cfg=loss_cfg,
-            max_train_batches=max_train_batches,
-        )
-        logger.info(
-            "fold=%s epoch=%s loss=%.4f components=%s",
-            fold,
-            epoch + 1,
-            mean_loss,
-            component_summary,
-        )
 
-    metrics = _evaluate_model(model, val_loader, device, max_batches=max_val_batches)
+    batch_limits = prepared.loop_config.batch_limits
+    metrics = _evaluate_model(
+        prepared.model,
+        prepared.val_loader,
+        device,
+        max_batches=batch_limits.max_val_batches,
+    )
     return _write_segmentation_training_outputs(
         config=config,
         paths=paths,
         output_cfg=output_cfg,
         fold=fold,
         device=device,
-        model=model,
+        model=prepared.model,
         metrics=metrics,
-        loss_cfg=loss_cfg,
-        train_manifest=train_manifest,
-        val_manifest=val_manifest,
-        max_train_batches=max_train_batches,
-        max_val_batches=max_val_batches,
+        loss_cfg=prepared.loop_config.loss_cfg,
+        train_manifest=prepared.train_manifest,
+        val_manifest=prepared.val_manifest,
+        max_train_batches=batch_limits.max_train_batches,
+        max_val_batches=batch_limits.max_val_batches,
     )

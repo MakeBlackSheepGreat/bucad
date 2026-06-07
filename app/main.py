@@ -82,8 +82,12 @@ APP_CSS = """
   --checkbox-label-text-color-selected: var(--text) !important;
   --slider-color: var(--primary) !important;
   accent-color: var(--primary);
-  max-width: 1600px !important;
-  min-height: 100vh;
+  width: 100% !important;
+  max-width: none !important;
+  min-width: 0 !important;
+  min-height: 100dvh;
+  margin: 0 !important;
+  padding: 0 !important;
   background:
     radial-gradient(circle at 12% 8%, rgba(37, 99, 235, 0.10), transparent 26%),
     linear-gradient(135deg, #f8fbff 0%, #eef5ff 50%, #f8fbff 100%);
@@ -135,6 +139,7 @@ APP_CSS = """
 .workspace-row {
   flex: 1 1 auto;
   min-height: 0;
+  width: 100%;
   display: grid !important;
   grid-template-columns: minmax(330px, 0.92fr) minmax(620px, 1.9fr);
   gap: clamp(10px, 1vw, 14px) !important;
@@ -456,6 +461,7 @@ APP_CSS = """
 .mini-card {
   min-width: 0 !important;
   padding: 7px;
+  overflow: hidden;
 }
 
 .footer-note {
@@ -471,13 +477,15 @@ APP_CSS = """
   border: 1px solid var(--border);
   border-radius: 16px;
   background: #fff;
+  overflow: hidden;
 }
 
 .image-grid {
   min-height: 0;
   display: grid !important;
-  grid-template-rows: minmax(240px, 1.7fr) minmax(150px, 0.85fr);
-  gap: 8px !important;
+  grid-template-rows: minmax(clamp(260px, 48dvh, 620px), 1.8fr) minmax(clamp(150px, 24dvh, 300px), 0.82fr);
+  gap: clamp(8px, 0.8vw, 12px) !important;
+  overflow: hidden;
 }
 
 .mini-image-row {
@@ -491,6 +499,7 @@ APP_CSS = """
 .compact-image .image-container {
   height: 100% !important;
   min-height: 0 !important;
+  overflow: hidden !important;
 }
 
 .compact-image .image-container {
@@ -500,7 +509,12 @@ APP_CSS = """
 }
 
 .compact-image img {
+  width: 100% !important;
+  height: 100% !important;
   max-height: 100% !important;
+  max-width: 100% !important;
+  object-fit: contain !important;
+  display: block !important;
 }
 
 .left-panel .form,
@@ -563,6 +577,28 @@ APP_CSS = """
 """
 
 
+EMPTY_DIAGNOSIS_HTML = """
+<div class="result-card">
+  <div class="section-title">诊断结果</div>
+  <div class="empty-state">上传图像并点击“开始诊断”后显示结果。</div>
+</div>
+"""
+
+EMPTY_STATUS_HTML = """
+<div class="status-card">
+  <div class="section-title">运行状态</div>
+  <div class="hint-text">等待上传图像。</div>
+</div>
+"""
+
+EMPTY_WARNING_HTML = """
+<div class="status-card">
+  <div class="section-title">辅助说明</div>
+  <div class="hint-text">本系统仅用于辅助分析和原型演示，不能替代医生诊断。</div>
+</div>
+"""
+
+
 def analyze_upload(
     image,
     threshold: float,
@@ -587,6 +623,18 @@ def analyze_upload(
     )
 
 
+def reset_workspace():
+    return (
+        None,
+        EMPTY_STATUS_HTML,
+        EMPTY_DIAGNOSIS_HTML,
+        None,
+        None,
+        None,
+        EMPTY_WARNING_HTML,
+    )
+
+
 def build_app(config_path: str | Path | None = None):
     if config_path is None:
         config_path = bundled_resource_path("configs/inference/demo.yml")
@@ -600,6 +648,7 @@ def build_app(config_path: str | Path | None = None):
     )
     with gr.Blocks(
         title="乳腺超声肿瘤良恶性分类辅助诊断系统（BUCAD）",
+        fill_width=True,
     ) as demo:
         gr.HTML(f"<style>{APP_CSS}</style>")
         with gr.Column(elem_classes=["app-shell"]):
@@ -645,9 +694,8 @@ def build_app(config_path: str | Path | None = None):
                             elem_classes=["primary-btn"],
                             scale=2,
                         )
-                        clear_button = gr.ClearButton(
+                        clear_button = gr.Button(
                             value="清空",
-                            components=[image_input],
                             elem_classes=["secondary-btn"],
                             scale=1,
                         )
@@ -730,6 +778,20 @@ def build_app(config_path: str | Path | None = None):
                     explanation_output,
                     warning_output,
                 ],
+            )
+            clear_button.click(
+                fn=reset_workspace,
+                inputs=None,
+                outputs=[
+                    image_input,
+                    status_output,
+                    diagnosis_output,
+                    original_output,
+                    lesion_output,
+                    explanation_output,
+                    warning_output,
+                ],
+                queue=False,
             )
     return demo
 

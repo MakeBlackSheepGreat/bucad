@@ -366,7 +366,7 @@ def run_experiment(args: argparse.Namespace) -> dict[str, Any]:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Run one-fold YOLO classification comparison.")
-    parser.add_argument("--model", default="yolo26x-cls.pt")
+    parser.add_argument("--model", default="artifacts/checkpoints/yolo26x-cls.pt")
     parser.add_argument("--fold", type=int, default=1)
     parser.add_argument("--fold-count", type=int, default=5)
     parser.add_argument("--seed", type=int, default=42)

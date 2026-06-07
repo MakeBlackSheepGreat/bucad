@@ -19,9 +19,20 @@ data/
 *.pt
 *.pth
 *.ckpt
-artifacts/checkpoints/
 !artifacts/checkpoints/
-!artifacts/checkpoints/**
+artifacts/checkpoints/*
+!artifacts/checkpoints/README.md
+!artifacts/checkpoints/convnext_tiny_timm_recipe_fold1.pt
+!artifacts/checkpoints/convnext_tiny_timm_recipe_fold2.pt
+!artifacts/checkpoints/convnext_tiny_timm_recipe_fold3.pt
+!artifacts/checkpoints/convnext_tiny_timm_recipe_fold4.pt
+!artifacts/checkpoints/convnext_tiny_timm_recipe_fold5.pt
+!artifacts/checkpoints/efficientnetv2_s_fold1.pt
+!artifacts/checkpoints/efficientnetv2_s_fold2.pt
+!artifacts/checkpoints/efficientnetv2_s_fold3.pt
+!artifacts/checkpoints/efficientnetv2_s_fold4.pt
+!artifacts/checkpoints/efficientnetv2_s_fold5.pt
+!artifacts/checkpoints/segmenter_fold1.pt
 artifacts/demo_assets/
 artifacts/release_v1/
 artifacts/releases/
@@ -47,6 +58,7 @@ artifacts/reports/packaged_demo_*.txt
 artifacts/reports/defense_*.md
 artifacts/reports/demo_rehearsal.md
 artifacts/reports/final_*.md
+!artifacts/reports/final_validation.md
 artifacts/reports/six_model_comparison_report.md
 scripts/build_feishu_metrics_workbook.py
 scripts/build_competition_materials.py
@@ -100,3 +112,5 @@ artifacts/logs/
 *.swp
 Thumbs.db
 .DS_Store
+output/
+*.docx

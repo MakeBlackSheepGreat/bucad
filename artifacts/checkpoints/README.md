@@ -16,4 +16,7 @@ conda activate BUCAD
 python app\desktop_main.py
 ```
 
-The rest of the checkpoint directory contains experimental weights retained for reproducibility and comparison.
+Only the runtime checkpoints above are tracked by Git LFS. Historical experiment
+weights may remain in this local directory for reproducibility, but `.gitignore`
+keeps them out of the default repository handoff unless they are promoted into
+the runtime configuration.

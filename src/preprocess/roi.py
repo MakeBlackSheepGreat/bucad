@@ -18,9 +18,32 @@ def _resize_mask_to_image(mask: np.ndarray, image: np.ndarray) -> np.ndarray:
 
 
 def _largest_connected_component(binary: np.ndarray) -> np.ndarray:
-    if cv2 is None:
-        return binary
     mask = binary.astype(np.uint8)
+    if cv2 is None:
+        height, width = mask.shape[:2]
+        labels = np.zeros((height, width), dtype=np.int32)
+        label_areas: list[int] = [0]
+        current_label = 0
+        for start_y, start_x in zip(*np.where(mask > 0), strict=False):
+            if labels[start_y, start_x] != 0:
+                continue
+            current_label += 1
+            area = 0
+            stack = [(int(start_y), int(start_x))]
+            labels[start_y, start_x] = current_label
+            while stack:
+                y, x = stack.pop()
+                area += 1
+                for ny in range(max(0, y - 1), min(height, y + 2)):
+                    for nx in range(max(0, x - 1), min(width, x + 2)):
+                        if labels[ny, nx] == 0 and mask[ny, nx] > 0:
+                            labels[ny, nx] = current_label
+                            stack.append((ny, nx))
+            label_areas.append(area)
+        if current_label == 0:
+            return binary
+        largest_index = int(np.argmax(label_areas[1:])) + 1
+        return labels == largest_index
     component_count, labels, stats, _ = cv2.connectedComponentsWithStats(mask, 8)
     if component_count <= 1:
         return binary

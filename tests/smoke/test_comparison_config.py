@@ -11,6 +11,7 @@ from src.utils.config import load_yaml
 
 
 def test_comparison_config_contains_expected_models() -> None:
+    """Verify comparison config contains expected models."""
     config = load_yaml("configs/classifier/comparison.yml")
     models = [entry["name"] for entry in config["comparison"]["models"]]
 
@@ -20,6 +21,7 @@ def test_comparison_config_contains_expected_models() -> None:
 
 
 def test_comparison_runner_dry_run_writes_report(tmp_path) -> None:
+    """Verify comparison runner dry run writes report."""
     config = load_yaml("configs/classifier/comparison.yml")
     config["comparison"]["output_path"] = str(tmp_path / "comparison_results.json")
     config_path = tmp_path / "comparison.yml"

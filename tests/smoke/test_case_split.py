@@ -14,6 +14,7 @@ TEST_ROOT = Path("artifacts/test-workspace/test_case_split")
 
 
 def _write_busbra_fixture(root: Path) -> Path:
+    """Write busbra fixture."""
     busbra_root = root / "BUSBRA"
     images = busbra_root / "Images"
     masks = busbra_root / "Masks"
@@ -40,6 +41,7 @@ def _write_busbra_fixture(root: Path) -> Path:
 
 
 def test_case_split_prevents_case_leakage() -> None:
+    """Verify case split prevents case leakage."""
     shutil.rmtree(TEST_ROOT, ignore_errors=True)
     root = _write_busbra_fixture(TEST_ROOT)
     manifest = load_busbra_manifest(root)

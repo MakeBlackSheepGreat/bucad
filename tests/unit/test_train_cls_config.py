@@ -17,6 +17,7 @@ from src.engine import train_cls
 
 
 def test_extra_model_kwargs_excludes_standard_classifier_fields() -> None:
+    """Verify extra model kwargs excludes standard classifier fields."""
     assert _extra_model_kwargs(
         {
             "name": "convnext_small",
@@ -29,6 +30,7 @@ def test_extra_model_kwargs_excludes_standard_classifier_fields() -> None:
 
 
 def test_checkpoint_scoring_reuses_validation_probabilities() -> None:
+    """Verify checkpoint scoring reuses validation probabilities."""
     metrics, score = _score_checkpoint_candidate(
         epoch_metrics={"auc": 0.9, "sensitivity": 0.5, "specificity": 0.5},
         y_true=[0, 1],
@@ -45,7 +47,9 @@ def test_checkpoint_scoring_reuses_validation_probabilities() -> None:
 
 
 def test_last_checkpoint_metrics_reuse_final_epoch_report(monkeypatch) -> None:
+    """Verify last checkpoint metrics reuse final epoch report."""
     def _fail_evaluate_model(*_args, **_kwargs):
+        """Return fail evaluate model."""
         raise AssertionError("last checkpoint should reuse final epoch validation metrics")
 
     monkeypatch.setattr(train_cls, "_evaluate_model", _fail_evaluate_model)
@@ -62,6 +66,7 @@ def test_last_checkpoint_metrics_reuse_final_epoch_report(monkeypatch) -> None:
 
 
 def test_non_last_checkpoint_metrics_revalidate_selected_state(monkeypatch) -> None:
+    """Verify non last checkpoint metrics revalidate selected state."""
     monkeypatch.setattr(
         train_cls,
         "_evaluate_model",
@@ -80,6 +85,7 @@ def test_non_last_checkpoint_metrics_revalidate_selected_state(monkeypatch) -> N
 
 
 def test_atomic_torch_save_replaces_destination(tmp_path: Path) -> None:
+    """Verify atomic torch save replaces destination."""
     destination = tmp_path / "model.pt"
 
     _atomic_torch_save({"value": 1}, destination)
@@ -90,6 +96,7 @@ def test_atomic_torch_save_replaces_destination(tmp_path: Path) -> None:
 
 
 def test_run_classifier_training_smoke_uses_loop_config_outputs(tmp_path: Path, monkeypatch) -> None:
+    """Verify run classifier training smoke uses loop config outputs."""
     if train_cls.torch is None:
         return
     torch = train_cls.torch
@@ -103,13 +110,17 @@ def test_run_classifier_training_smoke_uses_loop_config_outputs(tmp_path: Path, 
     )
 
     class _Dataset(torch.utils.data.Dataset):
+        """Represent Dataset for this module."""
         def __init__(self, frame, **_kwargs) -> None:
+            """Initialize this lightweight test helper."""
             self.frame = frame.reset_index(drop=True)
 
         def __len__(self) -> int:
+            """Return the number of samples in this helper dataset."""
             return len(self.frame)
 
         def __getitem__(self, index: int):
+            """Return one sample from this helper dataset."""
             row = self.frame.iloc[index]
             label = 1 if row["pathology_label"] == "malignant" else 0
             return {
@@ -119,14 +130,18 @@ def test_run_classifier_training_smoke_uses_loop_config_outputs(tmp_path: Path, 
             }
 
     class _TinyClassifier(torch.nn.Module):
+        """Represent TinyClassifier for this module."""
         def __init__(self) -> None:
+            """Initialize this lightweight test helper."""
             super().__init__()
             self.fc = torch.nn.Linear(3 * 8 * 8, 2)
 
         def forward(self, images):
+            """Run forward."""
             return self.fc(images.flatten(1))
 
     class _Paths:
+        """Represent Paths for this module."""
         project_root = tmp_path
         busbra_root = tmp_path / "unused"
         checkpoints_root = tmp_path / "checkpoints"

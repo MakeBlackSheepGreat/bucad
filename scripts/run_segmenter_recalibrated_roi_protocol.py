@@ -57,6 +57,7 @@ REPORT_DIR = Path("artifacts/reports/Chinese reports/08_segmenter_recalibrated_r
 
 
 def build_parser() -> argparse.ArgumentParser:
+    """Build the command-line argument parser for this script."""
     parser = argparse.ArgumentParser(
         description=(
             "Run a full ROI recalibration protocol for non-SAM segmenters: train 5-fold "
@@ -86,6 +87,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def _selected_methods(value: str) -> list[SegmenterMethod]:
+    """Resolve selected experiment method definitions."""
     method_by_id = {method.method_id: method for method in METHODS}
     if value == "all":
         return list(METHODS)
@@ -97,6 +99,7 @@ def _selected_methods(value: str) -> list[SegmenterMethod]:
 
 
 def _load_yaml(path: str | Path) -> dict[str, Any]:
+    """Load a YAML mapping used to materialize experiment configs."""
     with Path(path).open("r", encoding="utf-8") as handle:
         data = yaml.safe_load(handle) or {}
     if not isinstance(data, dict):
@@ -105,6 +108,7 @@ def _load_yaml(path: str | Path) -> dict[str, Any]:
 
 
 def _write_yaml(path: str | Path, data: dict[str, Any]) -> Path:
+    """Write a YAML experiment config with stable key ordering."""
     target = Path(path)
     target.parent.mkdir(parents=True, exist_ok=True)
     with target.open("w", encoding="utf-8") as handle:
@@ -120,6 +124,7 @@ def _method_config(
     fold_count: int,
     device: str | None,
 ) -> dict[str, Any]:
+    """Build the training config for one segmentation method."""
     config = copy.deepcopy(base_config)
     config["model"] = copy.deepcopy(method.model)
     config["loss"] = copy.deepcopy(method.loss)
@@ -142,16 +147,19 @@ def _method_config(
 
 
 def _checkpoint_path(paths, config: dict[str, Any], fold: int) -> Path:
+    """Return the expected checkpoint path for a method and fold."""
     checkpoint_name = config["output"]["checkpoint_name"].format(fold=fold)
     return paths.checkpoints_root / checkpoint_name
 
 
 def _train_report_path(paths, config: dict[str, Any], fold: int) -> Path:
+    """Train report path."""
     report_name = config["output"]["report_name"].format(fold=fold)
     return paths.reports_root / report_name
 
 
 def _load_cached_train_report(paths, config: dict[str, Any], fold: int) -> dict[str, Any] | None:
+    """Load cached train report."""
     report_path = _train_report_path(paths, config, fold)
     checkpoint_path = _checkpoint_path(paths, config, fold)
     if not report_path.exists() or not checkpoint_path.exists():
@@ -172,6 +180,7 @@ def _train_missing_folds(
     epochs: int,
     force_train: bool,
 ) -> list[dict[str, Any]]:
+    """Train missing folds."""
     reports: list[dict[str, Any]] = []
     for fold in range(1, fold_count + 1):
         cached = None if force_train else _load_cached_train_report(paths, config, fold)
@@ -189,6 +198,7 @@ def _predict_segmenter_mask(
     image_size: int,
     device: str,
 ) -> np.ndarray:
+    """Predict segmenter mask."""
     require_dependency("torch", torch)
     input_tensor = prepare_classifier_input(image, image_size)
     with torch.no_grad():
@@ -203,6 +213,7 @@ def _roi_area_ratio(
     margin_ratio: float,
     largest_component: bool = True,
 ) -> tuple[float, bool]:
+    """Process ROI area ratio."""
     if mask is None:
         return 1.0, True
     bbox = mask_bbox(
@@ -225,6 +236,7 @@ def _roi_area_ratio(
 
 
 def _load_segmenter_for_fold(checkpoint_path: Path, *, device: str):
+    """Load segmenter for fold."""
     model = load_segmenter(
         {
             "architecture": "unet",
@@ -252,6 +264,7 @@ def _generate_roi_oof(
     mask_threshold: float,
     segmenter_image_size: int,
 ) -> dict[str, Any]:
+    """Generate roi oof."""
     config, paths = load_project_config(classifier_config)
     manifest = load_busbra_manifest(paths.busbra_root)
     split_path = Path(
@@ -356,6 +369,7 @@ def _load_or_generate_roi_oof(
     mask_threshold: float,
     segmenter_image_size: int,
 ) -> dict[str, Any]:
+    """Load or generate roi oof."""
     if cache_path.exists() and not force_oof:
         with cache_path.open("r", encoding="utf-8") as handle:
             return json.load(handle)
@@ -379,6 +393,7 @@ def _fit_oof_stacker_with_cv(
     y_true: np.ndarray,
     groups: np.ndarray,
 ) -> dict[str, Any]:
+    """Fit oof stacker with cv."""
     matrix = np.vstack([full_probabilities, roi_probabilities]).T
     candidates: list[dict[str, Any]] = []
     for feature_mode in ("probability", "logit"):
@@ -449,6 +464,7 @@ def _fit_oof_stacker_with_cv(
 
 
 def _metrics_at_best_threshold(y_true: np.ndarray, probabilities: np.ndarray) -> dict[str, Any]:
+    """Calculate metrics at the best Youden threshold."""
     best = best_threshold_by_youden(
         y_true,
         probabilities,
@@ -466,6 +482,7 @@ def _scan_area_gates(
     stack_probabilities: np.ndarray,
     area_ratios: np.ndarray,
 ) -> list[dict[str, Any]]:
+    """Scan area gates."""
     candidates: list[dict[str, Any]] = []
     min_values = [0.0, 0.01, 0.03, 0.05, 0.08, 0.10, 0.15, 0.20, 0.25, 0.30]
     max_values = [0.35, 0.45, 0.55, 0.65, 0.75, 0.85, 0.95, 1.01]
@@ -497,6 +514,7 @@ def _scan_area_gates(
 
 
 def _slim_stacker(stacker: dict[str, Any]) -> dict[str, Any]:
+    """Serialize a compact stacker config for runtime use."""
     model = stacker["model"]
     scaler = model.named_steps["scaler"]
     classifier = model.named_steps["classifier"]
@@ -526,6 +544,7 @@ def _freeze_runtime_config(
     mask_threshold: float,
     output_root: Path,
 ) -> Path:
+    """Freeze runtime config."""
     runtime = _load_yaml(runtime_config_path)
     runtime.setdefault("runtime", {})
     runtime["runtime"]["segmenter_checkpoint"] = None
@@ -558,6 +577,7 @@ def _freeze_runtime_config(
 
 
 def _run_busi_review(config_path: Path, output_root: Path, method_id: str, *, force: bool) -> dict[str, Any]:
+    """Run busi review."""
     output_path = output_root / "external_reviews" / f"busi_{method_id}_recalibrated_frozen_review.json"
     if output_path.exists() and not force:
         with output_path.open("r", encoding="utf-8") as handle:
@@ -585,6 +605,7 @@ def _run_busi_review(config_path: Path, output_root: Path, method_id: str, *, fo
 
 
 def _external_metrics(item: dict[str, Any]) -> dict[str, Any]:
+    """Run external BUSI evaluation for one candidate config."""
     review = item.get("external_review")
     if not isinstance(review, dict):
         return {}
@@ -596,6 +617,7 @@ def _external_metrics(item: dict[str, Any]) -> dict[str, Any]:
 
 
 def _candidate_decision(item: dict[str, Any]) -> str:
+    """Summarize whether a candidate meets the promotion criteria."""
     metrics = _external_metrics(item)
     auc = metrics.get("auc")
     if not isinstance(auc, (int, float)):
@@ -611,6 +633,7 @@ def _candidate_decision(item: dict[str, Any]) -> str:
 
 
 def _mean_internal_metrics(fold_reports: list[dict[str, Any]]) -> dict[str, float]:
+    """Average internal validation metrics across folds."""
     keys = sorted(
         {
             key
@@ -626,6 +649,7 @@ def _mean_internal_metrics(fold_reports: list[dict[str, Any]]) -> dict[str, floa
 
 
 def _markdown(report: dict[str, Any]) -> list[str]:
+    """Build the Markdown report body for this experiment."""
     lines = [
         "# 分割器替换后的 ROI OOF 重新标定实验",
         "",
@@ -688,6 +712,7 @@ def _markdown(report: dict[str, Any]) -> list[str]:
 
 
 def run(args: argparse.Namespace) -> dict[str, Any]:
+    """Run the experiment workflow and return the generated summary."""
     base_config = _load_yaml(args.base_segmenter_config)
     _, paths = load_project_config(args.base_segmenter_config)
     output_root = (paths.project_root / REPORT_DIR).resolve()
@@ -811,6 +836,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
 
 
 def _build_report(args: argparse.Namespace, results: list[dict[str, Any]]) -> dict[str, Any]:
+    """Build report."""
     best = None
     for item in results:
         metrics = _external_metrics(item)
@@ -834,6 +860,7 @@ def _build_report(args: argparse.Namespace, results: list[dict[str, Any]]) -> di
 
 
 def main() -> int:
+    """Parse CLI arguments and run the script entry point."""
     args = build_parser().parse_args()
     run(args)
     return 0

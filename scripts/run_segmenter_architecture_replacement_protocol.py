@@ -37,6 +37,7 @@ MAINLINE_METRICS = {
 
 @dataclass(frozen=True)
 class SegmenterMethod:
+    """Represent SegmenterMethod for this module."""
     method_id: str
     category: str
     rationale: str
@@ -179,6 +180,7 @@ METHODS: tuple[SegmenterMethod, ...] = (
 
 
 def build_parser() -> argparse.ArgumentParser:
+    """Build the command-line argument parser for this script."""
     parser = argparse.ArgumentParser(
         description="Train non-SAM segmenter replacements and run one frozen BUSI review for each."
     )
@@ -196,6 +198,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def _selected_methods(value: str) -> list[SegmenterMethod]:
+    """Resolve selected experiment method definitions."""
     if value == "all":
         return list(METHODS)
     selected = {item.strip() for item in value.split(",") if item.strip()}
@@ -207,6 +210,7 @@ def _selected_methods(value: str) -> list[SegmenterMethod]:
 
 
 def _load_yaml(path: str | Path) -> dict[str, Any]:
+    """Load a YAML mapping used to materialize experiment configs."""
     with Path(path).open("r", encoding="utf-8") as handle:
         data = yaml.safe_load(handle) or {}
     if not isinstance(data, dict):
@@ -215,6 +219,7 @@ def _load_yaml(path: str | Path) -> dict[str, Any]:
 
 
 def _write_yaml(path: str | Path, data: dict[str, Any]) -> Path:
+    """Write a YAML experiment config with stable key ordering."""
     target = Path(path)
     target.parent.mkdir(parents=True, exist_ok=True)
     with target.open("w", encoding="utf-8") as handle:
@@ -230,6 +235,7 @@ def _method_config(
     fold_count: int,
     device: str | None,
 ) -> dict[str, Any]:
+    """Build the training config for one segmentation method."""
     config = copy.deepcopy(base_config)
     config["model"] = copy.deepcopy(method.model)
     config["loss"] = copy.deepcopy(method.loss)
@@ -252,16 +258,19 @@ def _method_config(
 
 
 def _expected_training_report_path(paths, config: dict[str, Any], fold: int) -> Path:
+    """Return the expected training report path for one fold."""
     report_name = config.get("output", {}).get("report_name", "train_seg_fold{fold}.json").format(fold=fold)
     return paths.reports_root / report_name
 
 
 def _expected_checkpoint_path(paths, config: dict[str, Any], fold: int) -> Path:
+    """Return the expected checkpoint path for one fold."""
     checkpoint_name = config.get("output", {}).get("checkpoint_name", "segmenter_fold{fold}.pt").format(fold=fold)
     return paths.checkpoints_root / checkpoint_name
 
 
 def _load_cached_fold_report(paths, config: dict[str, Any], fold: int) -> dict[str, Any] | None:
+    """Load cached fold report."""
     report_path = _expected_training_report_path(paths, config, fold)
     checkpoint_path = _expected_checkpoint_path(paths, config, fold)
     if not report_path.exists() or not checkpoint_path.exists():
@@ -274,6 +283,7 @@ def _load_cached_fold_report(paths, config: dict[str, Any], fold: int) -> dict[s
 
 
 def _mean_metrics(fold_reports: list[dict[str, Any]]) -> dict[str, float]:
+    """Average metric dictionaries across completed folds."""
     metric_keys = sorted(
         {
             key
@@ -295,6 +305,7 @@ def _freeze_runtime_config(
     fold_reports: list[dict[str, Any]],
     output_root: Path,
 ) -> Path:
+    """Freeze runtime config."""
     runtime = _load_yaml(runtime_config_path)
     checkpoints = [report["checkpoint_path"] for report in sorted(fold_reports, key=lambda item: item["fold"])]
     runtime.setdefault("runtime", {})
@@ -317,6 +328,7 @@ def _freeze_runtime_config(
 
 
 def _run_busi_review(config_path: Path, output_root: Path, method_id: str, *, force: bool) -> dict[str, Any]:
+    """Run busi review."""
     output_path = output_root / "external_reviews" / f"busi_{method_id}_frozen_review.json"
     if output_path.exists() and not force:
         with output_path.open("r", encoding="utf-8") as handle:
@@ -344,6 +356,7 @@ def _run_busi_review(config_path: Path, output_root: Path, method_id: str, *, fo
 
 
 def _external_metrics(item: dict[str, Any]) -> dict[str, Any]:
+    """Run external BUSI evaluation for one candidate config."""
     review = item.get("external_review")
     if not isinstance(review, dict):
         return {}
@@ -355,6 +368,7 @@ def _external_metrics(item: dict[str, Any]) -> dict[str, Any]:
 
 
 def _decision(item: dict[str, Any]) -> str:
+    """Summarize whether a candidate meets the promotion criteria."""
     metrics = _external_metrics(item)
     auc = metrics.get("auc")
     if not isinstance(auc, (int, float)):
@@ -370,6 +384,7 @@ def _decision(item: dict[str, Any]) -> str:
 
 
 def _markdown(report: dict[str, Any]) -> list[str]:
+    """Build the Markdown report body for this experiment."""
     lines = [
         "# 非 SAM 分割模型替换主线 ROI 外部验证",
         "",
@@ -432,6 +447,7 @@ def _markdown(report: dict[str, Any]) -> list[str]:
 
 
 def run(args: argparse.Namespace) -> dict[str, Any]:
+    """Run the experiment workflow and return the generated summary."""
     base_config = _load_yaml(args.base_config)
     _, paths = load_project_config(args.base_config)
     output_root = (paths.project_root / REPORT_DIR).resolve()
@@ -524,6 +540,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
 
 
 def main() -> int:
+    """Parse CLI arguments and run the script entry point."""
     args = build_parser().parse_args()
     run(args)
     return 0

@@ -8,6 +8,7 @@ from src.engine.inference import BreastUltrasoundInferenceService
 
 
 def test_single_image_inference_returns_probabilities() -> None:
+    """Verify single image inference returns probabilities."""
     image = np.random.randint(0, 255, size=(128, 128), dtype=np.uint8)
     service = BreastUltrasoundInferenceService(
         {"default_threshold": 0.5, "borderline_margin": 0.05},
@@ -24,6 +25,7 @@ def test_single_image_inference_returns_probabilities() -> None:
 
 
 def test_single_image_inference_handles_borderline_case() -> None:
+    """Verify single image inference handles borderline case."""
     image = np.random.randint(0, 255, size=(128, 128), dtype=np.uint8)
     service = BreastUltrasoundInferenceService(
         {"default_threshold": 0.5, "borderline_margin": 0.05},
@@ -38,6 +40,7 @@ def test_single_image_inference_handles_borderline_case() -> None:
 
 
 def test_single_image_inference_handles_invalid_and_low_quality_inputs() -> None:
+    """Verify single image inference handles invalid and low quality inputs."""
     service = BreastUltrasoundInferenceService({}, classifier_predictor=lambda _: (0.6, 0.4))
 
     invalid = service.diagnose(np.zeros((8, 8), dtype=np.uint8), input_filename="tiny.png")

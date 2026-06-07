@@ -28,6 +28,7 @@ PAIR_WEIGHTS = {"eff_identity": 0.427, "conv_crop_sweep": 0.573}
 
 
 def build_parser() -> argparse.ArgumentParser:
+    """Build the command-line argument parser for this script."""
     parser = argparse.ArgumentParser(
         description="Analyze BUSI wrong samples for the current ROI area-gated demo."
     )
@@ -69,6 +70,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def _load_json(path: str | Path) -> dict[str, Any]:
+    """Load a JSON report and validate its top-level object."""
     with Path(path).open("r", encoding="utf-8") as handle:
         data = json.load(handle)
     if not isinstance(data, dict):
@@ -77,6 +79,7 @@ def _load_json(path: str | Path) -> dict[str, Any]:
 
 
 def _report_rows(report: dict[str, Any]) -> list[dict[str, Any]]:
+    """Return prediction rows from a BUSI report payload."""
     rows = report.get("rows")
     if not isinstance(rows, list):
         raise ValueError("Report does not contain a rows list.")
@@ -84,10 +87,12 @@ def _report_rows(report: dict[str, Any]) -> list[dict[str, Any]]:
 
 
 def _probabilities(rows: list[dict[str, Any]]) -> np.ndarray:
+    """Return malignant probabilities as a NumPy vector."""
     return np.asarray([float(row["malignant_probability"]) for row in rows], dtype=np.float64)
 
 
 def _row_ids(rows: list[dict[str, Any]]) -> list[str]:
+    """Return sample identifiers from report rows."""
     return [str(row["sample_id"]) for row in rows]
 
 
@@ -96,6 +101,7 @@ def _view_probabilities(
     view_name: str,
     expected_ids: list[str],
 ) -> np.ndarray:
+    """Return malignant probabilities for a named prediction view."""
     views = roi_report.get("views")
     if not isinstance(views, dict) or view_name not in views:
         raise ValueError(f"ROI report does not contain view {view_name!r}.")
@@ -107,6 +113,7 @@ def _view_probabilities(
 
 
 def _weighted_pair(eff: np.ndarray, conv: np.ndarray) -> np.ndarray:
+    """Blend paired model probability vectors with fixed weights."""
     total = PAIR_WEIGHTS["eff_identity"] + PAIR_WEIGHTS["conv_crop_sweep"]
     return (
         PAIR_WEIGHTS["eff_identity"] * eff
@@ -119,6 +126,7 @@ def _stacker_probability(
     roi_probability: float,
     stacker: dict[str, Any],
 ) -> float:
+    """Apply the configured stacker to full and ROI probabilities."""
     values = np.asarray([full_probability, roi_probability], dtype=np.float64)
     feature_mode = str(stacker.get("feature_mode", "probability"))
     if feature_mode == "logit":
@@ -133,6 +141,7 @@ def _stacker_probability(
 
 
 def _gate_reason(area_ratio: float, min_area: float, max_area: float) -> str:
+    """Classify why the ROI area gate accepted or rejected a mask."""
     if area_ratio < min_area:
         return "too_small"
     if area_ratio > max_area:
@@ -141,6 +150,7 @@ def _gate_reason(area_ratio: float, min_area: float, max_area: float) -> str:
 
 
 def _area_bin(area_ratio: float, min_area: float, max_area: float) -> str:
+    """Assign an ROI area ratio to a readable analysis bin."""
     if area_ratio < min_area:
         return "small_or_empty"
     if area_ratio < 0.20:
@@ -153,6 +163,7 @@ def _area_bin(area_ratio: float, min_area: float, max_area: float) -> str:
 
 
 def _confidence_band(distance: float, borderline_margin: float) -> str:
+    """Assign threshold distance to a confidence band."""
     if distance <= 0.03:
         return "near_threshold"
     if distance <= borderline_margin:
@@ -161,10 +172,12 @@ def _confidence_band(distance: float, borderline_margin: float) -> str:
 
 
 def _prediction(probability: float, threshold: float) -> int:
+    """Convert a probability into a binary label at a threshold."""
     return int(probability >= threshold)
 
 
 def _wrong_flag(probability: float, y_true: int, threshold: float) -> bool:
+    """Return whether a probability is misclassified at a threshold."""
     return _prediction(probability, threshold) != int(y_true)
 
 
@@ -177,6 +190,7 @@ def _mechanism(
     gate_fallback: bool,
     threshold: float,
 ) -> str:
+    """Describe which branch or gate produced the prediction error."""
     final_pred = _prediction(final_probability, threshold)
     full_pred = _prediction(full_probability, threshold)
     ungated_pred = _prediction(ungated_probability, threshold)
@@ -200,6 +214,7 @@ def _mechanism(
 
 
 def _mask_stats(mask_path: str | None) -> tuple[float, float]:
+    """Calculate foreground ratio and mean intensity for a mask."""
     mask = read_mask(mask_path) if mask_path else None
     if mask is None or mask.size == 0:
         return 0.0, 0.0
@@ -214,15 +229,18 @@ def _mask_stats(mask_path: str | None) -> tuple[float, float]:
 
 
 def _image_stats(image_path: str) -> tuple[float, float]:
+    """Calculate normalized mean and standard deviation for an image."""
     image = read_image(image_path, grayscale=True).astype(np.float32) / 255.0
     return float(image.mean()), float(image.std())
 
 
 def _safe_name(value: str) -> str:
+    """Convert a sample identifier into a filesystem-safe name."""
     return re.sub(r"[^A-Za-z0-9_.-]+", "_", value).strip("_") or "sample"
 
 
 def _resize_to_height(image: np.ndarray, height: int) -> np.ndarray:
+    """Resize an image while preserving aspect ratio."""
     if image.shape[0] == height:
         return image
     width = max(1, int(round(image.shape[1] * (height / image.shape[0]))))
@@ -234,6 +252,7 @@ def _resize_to_height(image: np.ndarray, height: int) -> np.ndarray:
 
 
 def _overlay_mask(image: np.ndarray, mask: np.ndarray | None) -> np.ndarray:
+    """Overlay a lesion mask on an RGB image preview."""
     rgb = np.repeat(image[..., None], 3, axis=2) if image.ndim == 2 else image.copy()
     if mask is None:
         return rgb
@@ -251,6 +270,7 @@ def _overlay_mask(image: np.ndarray, mask: np.ndarray | None) -> np.ndarray:
 
 
 def _draw_text_block(width: int, lines: list[str]) -> np.ndarray:
+    """Render a compact text panel for exported case images."""
     height = 24 + 22 * len(lines)
     block = np.full((height, width, 3), 245, dtype=np.uint8)
     if cv2 is None:
@@ -281,6 +301,7 @@ def _draw_text_block(width: int, lines: list[str]) -> np.ndarray:
 
 
 def _export_case_image(row: dict[str, Any], output_path: Path) -> None:
+    """Export case image."""
     image = read_image(str(row["image_path"]), grayscale=True)
     mask = read_mask(str(row["mask_path"])) if row.get("mask_path") else None
     original = np.repeat(image[..., None], 3, axis=2) if image.ndim == 2 else image
@@ -300,6 +321,7 @@ def _export_case_image(row: dict[str, Any], output_path: Path) -> None:
 
 
 def _write_csv(path: str | Path, rows: list[dict[str, Any]]) -> None:
+    """Write analysis rows to a UTF-8 CSV file."""
     output = Path(path)
     output.parent.mkdir(parents=True, exist_ok=True)
     fieldnames = [
@@ -347,12 +369,14 @@ def _write_csv(path: str | Path, rows: list[dict[str, Any]]) -> None:
 
 
 def _format_float(value: Any, digits: int = 4) -> str:
+    """Format floating-point values for Markdown tables."""
     if isinstance(value, (float, np.floating)):
         return f"{float(value):.{digits}f}"
     return str(value)
 
 
 def _counter_table(counter: Counter[str], total: int) -> list[str]:
+    """Format category counts as a Markdown table."""
     lines = ["| 类别 | 数量 | 占比 |", "| --- | ---: | ---: |"]
     for key, count in counter.most_common():
         ratio = count / total if total else 0.0
@@ -361,6 +385,7 @@ def _counter_table(counter: Counter[str], total: int) -> list[str]:
 
 
 def _branch_wrong_rates(error_rows: list[dict[str, Any]]) -> list[str]:
+    """Format branch-specific error rates for the report."""
     lines = [
         "| 错误类型 | full_eff | full_conv | roi_eff | roi_conv | full_pair | roi_pair | gate_fallback |",
         "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
@@ -388,6 +413,7 @@ def _branch_wrong_rates(error_rows: list[dict[str, Any]]) -> list[str]:
 
 
 def _top_case_table(rows: list[dict[str, Any]], error_type: str) -> list[str]:
+    """Format the top error cases for one error type."""
     selected = [row for row in rows if row["error_type"] == error_type][:10]
     lines = [
         "| sample_id | p(final) | full | ROI | 面积 | 机制 |",
@@ -412,6 +438,7 @@ def _top_case_table(rows: list[dict[str, Any]], error_type: str) -> list[str]:
 
 
 def _group_stats(rows: list[dict[str, Any]]) -> list[str]:
+    """Summarize grouped error statistics for Markdown output."""
     groups: dict[str, list[dict[str, Any]]] = defaultdict(list)
     for row in rows:
         groups[row["error_type"]].append(row)
@@ -443,6 +470,7 @@ def _group_stats(rows: list[dict[str, Any]]) -> list[str]:
 
 
 def build_markdown(report: dict[str, Any], error_rows: list[dict[str, Any]]) -> list[str]:
+    """Build the Markdown report body for this experiment."""
     metrics = report["metrics"]
     confusion = metrics["confusion"]
     threshold = float(metrics["threshold"])
@@ -523,6 +551,7 @@ def build_markdown(report: dict[str, Any], error_rows: list[dict[str, Any]]) -> 
 
 
 def run(args: argparse.Namespace) -> dict[str, Any]:
+    """Run the experiment workflow and return the generated summary."""
     config, paths = load_project_config(args.config)
     runtime = dict(config.get("runtime", {}))
     roi_config = dict(runtime.get("roi_enhancement", {}))
@@ -699,6 +728,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
 
 
 def _write_case_manifest(path: Path, rows: list[dict[str, Any]]) -> None:
+    """Write case manifest."""
     path.parent.mkdir(parents=True, exist_ok=True)
     fieldnames = [
         "rank",
@@ -719,6 +749,7 @@ def _write_case_manifest(path: Path, rows: list[dict[str, Any]]) -> None:
 
 
 def main() -> None:
+    """Parse CLI arguments and run the script entry point."""
     args = build_parser().parse_args()
     summary = run(args)
     print(json.dumps(summary, ensure_ascii=False, indent=2))

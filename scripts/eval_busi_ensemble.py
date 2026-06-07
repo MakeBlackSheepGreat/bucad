@@ -26,6 +26,7 @@ torch = optional_import("torch")
 
 
 def _parse_member(value: str) -> dict[str, Any]:
+    """Parse a model checkpoint member specification."""
     parts = value.split(":", 2)
     if len(parts) == 2:
         model_name, checkpoint = parts
@@ -41,6 +42,7 @@ def _parse_member(value: str) -> dict[str, Any]:
 
 
 def build_parser() -> argparse.ArgumentParser:
+    """Build the command-line argument parser for this script."""
     parser = argparse.ArgumentParser(description="Evaluate a heterogeneous BUSI ensemble.")
     parser.add_argument("--config", required=True, help="Path to inference config YAML.")
     parser.add_argument(
@@ -55,6 +57,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def _load_members(entries: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Load ensemble member checkpoints on CPU."""
     if torch is None:
         raise RuntimeError("Torch is required for ensemble evaluation.")
     members = []
@@ -75,6 +78,7 @@ def _load_members(entries: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 
 def evaluate_ensemble(config_path: str | Path, entries: list[dict[str, Any]]) -> dict[str, Any]:
+    """Evaluate a heterogeneous classifier ensemble on BUSI."""
     config, paths = load_project_config(config_path)
     runtime = config.get("runtime", {})
     members = _load_members(entries)
@@ -141,6 +145,7 @@ def evaluate_ensemble(config_path: str | Path, entries: list[dict[str, Any]]) ->
 
 
 def main() -> int:
+    """Parse CLI arguments and run the script entry point."""
     args = build_parser().parse_args()
     report = evaluate_ensemble(args.config, args.member)
     if args.output:

@@ -33,6 +33,7 @@ PAIR_WEIGHTS = {"eff_identity": 0.427, "conv_crop_sweep": 0.573}
 
 
 def build_parser() -> argparse.ArgumentParser:
+    """Build the command-line argument parser for this script."""
     parser = argparse.ArgumentParser(
         description="Select ROI area gate parameters from BUSBRA OOF only."
     )
@@ -67,20 +68,24 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def _load_json(path: str | Path) -> dict[str, Any]:
+    """Load a JSON report and validate its top-level object."""
     with Path(path).open("r", encoding="utf-8") as handle:
         return json.load(handle)
 
 
 def _sigmoid(values: np.ndarray) -> np.ndarray:
+    """Convert logits to probabilities with the sigmoid transform."""
     return 1.0 / (1.0 + np.exp(-values))
 
 
 def _logit(probabilities: np.ndarray) -> np.ndarray:
+    """Convert probabilities to clipped logits."""
     clipped = np.clip(probabilities, 1e-6, 1.0 - 1e-6)
     return np.log(clipped / (1.0 - clipped))
 
 
 def _metrics(y_true: np.ndarray, probabilities: np.ndarray, threshold: float) -> dict[str, Any]:
+    """Calculate classification metrics for a probability vector."""
     predictions = (probabilities >= float(threshold)).astype(np.int32)
     tn, fp, fn, tp = confusion_matrix(y_true, predictions, labels=[0, 1]).ravel()
     sensitivity = float(tp / (tp + fn)) if tp + fn else 0.0
@@ -111,6 +116,7 @@ def _best_threshold(
     *,
     min_sensitivity: float,
 ) -> dict[str, Any]:
+    """Find the threshold with the best Youden score."""
     rows = [
         _metrics(y_true, probabilities, float(threshold))
         for threshold in np.round(np.arange(0.1, 0.9001, 0.01), 2)
@@ -128,6 +134,7 @@ def _best_threshold(
 
 
 def _combine_views(views: dict[str, list[dict[str, Any]]]) -> np.ndarray:
+    """Combine views."""
     reference_ids: list[str] | None = None
     combined: np.ndarray | None = None
     total_weight = 0.0
@@ -151,6 +158,7 @@ def _combine_views(views: dict[str, list[dict[str, Any]]]) -> np.ndarray:
 
 
 def _roi_area_ratio(mask: np.ndarray, *, threshold: float, margin_ratio: float) -> float:
+    """Process ROI area ratio."""
     bbox = mask_bbox(
         mask,
         threshold=threshold,
@@ -174,6 +182,7 @@ def _roi_images_and_areas(
     margin_ratio: float,
     mask_threshold: float,
 ) -> tuple[list[np.ndarray], list[float]]:
+    """Process ROI images and areas."""
     images: list[np.ndarray] = []
     area_ratios: list[float] = []
     for row in manifest.itertuples(index=False):
@@ -199,6 +208,7 @@ def _roi_images_and_areas(
 
 
 def _generate_roi_oof_cache(args: argparse.Namespace) -> dict[str, Any]:
+    """Generate roi oof cache."""
     config, paths = load_project_config(args.config)
     manifest = load_busbra_manifest(paths.busbra_root)
     seed = int(config.get("seed", 42))
@@ -263,6 +273,7 @@ def _generate_roi_oof_cache(args: argparse.Namespace) -> dict[str, Any]:
 
 
 def _load_or_generate_roi_oof(args: argparse.Namespace) -> dict[str, Any]:
+    """Load or generate roi oof."""
     path = Path(args.roi_oof_cache)
     if args.reuse_roi_oof and path.exists():
         return _load_json(path)
@@ -276,6 +287,7 @@ def _apply_runtime_stacker(
     roi_probabilities: np.ndarray,
     runtime_config: dict[str, Any],
 ) -> np.ndarray:
+    """Apply runtime stacker."""
     stacker = runtime_config["runtime"]["roi_enhancement"]["stacker"]
     matrix = np.vstack([_logit(full_probabilities), _logit(roi_probabilities)]).T
     scaled = (
@@ -297,6 +309,7 @@ def _scan_area_gates(
     min_sensitivity: float,
     min_auc_drop: float,
 ) -> list[dict[str, Any]]:
+    """Scan area gates."""
     results: list[dict[str, Any]] = []
     min_values = [0.0, 0.01, 0.03, 0.05, 0.08, 0.10, 0.15, 0.20, 0.25, 0.30]
     max_values = [0.35, 0.45, 0.55, 0.65, 0.75, 0.85, 0.95, 1.01]
@@ -348,6 +361,7 @@ def _write_candidate_config(
     destination: str | Path,
     candidate: dict[str, Any],
 ) -> None:
+    """Write candidate config."""
     config = yaml.safe_load(Path(runtime_config_path).read_text(encoding="utf-8"))
     runtime = config["runtime"]
     runtime["ensemble_display_name"] = "ConvNeXt-Tiny + EfficientNetV2-S + ROI Area Gate OOF Protocol"
@@ -366,10 +380,12 @@ def _write_candidate_config(
 
 
 def _format_metric(metric: dict[str, Any], key: str) -> str:
+    """Format one metric value for report tables."""
     return f"{float(metric[key]):.4f}"
 
 
 def build_markdown(report: dict[str, Any]) -> list[str]:
+    """Build the Markdown report body for this experiment."""
     baseline = report["baseline_oof_metrics"]
     selected = report["selected_candidate"]
     lines = [
@@ -464,6 +480,7 @@ def build_markdown(report: dict[str, Any]) -> list[str]:
 
 
 def run(args: argparse.Namespace) -> dict[str, Any]:
+    """Run the experiment workflow and return the generated summary."""
     full_oof = _load_json(args.full_oof_cache)
     roi_oof = _load_or_generate_roi_oof(args)
     y_true = np.asarray(
@@ -522,6 +539,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
 
 
 def main() -> int:
+    """Parse CLI arguments and run the script entry point."""
     args = build_parser().parse_args()
     report = run(args)
     selected = report["selected_candidate"]

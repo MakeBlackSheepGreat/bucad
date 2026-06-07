@@ -12,6 +12,7 @@ from src.engine.descriptors import (
 
 
 def test_extract_roi_descriptors_reports_shape_and_quality_features() -> None:
+    """Verify extract roi descriptors reports shape and quality features."""
     image = np.zeros((20, 30), dtype=np.uint8)
     image[6:14, 10:20] = 180
     mask = np.zeros((20, 30), dtype=np.float32)
@@ -34,6 +35,7 @@ def test_extract_roi_descriptors_reports_shape_and_quality_features() -> None:
 
 
 def test_router_feature_vector_combines_probabilities_and_descriptors() -> None:
+    """Verify router feature vector combines probabilities and descriptors."""
     feature_map = build_router_feature_map(
         full_probability=0.2,
         roi_probability=0.8,

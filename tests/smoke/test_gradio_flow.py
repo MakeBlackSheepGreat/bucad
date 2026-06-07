@@ -6,6 +6,7 @@ import pytest
 
 
 def test_gradio_app_builds_when_dependency_is_installed() -> None:
+    """Verify gradio app builds when dependency is installed."""
     pytest.importorskip("gradio")
     from app.main import build_app
 

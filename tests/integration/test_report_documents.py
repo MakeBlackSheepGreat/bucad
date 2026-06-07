@@ -16,6 +16,7 @@ TEST_ROOT = Path("artifacts/test-workspace/test_report_documents")
 
 
 def test_report_document_export_writes_readable_docx() -> None:
+    """Verify report document export writes readable docx."""
     shutil.rmtree(TEST_ROOT, ignore_errors=True)
     reports_dir = TEST_ROOT / "reports"
     output_dir = reports_dir / "documents"
@@ -77,6 +78,7 @@ def test_report_document_export_writes_readable_docx() -> None:
 
 
 def test_report_document_export_rejects_pdf_format() -> None:
+    """Verify report document export rejects pdf format."""
     shutil.rmtree(TEST_ROOT, ignore_errors=True)
     reports_dir = TEST_ROOT / "reports"
     reports_dir.mkdir(parents=True, exist_ok=True)

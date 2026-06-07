@@ -8,6 +8,7 @@ from src.preprocess.roi import crop_to_mask_bbox, expand_bbox, mask_bbox
 
 
 def test_mask_bbox_returns_foreground_bounds() -> None:
+    """Verify mask bbox returns foreground bounds."""
     mask = np.zeros((10, 12), dtype=np.uint8)
     mask[2:5, 3:8] = 1
 
@@ -15,10 +16,12 @@ def test_mask_bbox_returns_foreground_bounds() -> None:
 
 
 def test_expand_bbox_clamps_to_image() -> None:
+    """Verify expand bbox clamps to image."""
     assert expand_bbox((1, 1, 4, 3), image_shape=(5, 5), margin_ratio=1.0) == (0, 0, 5, 5)
 
 
 def test_crop_to_mask_bbox_falls_back_to_full_image_for_empty_mask() -> None:
+    """Verify crop to mask bbox falls back to full image for empty mask."""
     image = np.arange(25, dtype=np.uint8).reshape(5, 5)
     mask = np.zeros((5, 5), dtype=np.uint8)
 
@@ -28,6 +31,7 @@ def test_crop_to_mask_bbox_falls_back_to_full_image_for_empty_mask() -> None:
 
 
 def test_crop_to_mask_bbox_returns_context_crop() -> None:
+    """Verify crop to mask bbox returns context crop."""
     image = np.arange(100, dtype=np.uint8).reshape(10, 10)
     mask = np.zeros((10, 10), dtype=np.uint8)
     mask[4:6, 4:6] = 1
@@ -39,6 +43,7 @@ def test_crop_to_mask_bbox_returns_context_crop() -> None:
 
 
 def test_crop_to_mask_bbox_can_use_largest_component() -> None:
+    """Verify crop to mask bbox can use largest component."""
     image = np.arange(100, dtype=np.uint8).reshape(10, 10)
     mask = np.zeros((10, 10), dtype=np.uint8)
     mask[1:3, 1:3] = 1

@@ -13,6 +13,7 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 def _tracked_mainline_checkpoints() -> set[str]:
+    """Return tracked mainline checkpoints."""
     completed = subprocess.run(
         ["git", "ls-files", "artifacts/checkpoints/*.pt"],
         cwd=ROOT,
@@ -28,6 +29,7 @@ def _tracked_mainline_checkpoints() -> set[str]:
 
 
 def test_demo_config_keeps_frozen_mainline_members() -> None:
+    """Verify demo config keeps frozen mainline members."""
     config, paths = load_project_config(ROOT / "configs/inference/demo.yml")
     runtime = config["runtime"]
     members = runtime["classifier_members"]

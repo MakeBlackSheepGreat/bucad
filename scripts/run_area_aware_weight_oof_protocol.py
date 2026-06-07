@@ -36,6 +36,7 @@ AREA_BINS = (
 
 
 def build_parser() -> argparse.ArgumentParser:
+    """Build the command-line argument parser for this script."""
     parser = argparse.ArgumentParser(
         description="Use BUSBRA OOF to study lesion-area-aware model fusion weights."
     )
@@ -66,20 +67,24 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def _load_json(path: str | Path) -> dict[str, Any]:
+    """Load a JSON report and validate its top-level object."""
     with Path(path).open("r", encoding="utf-8") as handle:
         return json.load(handle)
 
 
 def _sigmoid(values: np.ndarray) -> np.ndarray:
+    """Convert logits to probabilities with the sigmoid transform."""
     return 1.0 / (1.0 + np.exp(-values))
 
 
 def _logit(probabilities: np.ndarray) -> np.ndarray:
+    """Convert probabilities to clipped logits."""
     clipped = np.clip(probabilities, 1e-6, 1.0 - 1e-6)
     return np.log(clipped / (1.0 - clipped))
 
 
 def _metrics(y_true: np.ndarray, probabilities: np.ndarray, threshold: float) -> dict[str, Any]:
+    """Calculate classification metrics for a probability vector."""
     predictions = (probabilities >= float(threshold)).astype(np.int32)
     tn, fp, fn, tp = confusion_matrix(y_true, predictions, labels=[0, 1]).ravel()
     sensitivity = float(tp / (tp + fn)) if tp + fn else 0.0
@@ -110,6 +115,7 @@ def _best_threshold(
     *,
     min_sensitivity: float,
 ) -> dict[str, Any]:
+    """Find the threshold with the best Youden score."""
     rows = [
         _metrics(y_true, probabilities, float(threshold))
         for threshold in np.round(np.arange(0.1, 0.9001, 0.01), 2)
@@ -127,6 +133,7 @@ def _best_threshold(
 
 
 def _validate_order(views: dict[str, list[dict[str, Any]]]) -> list[str]:
+    """Validate order."""
     sample_ids = [str(row["sample_id"]) for row in views[PAIR_VIEWS[0]]]
     for view_name in PAIR_VIEWS[1:]:
         current = [str(row["sample_id"]) for row in views[view_name]]
@@ -136,6 +143,7 @@ def _validate_order(views: dict[str, list[dict[str, Any]]]) -> list[str]:
 
 
 def _view_array(views: dict[str, list[dict[str, Any]]], view_name: str) -> np.ndarray:
+    """Return a named prediction view as a NumPy vector."""
     return np.asarray(
         [row["malignant_probability"] for row in views[view_name]],
         dtype=np.float64,
@@ -143,6 +151,7 @@ def _view_array(views: dict[str, list[dict[str, Any]]], view_name: str) -> np.nd
 
 
 def _fixed_blend(views: dict[str, list[dict[str, Any]]]) -> np.ndarray:
+    """Blend full and ROI probability vectors with fixed weights."""
     _validate_order(views)
     return (
         DEFAULT_WEIGHTS["eff_identity"] * _view_array(views, "eff_identity")
@@ -156,6 +165,7 @@ def _runtime_stack(
     *,
     runtime_config: dict[str, Any],
 ) -> np.ndarray:
+    """Apply runtime stacker settings to paired probabilities."""
     stacker = runtime_config["runtime"]["roi_enhancement"]["stacker"]
     matrix = np.vstack([_logit(full_probabilities), _logit(roi_probabilities)]).T
     scaled = (
@@ -168,6 +178,7 @@ def _runtime_stack(
 
 
 def _bin_indices(area_ratios: np.ndarray, bin_def: dict[str, float | str]) -> np.ndarray:
+    """Return sample indices for one ROI area bin."""
     return (area_ratios >= float(bin_def["min"])) & (area_ratios < float(bin_def["max"]))
 
 
@@ -178,6 +189,7 @@ def _area_aware_roi_probability(
     area_ratios: np.ndarray,
     conv_weights: dict[str, float],
 ) -> np.ndarray:
+    """Select ROI probabilities from area-aware candidate models."""
     output = np.zeros_like(eff_probabilities, dtype=np.float64)
     for bin_def in AREA_BINS:
         mask = _bin_indices(area_ratios, bin_def)
@@ -196,6 +208,7 @@ def _bin_model_metrics(
     roi_views: dict[str, list[dict[str, Any]]],
     area_ratios: np.ndarray,
 ) -> list[dict[str, Any]]:
+    """Calculate metrics for each ROI area bin."""
     rows: list[dict[str, Any]] = []
     candidates = {
         "full_eff": _view_array(full_views, "eff_identity"),
@@ -236,6 +249,7 @@ def _search_area_weights(
     min_sensitivity: float,
     max_auc_drop: float,
 ) -> list[dict[str, Any]]:
+    """Search area weights."""
     eff_roi = _view_array(roi_views, "eff_identity")
     conv_roi = _view_array(roi_views, "conv_crop_sweep")
     grid = np.round(np.arange(0.0, 1.0001, 0.1), 2)
@@ -284,6 +298,7 @@ def _search_area_weights(
 
 
 def _load_busi_full_views() -> tuple[list[dict[str, str]], np.ndarray, dict[str, list[dict[str, Any]]]]:
+    """Load busi full views."""
     reports = {
         "eff_identity": "artifacts/reports/busi_efficientnetv2_s_5fold_identity.json",
         "conv_crop_sweep": "artifacts/reports/busi_convnext_tiny_tta_crop_sweep.json",
@@ -320,6 +335,7 @@ def _load_busi_full_views() -> tuple[list[dict[str, str]], np.ndarray, dict[str,
 
 
 def _load_or_generate_busi_roi_cache(args: argparse.Namespace) -> dict[str, Any]:
+    """Load or generate busi roi cache."""
     path = Path(args.busi_roi_cache)
     if path.exists():
         return _load_json(path)
@@ -368,15 +384,18 @@ def _load_or_generate_busi_roi_cache(args: argparse.Namespace) -> dict[str, Any]
 
 
 def _format_metric(metric: dict[str, Any], key: str) -> str:
+    """Format one metric value for report tables."""
     return f"{float(metric[key]):.4f}"
 
 
 def _confusion_text(metric: dict[str, Any]) -> str:
+    """Format confusion-matrix counts for report tables."""
     c = metric["confusion"]
     return f"TN {c['tn']} / FP {c['fp']} / FN {c['fn']} / TP {c['tp']}"
 
 
 def build_markdown(report: dict[str, Any]) -> list[str]:
+    """Build the Markdown report body for this experiment."""
     selected = report["selected_candidate"]
     lines = [
         "# 病灶面积感知动态模型权重 OOF 实验",
@@ -497,6 +516,7 @@ def build_markdown(report: dict[str, Any]) -> list[str]:
     return lines
 
 def run(args: argparse.Namespace) -> dict[str, Any]:
+    """Run the experiment workflow and return the generated summary."""
     runtime_config = yaml.safe_load(Path(args.runtime_config).read_text(encoding="utf-8"))
     full_oof = _load_json(args.full_oof_cache)
     roi_oof = _load_json(args.roi_oof_cache)
@@ -596,6 +616,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
 
 
 def main() -> int:
+    """Parse CLI arguments and run the script entry point."""
     args = build_parser().parse_args()
     report = run(args)
     print(

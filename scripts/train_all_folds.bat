@@ -1,6 +1,7 @@
 @echo off
 setlocal
 
+REM Train all five classifier folds with the supplied config, or the EfficientNetV2-S default.
 set CONFIG=%~1
 if "%CONFIG%"=="" set CONFIG=configs\classifier\efficientnetv2_s.yml
 

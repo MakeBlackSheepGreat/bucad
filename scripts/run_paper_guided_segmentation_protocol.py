@@ -38,6 +38,7 @@ MAINLINE_METRICS = {
 
 @dataclass(frozen=True)
 class MethodSpec:
+    """Represent MethodSpec for this module."""
     method_id: str
     paper_source: str
     rationale: str
@@ -181,6 +182,7 @@ METHODS: tuple[MethodSpec, ...] = (
 
 
 def build_parser() -> argparse.ArgumentParser:
+    """Build the command-line argument parser for this script."""
     parser = argparse.ArgumentParser(
         description=(
             "Run paper-guided segmentation experiments under the BUSBRA-only selection protocol. "
@@ -202,6 +204,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def _selected_methods(value: str) -> list[MethodSpec]:
+    """Resolve selected experiment method definitions."""
     if value == "all":
         return list(METHODS)
     selected = {item.strip() for item in value.split(",") if item.strip()}
@@ -213,6 +216,7 @@ def _selected_methods(value: str) -> list[MethodSpec]:
 
 
 def _load_yaml(path: str | Path) -> dict[str, Any]:
+    """Load a YAML mapping used to materialize experiment configs."""
     with Path(path).open("r", encoding="utf-8") as handle:
         data = yaml.safe_load(handle) or {}
     if not isinstance(data, dict):
@@ -221,6 +225,7 @@ def _load_yaml(path: str | Path) -> dict[str, Any]:
 
 
 def _write_yaml(path: str | Path, data: dict[str, Any]) -> None:
+    """Write a YAML experiment config with stable key ordering."""
     target = Path(path)
     target.parent.mkdir(parents=True, exist_ok=True)
     with target.open("w", encoding="utf-8") as handle:
@@ -236,6 +241,7 @@ def _experiment_config(
     output_root: Path,
     device: str | None,
 ) -> dict[str, Any]:
+    """Build one experiment config from base settings."""
     config = copy.deepcopy(base_config)
     config.setdefault("model", {})
     config["model"].update(method.model_overrides)
@@ -265,6 +271,7 @@ def _experiment_config(
 
 
 def _mean_metrics(fold_reports: list[dict[str, Any]]) -> dict[str, Any]:
+    """Average metric dictionaries across completed folds."""
     metric_keys = sorted(
         {
             key
@@ -286,6 +293,7 @@ def _freeze_runtime_config(
     fold_reports: list[dict[str, Any]],
     output_root: Path,
 ) -> Path:
+    """Freeze runtime config."""
     runtime = _load_yaml(runtime_config_path)
     checkpoints = [report["checkpoint_path"] for report in sorted(fold_reports, key=lambda item: item["fold"])]
     runtime.setdefault("runtime", {})
@@ -306,6 +314,7 @@ def _freeze_runtime_config(
 
 
 def _run_busi_review(config_path: Path, output_root: Path, method_id: str, *, stage: str) -> dict[str, Any]:
+    """Run busi review."""
     output_path = output_root / "external_reviews" / f"busi_{stage}_{method_id}_frozen_review.json"
     command = [
         sys.executable,
@@ -330,6 +339,7 @@ def _run_busi_review(config_path: Path, output_root: Path, method_id: str, *, st
 
 
 def _candidate_decision(external_review: dict[str, Any] | None) -> str:
+    """Summarize whether a candidate meets the promotion criteria."""
     if not external_review or external_review.get("returncode") != 0:
         return "report_only"
     report = external_review.get("report", {})
@@ -351,6 +361,7 @@ def _candidate_decision(external_review: dict[str, Any] | None) -> str:
 
 
 def _build_markdown(report: dict[str, Any]) -> list[str]:
+    """Build the Markdown report body for this experiment."""
     lines = [
         "# 论文启发分割与 ROI 优化实验记录",
         "",
@@ -408,6 +419,7 @@ def _build_markdown(report: dict[str, Any]) -> list[str]:
 
 
 def run(args: argparse.Namespace) -> dict[str, Any]:
+    """Run the experiment workflow and return the generated summary."""
     base_config = _load_yaml(args.base_config)
     _, paths = load_project_config(args.base_config)
     output_root = (paths.project_root / REPORT_DIR).resolve()
@@ -489,6 +501,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
 
 
 def main() -> int:
+    """Parse CLI arguments and run the script entry point."""
     args = build_parser().parse_args()
     report = run(args)
     print(

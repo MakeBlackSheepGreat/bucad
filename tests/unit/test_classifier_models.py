@@ -10,6 +10,7 @@ from src.models.classifier import create_classifier
 
 @pytest.mark.skipif(classifier.torch is None, reason="torch is not installed")
 def test_basic_cnn_classifier_outputs_two_logits() -> None:
+    """Verify basic cnn classifier outputs two logits."""
     model = create_classifier("basic_cnn", pretrained=False, in_chans=3, num_classes=2)
     batch = classifier.torch.zeros((2, 3, 32, 32), dtype=classifier.torch.float32)
 
@@ -20,6 +21,7 @@ def test_basic_cnn_classifier_outputs_two_logits() -> None:
 
 @pytest.mark.skipif(classifier.timm is None, reason="timm is not installed")
 def test_efficientnetv2_s_classifier_can_be_constructed_without_pretrained_weights() -> None:
+    """Verify efficientnetv2 s classifier can be constructed without pretrained weights."""
     model = create_classifier("tf_efficientnetv2_s", pretrained=False, in_chans=3, num_classes=2)
 
     assert model is not None
@@ -27,6 +29,7 @@ def test_efficientnetv2_s_classifier_can_be_constructed_without_pretrained_weigh
 
 @pytest.mark.skipif(classifier.timm is None, reason="timm is not installed")
 def test_timm_classifier_accepts_regularization_kwargs() -> None:
+    """Verify timm classifier accepts regularization kwargs."""
     model = create_classifier(
         "convnext_tiny",
         pretrained=False,

@@ -17,6 +17,7 @@ from src.utils.metrics import boundary_f1_score, hd95_score, iou_score
 
 @pytest.mark.skipif(segmenter.torch is None, reason="torch is not installed")
 def test_cenet_lite_outputs_mask_and_auxiliary_boundary() -> None:
+    """Verify cenet lite outputs mask and auxiliary boundary."""
     model = create_segmenter(
         architecture="cenet_lite",
         in_channels=3,
@@ -38,6 +39,7 @@ def test_cenet_lite_outputs_mask_and_auxiliary_boundary() -> None:
 
 @pytest.mark.skipif(segmenter.torch is None, reason="torch is not installed")
 def test_unet_segmenter_falls_back_to_tiny_model_when_smp_is_missing(monkeypatch) -> None:
+    """Verify unet segmenter falls back to tiny model when smp is missing."""
     monkeypatch.setattr(segmenter, "smp", None)
 
     model = create_segmenter(architecture="unet", in_channels=3, classes=1)
@@ -47,6 +49,7 @@ def test_unet_segmenter_falls_back_to_tiny_model_when_smp_is_missing(monkeypatch
 
 @pytest.mark.skipif(segmentation_losses.torch is None, reason="torch is not installed")
 def test_segmentation_loss_combines_boundary_pal_and_prototype_terms() -> None:
+    """Verify segmentation loss combines boundary pal and prototype terms."""
     torch = segmentation_losses.torch
     outputs = {
         "mask": torch.zeros((2, 1, 16, 16), dtype=torch.float32, requires_grad=True),
@@ -76,6 +79,7 @@ def test_segmentation_loss_combines_boundary_pal_and_prototype_terms() -> None:
 
 
 def test_segmentation_metrics_cover_overlap_boundary_and_hd95() -> None:
+    """Verify segmentation metrics cover overlap boundary and hd95."""
     mask = np.zeros((32, 32), dtype=np.float32)
     mask[8:20, 8:20] = 1.0
     shifted = np.zeros_like(mask)
@@ -90,6 +94,7 @@ def test_segmentation_metrics_cover_overlap_boundary_and_hd95() -> None:
 
 @pytest.mark.skipif(segmentation_losses.torch is None, reason="torch is not installed")
 def test_segmentation_checkpoint_save_is_atomic(tmp_path) -> None:
+    """Verify segmentation checkpoint save is atomic."""
     destination = tmp_path / "segmenter.pt"
 
     _atomic_torch_save({"value": 1}, destination)
@@ -100,6 +105,7 @@ def test_segmentation_checkpoint_save_is_atomic(tmp_path) -> None:
 
 
 def test_run_segmentation_training_smoke_uses_prepared_run(tmp_path, monkeypatch) -> None:
+    """Verify run segmentation training smoke uses prepared run."""
     if train_seg.torch is None:
         return
     torch = train_seg.torch
@@ -113,13 +119,17 @@ def test_run_segmentation_training_smoke_uses_prepared_run(tmp_path, monkeypatch
     )
 
     class _Dataset(torch.utils.data.Dataset):
+        """Represent Dataset for this module."""
         def __init__(self, frame, **_kwargs) -> None:
+            """Initialize this lightweight test helper."""
             self.frame = frame.reset_index(drop=True)
 
         def __len__(self) -> int:
+            """Return the number of samples in this helper dataset."""
             return len(self.frame)
 
         def __getitem__(self, index: int):
+            """Return one sample from this helper dataset."""
             value = float(index % 2)
             return {
                 "image": torch.full((3, 8, 8), value, dtype=torch.float32),
@@ -127,14 +137,18 @@ def test_run_segmentation_training_smoke_uses_prepared_run(tmp_path, monkeypatch
             }
 
     class _TinySegmenter(torch.nn.Module):
+        """Represent TinySegmenter for this module."""
         def __init__(self) -> None:
+            """Initialize this lightweight test helper."""
             super().__init__()
             self.conv = torch.nn.Conv2d(3, 1, kernel_size=1)
 
         def forward(self, images):
+            """Run forward."""
             return self.conv(images)
 
     class _Paths:
+        """Represent Paths for this module."""
         project_root = tmp_path
         busbra_root = tmp_path / "unused"
         checkpoints_root = tmp_path / "checkpoints"

@@ -8,6 +8,7 @@ from src.engine.inference import BreastUltrasoundInferenceService
 
 
 def test_classifier_tta_variants_override_legacy_horizontal_flip() -> None:
+    """Verify classifier tta variants override legacy horizontal flip."""
     service = BreastUltrasoundInferenceService(
         {
             "classifier_tta_horizontal_flip": True,
@@ -27,6 +28,7 @@ def test_classifier_tta_variants_override_legacy_horizontal_flip() -> None:
 
 
 def test_classifier_tta_horizontal_flip_variant_flips_image() -> None:
+    """Verify classifier tta horizontal flip variant flips image."""
     image = np.arange(12, dtype=np.uint8).reshape(3, 4)
     service = BreastUltrasoundInferenceService({})
 
@@ -37,6 +39,7 @@ def test_classifier_tta_horizontal_flip_variant_flips_image() -> None:
 
 
 def test_classifier_tta_rotate_suffix_changes_image_shape_safely() -> None:
+    """Verify classifier tta rotate suffix changes image shape safely."""
     image = np.arange(25, dtype=np.uint8).reshape(5, 5)
     service = BreastUltrasoundInferenceService({})
 
@@ -46,6 +49,7 @@ def test_classifier_tta_rotate_suffix_changes_image_shape_safely() -> None:
 
 
 def test_classifier_tta_variants_support_member_override() -> None:
+    """Verify classifier tta variants support member override."""
     service = BreastUltrasoundInferenceService(
         {
             "classifier_tta_horizontal_flip": True,
@@ -67,6 +71,7 @@ def test_classifier_tta_variants_support_member_override() -> None:
 
 
 def test_classifier_preprocess_kwargs_support_member_override() -> None:
+    """Verify classifier preprocess kwargs support member override."""
     service = BreastUltrasoundInferenceService(
         {
             "classifier_apply_clahe": False,

@@ -68,6 +68,7 @@ SOUP_VIEW = ModelView(
 
 
 def build_parser() -> argparse.ArgumentParser:
+    """Build the command-line argument parser for this script."""
     parser = argparse.ArgumentParser(
         description="Select a ConvNeXt-Tiny weight-soup candidate using BUSBRA OOF only."
     )
@@ -103,6 +104,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def _load_or_generate_soup_full(args: argparse.Namespace) -> dict[str, Any]:
+    """Load or generate soup full."""
     path = Path(args.soup_full_cache)
     if path.exists():
         return _load_json(path)
@@ -146,6 +148,7 @@ def _load_or_generate_soup_full(args: argparse.Namespace) -> dict[str, Any]:
 
 
 def _load_or_generate_soup_roi(args: argparse.Namespace) -> dict[str, Any]:
+    """Load or generate soup roi."""
     path = Path(args.soup_roi_cache)
     if path.exists():
         return _load_json(path)
@@ -223,6 +226,7 @@ def _soup_probability(
     runtime_config: dict[str, Any],
     roi_stack_blend_weight: float,
 ) -> np.ndarray:
+    """Blend seed-soup probabilities from full and ROI views."""
     full_probability = EFF_WEIGHT * eff_full + CONV_WEIGHT * soup_full
     roi_probability = EFF_WEIGHT * eff_roi + CONV_WEIGHT * soup_roi
     stack_probability = _runtime_stack(full_probability, roi_probability, runtime_config)
@@ -248,6 +252,7 @@ def _scan_candidates(
     min_sensitivity: float,
     max_auc_drop: float,
 ) -> list[dict[str, Any]]:
+    """Scan candidates."""
     results: list[dict[str, Any]] = []
     for blend_weight in (0.75, 0.85, 0.95, 1.0):
         probabilities = _soup_probability(
@@ -290,6 +295,7 @@ def _scan_candidates(
 
 
 def _fold_from_checkpoint(member: dict[str, Any], fallback: int) -> int:
+    """Infer the fold number from a checkpoint filename."""
     match = re.search(r"fold(\d+)", str(member.get("checkpoint", "")))
     if match:
         return int(match.group(1))
@@ -302,6 +308,7 @@ def _write_candidate_config(
     destination: str | Path,
     selected: dict[str, Any],
 ) -> None:
+    """Write candidate config."""
     config = yaml.safe_load(Path(runtime_config_path).read_text(encoding="utf-8"))
     runtime = config["runtime"]
     members: list[dict[str, Any]] = []
@@ -331,6 +338,7 @@ def _write_candidate_config(
 
 
 def build_markdown(report: dict[str, Any]) -> list[str]:
+    """Build the Markdown report body for this experiment."""
     selected = report["selected_candidate"]
     lines = [
         "# ConvNeXt-Tiny Weight Soup OOF Protocol",
@@ -391,6 +399,7 @@ def build_markdown(report: dict[str, Any]) -> list[str]:
 
 
 def run(args: argparse.Namespace) -> dict[str, Any]:
+    """Run the experiment workflow and return the generated summary."""
     runtime_config = yaml.safe_load(Path(args.runtime_config).read_text(encoding="utf-8"))
     full_oof = _load_json(args.full_oof_cache)
     roi_oof = _load_json(args.roi_oof_cache)
@@ -481,6 +490,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
 
 
 def main() -> int:
+    """Parse CLI arguments and run the script entry point."""
     args = build_parser().parse_args()
     report = run(args)
     selected = report["selected_candidate"]

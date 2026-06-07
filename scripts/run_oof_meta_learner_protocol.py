@@ -35,6 +35,7 @@ AREA_BINS = (
 
 @dataclass(frozen=True)
 class CandidateSpec:
+    """Represent CandidateSpec for this module."""
     name: str
     feature_set: str
     model_family: str
@@ -43,6 +44,7 @@ class CandidateSpec:
 
 
 def build_parser() -> argparse.ArgumentParser:
+    """Build the command-line argument parser for this script."""
     parser = argparse.ArgumentParser(
         description="Train and evaluate an OOF-only meta-learner for ROI-aware fusion."
     )
@@ -72,20 +74,24 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def _load_json(path: str | Path) -> dict[str, Any]:
+    """Load a JSON report and validate its top-level object."""
     with Path(path).open("r", encoding="utf-8") as handle:
         return json.load(handle)
 
 
 def _sigmoid(values: np.ndarray) -> np.ndarray:
+    """Convert logits to probabilities with the sigmoid transform."""
     return 1.0 / (1.0 + np.exp(-values))
 
 
 def _logit(probabilities: np.ndarray) -> np.ndarray:
+    """Convert probabilities to clipped logits."""
     clipped = np.clip(probabilities, 1e-6, 1.0 - 1e-6)
     return np.log(clipped / (1.0 - clipped))
 
 
 def _metrics(y_true: np.ndarray, probabilities: np.ndarray, threshold: float) -> dict[str, Any]:
+    """Calculate classification metrics for a probability vector."""
     predictions = (probabilities >= float(threshold)).astype(np.int32)
     tn, fp, fn, tp = confusion_matrix(y_true, predictions, labels=[0, 1]).ravel()
     sensitivity = float(tp / (tp + fn)) if tp + fn else 0.0
@@ -128,6 +134,7 @@ def _best_threshold(
     *,
     min_sensitivity: float,
 ) -> dict[str, Any]:
+    """Find the threshold with the best Youden score."""
     rows = [
         _metrics(y_true, probabilities, float(threshold))
         for threshold in np.round(np.arange(0.1, 0.9001, 0.01), 2)
@@ -146,6 +153,7 @@ def _best_threshold(
 
 
 def _validate_order(views: dict[str, list[dict[str, Any]]], *, view_names: tuple[str, ...]) -> list[str]:
+    """Validate order."""
     sample_ids = [str(row["sample_id"]) for row in views[view_names[0]]]
     for view_name in view_names[1:]:
         current = [str(row["sample_id"]) for row in views[view_name]]
@@ -155,6 +163,7 @@ def _validate_order(views: dict[str, list[dict[str, Any]]], *, view_names: tuple
 
 
 def _view_array(views: dict[str, list[dict[str, Any]]], view_name: str) -> np.ndarray:
+    """Return a named prediction view as a NumPy vector."""
     return np.asarray(
         [float(row["malignant_probability"]) for row in views[view_name]],
         dtype=np.float64,
@@ -162,6 +171,7 @@ def _view_array(views: dict[str, list[dict[str, Any]]], view_name: str) -> np.nd
 
 
 def _pair_blend(views: dict[str, list[dict[str, Any]]]) -> np.ndarray:
+    """Blend paired probability vectors with configured weights."""
     _validate_order(views, view_names=PAIR_VIEWS)
     return (
         PAIR_WEIGHTS["eff_identity"] * _view_array(views, "eff_identity")
@@ -175,6 +185,7 @@ def _runtime_stack(
     *,
     runtime_config: dict[str, Any],
 ) -> np.ndarray:
+    """Apply runtime stacker settings to paired probabilities."""
     stacker = runtime_config["runtime"]["roi_enhancement"]["stacker"]
     matrix = np.vstack([_logit(full_probabilities), _logit(roi_probabilities)]).T
     scaled = (
@@ -187,6 +198,7 @@ def _runtime_stack(
 
 
 def _bin_one_hot(area_ratios: np.ndarray) -> dict[str, np.ndarray]:
+    """Encode ROI area bins as one-hot feature columns."""
     output: dict[str, np.ndarray] = {}
     for name, min_area, max_area in AREA_BINS:
         output[f"area_bin_{name}"] = (
@@ -202,6 +214,7 @@ def _base_feature_map(
     area_ratios: np.ndarray,
     runtime_config: dict[str, Any],
 ) -> dict[str, np.ndarray]:
+    """Build the baseline feature map for meta-learning."""
     full_eff = _view_array(full_views, "eff_identity")
     full_conv = _view_array(full_views, "conv_crop_sweep")
     roi_eff = _view_array(roi_views, "eff_identity")
@@ -319,11 +332,13 @@ FEATURE_SETS: dict[str, tuple[str, ...]] = {
 
 
 def _feature_matrix(feature_map: dict[str, np.ndarray], feature_set: str) -> tuple[np.ndarray, list[str]]:
+    """Build a model feature matrix for candidate scoring."""
     names = list(FEATURE_SETS[feature_set])
     return np.vstack([feature_map[name] for name in names]).T.astype(np.float64), names
 
 
 def _make_logistic(C: float, class_weight: str | None) -> Pipeline:
+    """Create logistic."""
     return Pipeline(
         [
             ("scaler", StandardScaler()),
@@ -348,6 +363,7 @@ def _make_hgb(
     l2_regularization: float,
     max_iter: int,
 ) -> HistGradientBoostingClassifier:
+    """Create one histogram gradient boosting meta-learner candidate."""
     return HistGradientBoostingClassifier(
         learning_rate=float(learning_rate),
         max_leaf_nodes=int(max_leaf_nodes),
@@ -360,6 +376,7 @@ def _make_hgb(
 
 
 def _candidate_specs() -> list[CandidateSpec]:
+    """Generate candidate model or stacker specifications."""
     specs: list[CandidateSpec] = []
     for feature_set in FEATURE_SETS:
         for C in (0.03, 0.1, 0.3, 1.0, 3.0):
@@ -420,6 +437,7 @@ def _nested_oof_predict(
     y_true: np.ndarray,
     fold_ids: np.ndarray,
 ) -> np.ndarray:
+    """Generate nested OOF predictions for a candidate model."""
     probabilities = np.zeros(len(y_true), dtype=np.float64)
     for fold_id in sorted(np.unique(fold_ids)):
         val_mask = fold_ids == fold_id
@@ -431,12 +449,14 @@ def _nested_oof_predict(
 
 
 def _fit_final(spec: CandidateSpec, X: np.ndarray, y_true: np.ndarray) -> Any:
+    """Fit the selected candidate on all OOF training features."""
     model = spec.build_model()
     model.fit(X, y_true)
     return model
 
 
 def _load_busi_full_views() -> tuple[list[dict[str, str]], np.ndarray, dict[str, list[dict[str, Any]]]]:
+    """Load busi full views."""
     reports = {
         "eff_identity": "artifacts/reports/busi_efficientnetv2_s_5fold_identity.json",
         "conv_crop_sweep": "artifacts/reports/busi_convnext_tiny_tta_crop_sweep.json",
@@ -473,15 +493,18 @@ def _load_busi_full_views() -> tuple[list[dict[str, str]], np.ndarray, dict[str,
 
 
 def _format_metric(metric: dict[str, Any], key: str) -> str:
+    """Format one metric value for report tables."""
     return f"{float(metric[key]):.4f}"
 
 
 def _confusion_text(metric: dict[str, Any]) -> str:
+    """Format confusion-matrix counts for report tables."""
     c = metric["confusion"]
     return f"TN {c['tn']} / FP {c['fp']} / FN {c['fn']} / TP {c['tp']}"
 
 
 def _metrics_row(name: str, metric: dict[str, Any]) -> str:
+    """Format one metric row for a Markdown report."""
     return (
         "| "
         + " | ".join(
@@ -511,6 +534,7 @@ def _metrics_row(name: str, metric: dict[str, Any]) -> str:
 
 
 def build_markdown(report: dict[str, Any]) -> list[str]:
+    """Build the Markdown report body for this experiment."""
     selected = report["selected_candidate"]
     lines = [
         "# OOF Meta-Learner ROI \u878d\u5408\u5b9e\u9a8c",
@@ -593,6 +617,7 @@ def build_markdown(report: dict[str, Any]) -> list[str]:
     return [line.encode("utf-8").decode("unicode_escape") if "\\u" in line else line for line in lines]
 
 def _normalise_baseline_metrics(metrics: dict[str, Any], y_true: np.ndarray | None = None) -> dict[str, Any]:
+    """Normalize baseline metrics before comparison."""
     if "npv" in metrics and "sample_count" in metrics:
         return metrics
     confusion = metrics["confusion"]
@@ -615,6 +640,7 @@ def _normalise_baseline_metrics(metrics: dict[str, Any], y_true: np.ndarray | No
 
 
 def run(args: argparse.Namespace) -> dict[str, Any]:
+    """Run the experiment workflow and return the generated summary."""
     runtime_config = yaml.safe_load(Path(args.runtime_config).read_text(encoding="utf-8"))
     full_oof = _load_json(args.full_oof_cache)
     roi_oof = _load_json(args.roi_oof_cache)
@@ -766,6 +792,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
 
 
 def main() -> int:
+    """Parse CLI arguments and run the script entry point."""
     args = build_parser().parse_args()
     report = run(args)
     print(

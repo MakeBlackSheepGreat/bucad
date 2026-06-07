@@ -9,6 +9,7 @@ from scripts.export_demo_assets import export_demo_assets
 
 
 def test_demo_asset_export_creates_expected_layout() -> None:
+    """Verify demo asset export creates expected layout."""
     root = Path("artifacts/test-workspace/test_packaged_demo")
     shutil.rmtree(root, ignore_errors=True)
     root.mkdir(parents=True, exist_ok=True)

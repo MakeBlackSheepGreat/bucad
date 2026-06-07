@@ -15,6 +15,7 @@ TEST_ROOT = Path("artifacts/test-workspace/test_busi_eval")
 
 
 def _write_busi_fixture(root: Path) -> Path:
+    """Write busi fixture."""
     busi_root = root / "Dataset_BUSI_with_GT"
     for label in ("benign", "malignant"):
         label_dir = busi_root / label
@@ -31,6 +32,7 @@ def _write_busi_fixture(root: Path) -> Path:
 
 
 def test_busi_evaluation_writes_metrics_report() -> None:
+    """Verify busi evaluation writes metrics report."""
     shutil.rmtree(TEST_ROOT, ignore_errors=True)
     TEST_ROOT.mkdir(parents=True, exist_ok=True)
     busi_root = _write_busi_fixture(TEST_ROOT)
@@ -68,6 +70,7 @@ def test_busi_evaluation_writes_metrics_report() -> None:
     )
 
     def predictor(image: np.ndarray) -> tuple[float, float]:
+        """Run predictor."""
         return (0.2, 0.8) if image.mean() > 120 else (0.8, 0.2)
 
     report = evaluate_busi_dataset(config_path, classifier_predictor=predictor)
@@ -87,6 +90,7 @@ def test_busi_evaluation_writes_metrics_report() -> None:
 
 
 def test_busi_evaluation_uses_runtime_default_threshold() -> None:
+    """Verify busi evaluation uses runtime default threshold."""
     shutil.rmtree(TEST_ROOT, ignore_errors=True)
     TEST_ROOT.mkdir(parents=True, exist_ok=True)
     busi_root = TEST_ROOT / "Dataset_BUSI_with_GT"
@@ -134,6 +138,7 @@ def test_busi_evaluation_uses_runtime_default_threshold() -> None:
     )
 
     def predictor(image: np.ndarray) -> tuple[float, float]:
+        """Run predictor."""
         return (0.4, 0.6) if image.mean() > 120 else (0.6, 0.4)
 
     report = evaluate_busi_dataset(config_path, classifier_predictor=predictor)

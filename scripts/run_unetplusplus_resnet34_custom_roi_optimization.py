@@ -32,6 +32,7 @@ PAIR_VIEWS = ("eff_identity", "conv_crop_sweep")
 
 
 def build_parser() -> argparse.ArgumentParser:
+    """Build the command-line argument parser for this script."""
     parser = argparse.ArgumentParser(
         description=(
             "Search deployable BUSBRA OOF calibration settings for the "
@@ -58,6 +59,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def _load_json(path: str | Path) -> dict[str, Any]:
+    """Load a JSON report and validate its top-level object."""
     with Path(path).open("r", encoding="utf-8") as handle:
         data = json.load(handle)
     if not isinstance(data, dict):
@@ -66,6 +68,7 @@ def _load_json(path: str | Path) -> dict[str, Any]:
 
 
 def _load_yaml(path: str | Path) -> dict[str, Any]:
+    """Load a YAML mapping used to freeze candidate runtime configs."""
     with Path(path).open("r", encoding="utf-8") as handle:
         data = yaml.safe_load(handle) or {}
     if not isinstance(data, dict):
@@ -74,6 +77,7 @@ def _load_yaml(path: str | Path) -> dict[str, Any]:
 
 
 def _write_yaml(path: str | Path, data: dict[str, Any]) -> Path:
+    """Write a frozen candidate runtime config and return its path."""
     target = Path(path)
     target.parent.mkdir(parents=True, exist_ok=True)
     with target.open("w", encoding="utf-8") as handle:
@@ -82,6 +86,7 @@ def _write_yaml(path: str | Path, data: dict[str, Any]) -> Path:
 
 
 def _rows(report: dict[str, Any], view: str) -> list[dict[str, Any]]:
+    """Return validated rows from a report payload."""
     views = report.get("views")
     if not isinstance(views, dict) or view not in views:
         raise ValueError(f"Missing view {view!r}.")
@@ -92,6 +97,7 @@ def _rows(report: dict[str, Any], view: str) -> list[dict[str, Any]]:
 
 
 def _validate_order(*groups: list[dict[str, Any]]) -> list[str]:
+    """Validate order."""
     if not groups:
         raise ValueError("No OOF rows provided.")
     reference = [str(row["sample_id"]) for row in groups[0]]
@@ -103,24 +109,29 @@ def _validate_order(*groups: list[dict[str, Any]]) -> list[str]:
 
 
 def _probabilities(rows: list[dict[str, Any]]) -> np.ndarray:
+    """Return malignant probabilities as a NumPy vector."""
     return np.asarray([float(row["malignant_probability"]) for row in rows], dtype=np.float64)
 
 
 def _weighted_pair(eff: np.ndarray, conv: np.ndarray, conv_weight: float) -> np.ndarray:
+    """Blend paired model probability vectors with fixed weights."""
     weight = float(np.clip(conv_weight, 0.0, 1.0))
     return (1.0 - weight) * eff + weight * conv
 
 
 def _logit(values: np.ndarray) -> np.ndarray:
+    """Convert probabilities to clipped logits."""
     clipped = np.clip(values, 1e-6, 1.0 - 1e-6)
     return np.log(clipped / (1.0 - clipped))
 
 
 def _sigmoid(values: np.ndarray) -> np.ndarray:
+    """Convert logits to probabilities with the sigmoid transform."""
     return 1.0 / (1.0 + np.exp(-values))
 
 
 def _transform_pair(full_probabilities: np.ndarray, roi_probabilities: np.ndarray, mode: str) -> np.ndarray:
+    """Transform paired probabilities for stacker features."""
     matrix = np.vstack([full_probabilities, roi_probabilities]).T
     if mode == "logit":
         return _logit(matrix)
@@ -130,6 +141,7 @@ def _transform_pair(full_probabilities: np.ndarray, roi_probabilities: np.ndarra
 
 
 def _metrics_at_best_threshold(y_true: np.ndarray, probabilities: np.ndarray) -> dict[str, Any]:
+    """Calculate metrics at the best Youden threshold."""
     best = best_threshold_by_youden(
         y_true,
         probabilities,
@@ -146,6 +158,7 @@ def _runtime_stack(
     roi_probabilities: np.ndarray,
     stacker: dict[str, Any],
 ) -> np.ndarray:
+    """Apply runtime stacker settings to paired probabilities."""
     features = _transform_pair(
         full_probabilities,
         roi_probabilities,
@@ -166,6 +179,7 @@ def _current_oof_probabilities(
     area_ratios: np.ndarray,
     config: dict[str, Any],
 ) -> np.ndarray:
+    """Return current OOF probabilities from cached views."""
     runtime = dict(config.get("runtime", {}))
     roi_config = dict(runtime.get("roi_enhancement", {}))
     stacker = dict(roi_config.get("stacker", {}))
@@ -185,6 +199,7 @@ def _current_oof_probabilities(
 
 
 def _full_conv_weight_from_config(runtime: dict[str, Any]) -> float:
+    """Read the full ConvNeXt weight from runtime config."""
     conv_weight = 0.0
     eff_weight = 0.0
     for member in runtime.get("classifier_members", []):
@@ -203,6 +218,7 @@ def _full_conv_weight_from_config(runtime: dict[str, Any]) -> float:
 
 
 def _roi_conv_weight_from_overrides(overrides: dict[str, Any], *, default: float) -> float:
+    """Process ROI conv weight from overrides."""
     conv = overrides.get("convnext_tiny")
     eff = overrides.get("tf_efficientnetv2_s")
     if conv is None or eff is None:
@@ -222,6 +238,7 @@ def _fit_stacker_candidates(
     full_conv_weight: float,
     roi_conv_weight: float,
 ) -> list[dict[str, Any]]:
+    """Fit stacker candidates."""
     candidates: list[dict[str, Any]] = []
     splitter = GroupKFold(n_splits=5)
     for feature_mode in ("probability", "logit"):
@@ -275,6 +292,7 @@ def _fit_final_stacker(
     y_true: np.ndarray,
     selected: dict[str, Any],
 ) -> Pipeline:
+    """Fit final stacker."""
     features = _transform_pair(full_probabilities, roi_probabilities, str(selected["feature_mode"]))
     model = Pipeline(
         [
@@ -297,6 +315,7 @@ def _fit_final_stacker(
 
 
 def _slim_stacker(selected: dict[str, Any], model: Pipeline, y_true: np.ndarray) -> dict[str, Any]:
+    """Serialize a compact stacker config for runtime use."""
     scaler = model.named_steps["scaler"]
     classifier = model.named_steps["classifier"]
     best = best_threshold_by_youden(
@@ -327,6 +346,7 @@ def _scan_final_candidates(
     stacker_candidates: list[dict[str, Any]],
     top_stackers: int,
 ) -> list[dict[str, Any]]:
+    """Scan final candidates."""
     blend_values = [0.75, 0.85, 0.95, 1.0]
     min_values = [0.0, 0.05, 0.08, 0.1, 0.15, 0.2]
     max_values = [0.65, 0.75, 0.85, 0.95, 1.01]
@@ -379,6 +399,7 @@ def _scan_final_candidates(
 
 
 def _json_slim_candidate(row: dict[str, Any]) -> dict[str, Any]:
+    """Serialize a candidate stacker into JSON-friendly fields."""
     return {
         key: value
         for key, value in row.items()
@@ -393,6 +414,7 @@ def _freeze_config(
     selected: dict[str, Any],
     stacker: dict[str, Any],
 ) -> Path:
+    """Freeze config."""
     config = _load_yaml(base_config_path)
     frozen = copy.deepcopy(config)
     runtime = frozen.setdefault("runtime", {})
@@ -436,6 +458,7 @@ def _freeze_config(
 
 
 def _build_markdown(report: dict[str, Any]) -> list[str]:
+    """Build the Markdown report body for this experiment."""
     selected = report["selected_candidate"]
     baseline = report["baseline_current_unetplusplus_oof_metrics"]
     lines = [
@@ -514,6 +537,7 @@ def _build_markdown(report: dict[str, Any]) -> list[str]:
 
 
 def run(args: argparse.Namespace) -> dict[str, Any]:
+    """Run the experiment workflow and return the generated summary."""
     config, paths = load_project_config(args.config)
     output_root = paths.project_root / REPORT_DIR
     output_root.mkdir(parents=True, exist_ok=True)
@@ -656,6 +680,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
 
 
 def main() -> int:
+    """Parse CLI arguments and run the script entry point."""
     run(build_parser().parse_args())
     return 0
 

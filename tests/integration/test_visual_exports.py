@@ -16,6 +16,7 @@ TEST_ROOT = Path("artifacts/test-workspace/test_visual_exports")
 
 
 def test_visual_export_helpers_write_png_outputs() -> None:
+    """Verify visual export helpers write png outputs."""
     shutil.rmtree(TEST_ROOT, ignore_errors=True)
     TEST_ROOT.mkdir(parents=True, exist_ok=True)
     image = np.random.randint(0, 255, size=(96, 96), dtype=np.uint8)
@@ -33,6 +34,7 @@ def test_visual_export_helpers_write_png_outputs() -> None:
 
 
 def test_visual_evidence_export_writes_review_pack() -> None:
+    """Verify visual evidence export writes review pack."""
     shutil.rmtree(TEST_ROOT, ignore_errors=True)
     busi_root = TEST_ROOT / "Dataset_BUSI_with_GT"
     label_dir = busi_root / "benign"

@@ -10,6 +10,7 @@ from src.engine.inference import BreastUltrasoundInferenceService
 
 
 def test_roi_stacker_applies_probability_features() -> None:
+    """Verify roi stacker applies probability features."""
     service = BreastUltrasoundInferenceService({})
 
     probability = service._apply_roi_stacker(
@@ -28,6 +29,7 @@ def test_roi_stacker_applies_probability_features() -> None:
 
 
 def test_roi_enhanced_classification_uses_second_pass_roi_probability() -> None:
+    """Verify roi enhanced classification uses second pass roi probability."""
     mask = np.zeros((32, 32), dtype=np.float32)
     mask[8:24, 8:24] = 1.0
     service = BreastUltrasoundInferenceService(
@@ -55,6 +57,7 @@ def test_roi_enhanced_classification_uses_second_pass_roi_probability() -> None:
         *,
         member_weight_overrides: dict[str, float] | None = None,
     ) -> tuple[float, float]:
+        """Run predictor."""
         calls.append((tuple(image.shape[:2]), member_weight_overrides))
         return (0.8, 0.2) if len(calls) == 1 else (0.3, 0.7)
 
@@ -71,6 +74,7 @@ def test_roi_enhanced_classification_uses_second_pass_roi_probability() -> None:
 
 
 def test_roi_enhanced_classification_can_override_roi_member_weights() -> None:
+    """Verify roi enhanced classification can override roi member weights."""
     mask = np.zeros((32, 32), dtype=np.float32)
     mask[8:24, 8:24] = 1.0
     service = BreastUltrasoundInferenceService(
@@ -102,6 +106,7 @@ def test_roi_enhanced_classification_can_override_roi_member_weights() -> None:
         *,
         member_weight_overrides: dict[str, float] | None = None,
     ) -> tuple[float, float]:
+        """Run predictor."""
         calls.append(member_weight_overrides)
         return (0.8, 0.2) if len(calls) == 1 else (0.3, 0.7)
 
@@ -116,6 +121,7 @@ def test_roi_enhanced_classification_can_override_roi_member_weights() -> None:
 
 
 def test_roi_quality_gate_falls_back_to_full_probability() -> None:
+    """Verify roi quality gate falls back to full probability."""
     mask = np.ones((32, 32), dtype=np.float32)
     service = BreastUltrasoundInferenceService(
         {
@@ -146,6 +152,7 @@ def test_roi_quality_gate_falls_back_to_full_probability() -> None:
         *,
         member_weight_overrides: dict[str, float] | None = None,
     ) -> tuple[float, float]:
+        """Run predictor."""
         nonlocal calls
         calls += 1
         return 0.8, 0.2
@@ -163,6 +170,7 @@ def test_roi_quality_gate_falls_back_to_full_probability() -> None:
 
 
 def test_roi_fallback_reason_is_exposed_in_response_metadata() -> None:
+    """Verify roi fallback reason is exposed in response metadata."""
     mask = np.ones((64, 64), dtype=np.float32)
     service = BreastUltrasoundInferenceService(
         {
@@ -198,6 +206,7 @@ def test_roi_fallback_reason_is_exposed_in_response_metadata() -> None:
 
 
 def test_roi_stack_probability_can_blend_with_full_probability() -> None:
+    """Verify roi stack probability can blend with full probability."""
     mask = np.zeros((32, 32), dtype=np.float32)
     mask[8:24, 8:24] = 1.0
     service = BreastUltrasoundInferenceService(
@@ -225,6 +234,7 @@ def test_roi_stack_probability_can_blend_with_full_probability() -> None:
         *,
         member_weight_overrides: dict[str, float] | None = None,
     ) -> tuple[float, float]:
+        """Run predictor."""
         nonlocal calls
         calls += 1
         return (0.8, 0.2) if calls == 1 else (0.3, 0.7)
@@ -241,6 +251,7 @@ def test_roi_stack_probability_can_blend_with_full_probability() -> None:
 
 
 def test_descriptor_router_can_override_roi_stacker_probability() -> None:
+    """Verify descriptor router can override roi stacker probability."""
     mask = np.zeros((32, 32), dtype=np.float32)
     mask[8:24, 8:24] = 1.0
     service = BreastUltrasoundInferenceService(
@@ -275,6 +286,7 @@ def test_descriptor_router_can_override_roi_stacker_probability() -> None:
         *,
         member_weight_overrides: dict[str, float] | None = None,
     ) -> tuple[float, float]:
+        """Run predictor."""
         nonlocal calls
         calls += 1
         return (0.8, 0.2) if calls == 1 else (0.3, 0.7)
@@ -290,6 +302,7 @@ def test_descriptor_router_can_override_roi_stacker_probability() -> None:
 
 
 def test_segmenter_checkpoint_list_takes_precedence_over_single_checkpoint() -> None:
+    """Verify segmenter checkpoint list takes precedence over single checkpoint."""
     service = BreastUltrasoundInferenceService(
         {
             "segmenter_checkpoint": "single.pt",

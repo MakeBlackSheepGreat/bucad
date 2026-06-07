@@ -9,11 +9,13 @@ from pathlib import Path
 
 
 def run(command: list[str]) -> int:
+    """Run one validation command and return its process exit code."""
     completed = subprocess.run(command, check=False)
     return completed.returncode
 
 
 def main() -> int:
+    """Run environment reporting followed by the supported unit and smoke tests."""
     root = Path(__file__).resolve().parent
     env_code = run([sys.executable, str(root / "check_env.py")])
     pytest_tmp = Path(tempfile.mkdtemp(prefix="pytest-bucad-", dir=root / "tmp"))

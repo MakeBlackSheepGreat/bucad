@@ -16,6 +16,7 @@ TEST_ROOT = Path("artifacts/test-workspace/test_batch_inference")
 
 
 def test_batch_inference_writes_csv_rows() -> None:
+    """Verify batch inference writes csv rows."""
     shutil.rmtree(TEST_ROOT, ignore_errors=True)
     image_dir = TEST_ROOT / "images"
     image_dir.mkdir(parents=True, exist_ok=True)

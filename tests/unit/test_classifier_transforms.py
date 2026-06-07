@@ -9,6 +9,7 @@ from src.utils.config import load_yaml
 
 
 def test_augmented_classifier_transform_preserves_tensor_shape() -> None:
+    """Verify augmented classifier transform preserves tensor shape."""
     np.random.seed(42)
     image = np.random.randint(0, 255, size=(96, 80), dtype=np.uint8)
     transform = build_classifier_transform(
@@ -31,6 +32,7 @@ def test_augmented_classifier_transform_preserves_tensor_shape() -> None:
 
 
 def test_optimized_classifier_config_uses_higher_resolution_and_augments() -> None:
+    """Verify optimized classifier config uses higher resolution and augments."""
     config = load_yaml("configs/classifier/efficientnetv2_s_256_aug.yml")
 
     assert config["model"]["name"] == "tf_efficientnetv2_s"
@@ -42,6 +44,7 @@ def test_optimized_classifier_config_uses_higher_resolution_and_augments() -> No
 
 
 def test_resolution_only_classifier_config_keeps_baseline_augmentation() -> None:
+    """Verify resolution only classifier config keeps baseline augmentation."""
     config = load_yaml("configs/classifier/efficientnetv2_s_256.yml")
 
     assert config["model"]["name"] == "tf_efficientnetv2_s"
@@ -52,6 +55,7 @@ def test_resolution_only_classifier_config_keeps_baseline_augmentation() -> None
 
 
 def test_320_classifier_config_keeps_baseline_augmentation() -> None:
+    """Verify 320 classifier config keeps baseline augmentation."""
     config = load_yaml("configs/classifier/efficientnetv2_s_320.yml")
 
     assert config["model"]["name"] == "tf_efficientnetv2_s"
@@ -62,6 +66,7 @@ def test_320_classifier_config_keeps_baseline_augmentation() -> None:
 
 
 def test_sensitive_classifier_config_enables_weighted_checkpoint_selection() -> None:
+    """Verify sensitive classifier config enables weighted checkpoint selection."""
     config = load_yaml("configs/classifier/efficientnetv2_s_sensitive.yml")
 
     assert config["data"]["image_size"] == 224
@@ -72,6 +77,7 @@ def test_sensitive_classifier_config_enables_weighted_checkpoint_selection() -> 
 
 
 def test_balanced_sensitive_config_adds_specificity_constraint() -> None:
+    """Verify balanced sensitive config adds specificity constraint."""
     config = load_yaml("configs/classifier/efficientnetv2_s_sensitive_balanced.yml")
 
     assert config["data"]["image_size"] == 224
@@ -81,6 +87,7 @@ def test_balanced_sensitive_config_adds_specificity_constraint() -> None:
 
 
 def test_low_lr_seed_config_uses_best_threshold_selection() -> None:
+    """Verify low lr seed config uses best threshold selection."""
     config = load_yaml("configs/classifier/efficientnetv2_s_lr1e4_seed123.yml")
 
     assert config["seed"] == 123
@@ -90,6 +97,7 @@ def test_low_lr_seed_config_uses_best_threshold_selection() -> None:
 
 
 def test_densenet_config_matches_mixed_ensemble_plan() -> None:
+    """Verify densenet config matches mixed ensemble plan."""
     config = load_yaml("configs/classifier/densenet121.yml")
 
     assert config["model"]["name"] == "densenet121"
@@ -99,6 +107,7 @@ def test_densenet_config_matches_mixed_ensemble_plan() -> None:
 
 
 def test_convnext_small_regularized_config_adds_stronger_regularization() -> None:
+    """Verify convnext small regularized config adds stronger regularization."""
     config = load_yaml("configs/classifier/convnext_small_timm_recipe_regularized.yml")
 
     assert config["model"]["name"] == "convnext_small"

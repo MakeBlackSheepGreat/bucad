@@ -27,10 +27,12 @@ LABEL_TO_INDEX = {"benign": 0, "malignant": 1}
 
 
 def _repo_root() -> Path:
+    """Return the repository root for relative script paths."""
     return Path(__file__).resolve().parents[1]
 
 
 def _safe_link_or_copy(source: Path, destination: Path) -> None:
+    """Create a symlink when possible, otherwise copy the file."""
     if destination.exists():
         return
     destination.parent.mkdir(parents=True, exist_ok=True)
@@ -41,6 +43,7 @@ def _safe_link_or_copy(source: Path, destination: Path) -> None:
 
 
 def _load_or_create_splits(manifest: pd.DataFrame, split_path: Path, *, fold_count: int, seed: int) -> pd.DataFrame:
+    """Load or create splits."""
     if split_path.exists():
         return pd.read_csv(split_path)
     split_path.parent.mkdir(parents=True, exist_ok=True)
@@ -54,6 +57,7 @@ def _split_manifest_for_fold(
     assignments: pd.DataFrame,
     fold: int,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Split manifest for fold."""
     fold_assignments = assignments[assignments["fold_id"] == fold]
     train_ids = set(fold_assignments.loc[fold_assignments["stage"] == "train", "sample_id"])
     val_ids = set(fold_assignments.loc[fold_assignments["stage"] == "val", "sample_id"])
@@ -63,6 +67,7 @@ def _split_manifest_for_fold(
 
 
 def _materialize_yolo_split(frame: pd.DataFrame, destination: Path) -> None:
+    """Materialize a YOLO classification split for one fold."""
     for row in frame.itertuples(index=False):
         label = str(row.pathology_label).lower()
         source = Path(row.image_path)
@@ -76,6 +81,7 @@ def _build_yolo_dataset(
     train_manifest: pd.DataFrame,
     val_manifest: pd.DataFrame,
 ) -> Path:
+    """Build yolo dataset."""
     for split_name, frame in (("train", train_manifest), ("val", val_manifest)):
         _materialize_yolo_split(frame, data_root / split_name)
     return data_root
@@ -90,6 +96,7 @@ def _evaluate_manifest(
     device: str,
     threshold: float,
 ) -> dict[str, Any]:
+    """Evaluate manifest."""
     names = {int(key): str(value).lower() for key, value in model.names.items()}
     malignant_indices = [idx for idx, name in names.items() if name == "malignant"]
     if not malignant_indices:
@@ -137,6 +144,7 @@ def _evaluate_manifest(
 
 
 def _fmt(value: Any, digits: int = 4) -> str:
+    """Format one scalar value for a report cell."""
     if value is None:
         return "-"
     if isinstance(value, float):
@@ -145,6 +153,7 @@ def _fmt(value: Any, digits: int = 4) -> str:
 
 
 def _confusion_text(metrics: dict[str, Any]) -> str:
+    """Format confusion-matrix counts for report tables."""
     confusion = metrics.get("confusion", {})
     return (
         f"TN {confusion.get('tn', 0)} / FP {confusion.get('fp', 0)} / "
@@ -153,6 +162,7 @@ def _confusion_text(metrics: dict[str, Any]) -> str:
 
 
 def _markdown_report(report: dict[str, Any]) -> list[str]:
+    """Build the Markdown report body for this experiment."""
     busi = report["evaluation"]["busi_external"]
     busbra = report["evaluation"]["busbra_fold1_val"]
     busi_default = busi["metrics_at_threshold"]
@@ -255,6 +265,7 @@ def _markdown_report(report: dict[str, Any]) -> list[str]:
 
 
 def run_experiment(args: argparse.Namespace) -> dict[str, Any]:
+    """Run experiment."""
     from ultralytics import YOLO
     import ultralytics
 
@@ -367,6 +378,7 @@ def run_experiment(args: argparse.Namespace) -> dict[str, Any]:
 
 
 def build_parser() -> argparse.ArgumentParser:
+    """Build the command-line argument parser for this script."""
     parser = argparse.ArgumentParser(description="Run one-fold YOLO classification comparison.")
     parser.add_argument("--model", default="artifacts/checkpoints/yolo26x-cls.pt")
     parser.add_argument("--fold", type=int, default=1)
@@ -392,6 +404,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main() -> int:
+    """Parse CLI arguments and run the script entry point."""
     args = build_parser().parse_args()
     report = run_experiment(args)
     print(report["report_paths"]["markdown"])

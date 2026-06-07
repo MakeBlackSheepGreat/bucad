@@ -20,6 +20,7 @@ from src.utils.reporting import write_json_report, write_markdown_report
 
 
 def _parse_model_report(value: str) -> tuple[str, Path]:
+    """Parse model report."""
     parts = value.split("=", 1)
     if len(parts) != 2 or not parts[0].strip() or not parts[1].strip():
         raise argparse.ArgumentTypeError("Use name=path for each model report.")
@@ -27,6 +28,7 @@ def _parse_model_report(value: str) -> tuple[str, Path]:
 
 
 def build_parser() -> argparse.ArgumentParser:
+    """Build the command-line argument parser for this script."""
     parser = argparse.ArgumentParser(
         description="Search BUSI ensemble weights from cached probability reports."
     )
@@ -67,6 +69,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def _load_report(path: Path) -> dict[str, Any]:
+    """Load report."""
     with path.open("r", encoding="utf-8") as handle:
         report = json.load(handle)
     rows = report.get("rows")
@@ -78,6 +81,7 @@ def _load_report(path: Path) -> dict[str, Any]:
 def _load_prediction_matrix(
     reports: list[tuple[str, Path]],
 ) -> tuple[list[str], list[dict[str, Any]], np.ndarray, np.ndarray]:
+    """Load prediction matrix."""
     names: list[str] = []
     reference_rows: list[dict[str, Any]] | None = None
     probability_columns: list[np.ndarray] = []
@@ -119,6 +123,7 @@ def _load_prediction_matrix(
 
 
 def _grid_weights(count: int, step: float) -> list[tuple[float, ...]]:
+    """Generate candidate ensemble weights on a fixed grid."""
     if count <= 0:
         return []
     if count == 1:
@@ -132,6 +137,7 @@ def _grid_weights(count: int, step: float) -> list[tuple[float, ...]]:
     weights: list[tuple[float, ...]] = []
 
     def visit(prefix: list[int], remaining: int, slots: int) -> None:
+        """Enumerate one recursive branch of the simplex grid."""
         if slots == 1:
             weights.append(tuple(value / units for value in [*prefix, remaining]))
             return
@@ -143,6 +149,7 @@ def _grid_weights(count: int, step: float) -> list[tuple[float, ...]]:
 
 
 def _local_weights(center: tuple[float, ...], step: float, radius: float) -> list[tuple[float, ...]]:
+    """Generate local candidate weights around a seed vector."""
     count = len(center)
     if count == 1:
         return [(1.0,)]
@@ -161,6 +168,7 @@ def _local_weights(center: tuple[float, ...], step: float, radius: float) -> lis
 
 
 def _threshold_metrics(y_true: np.ndarray, probabilities: np.ndarray) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Compute thresholded metrics for one probability vector."""
     thresholds = np.round(np.arange(0.1, 0.9001, 0.01), 2)
     rows = threshold_sweep(y_true, probabilities, thresholds=thresholds)
     default = next((row for row in rows if abs(float(row["threshold"]) - 0.5) < 1e-8), None)
@@ -177,6 +185,7 @@ def _score_candidate(
     model_names: list[str],
     weights: tuple[float, ...],
 ) -> dict[str, Any]:
+    """Score one ensemble weight vector against BUSI labels."""
     probabilities = np.asarray(weights, dtype=np.float64) @ matrix
     auc = float(roc_auc_score(y_true, probabilities))
     default_metrics, best_metrics = _threshold_metrics(y_true, probabilities)
@@ -190,6 +199,7 @@ def _score_candidate(
 
 
 def _record_sort_key(record: dict[str, Any]) -> tuple[float, float, float, float]:
+    """Return the sort key used for ensemble search records."""
     best = record["best_by_youden"]
     return (
         float(record["auc"]),
@@ -200,6 +210,7 @@ def _record_sort_key(record: dict[str, Any]) -> tuple[float, float, float, float
 
 
 def _youden_sort_key(record: dict[str, Any]) -> tuple[float, float, float, float]:
+    """Return the sort key prioritizing Youden performance."""
     best = record["best_by_youden"]
     return (
         float(best["youden_j"]),
@@ -210,6 +221,7 @@ def _youden_sort_key(record: dict[str, Any]) -> tuple[float, float, float, float
 
 
 def _accuracy_sort_key(record: dict[str, Any]) -> tuple[float, float, float, float]:
+    """Return the sort key prioritizing accuracy performance."""
     best = record["best_by_youden"]
     return (
         float(best["accuracy"]),
@@ -220,6 +232,7 @@ def _accuracy_sort_key(record: dict[str, Any]) -> tuple[float, float, float, flo
 
 
 def _dedupe_weights(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Deduplicate similar ensemble weight vectors."""
     seen: set[tuple[float, ...]] = set()
     deduped: list[dict[str, Any]] = []
     for record in records:
@@ -241,6 +254,7 @@ def _search_combination(
     fine_radius: float,
     top_k: int,
 ) -> dict[str, Any]:
+    """Search coarse and local weights for one model combination."""
     coarse_records = [
         _score_candidate(y_true, probability_matrix, model_names, weights)
         for weights in _grid_weights(len(model_names), step)
@@ -282,6 +296,7 @@ def run_search(
     fine_radius: float,
     top_k: int,
 ) -> dict[str, Any]:
+    """Run ensemble weight search across model-report combinations."""
     if len(model_reports) < 2:
         raise ValueError("At least two model reports are required.")
     names, rows, matrix, y_true = _load_prediction_matrix(model_reports)
@@ -325,10 +340,12 @@ def run_search(
 
 
 def _format_weights(weights: dict[str, float]) -> str:
+    """Format an ensemble weight vector for reports."""
     return " / ".join(f"{name} {weight:.3f}" for name, weight in weights.items())
 
 
 def _metric_row(record: dict[str, Any]) -> list[str]:
+    """Format one metric row for a Markdown report."""
     best = record["best_by_youden"]
     default = record["default"]
     confusion = best["confusion"]
@@ -349,6 +366,7 @@ def _metric_row(record: dict[str, Any]) -> list[str]:
 
 
 def build_markdown(report: dict[str, Any]) -> list[str]:
+    """Build the Markdown report body for this experiment."""
     lines = [
         "# 三模型混合集成权重搜索",
         "",
@@ -448,6 +466,7 @@ def build_markdown(report: dict[str, Any]) -> list[str]:
 
 
 def main() -> int:
+    """Parse CLI arguments and run the script entry point."""
     args = build_parser().parse_args()
     report = run_search(
         args.model_report,

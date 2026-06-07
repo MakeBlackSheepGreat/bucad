@@ -57,6 +57,7 @@ MODEL_VIEWS["densenet_identity"] = ModelView(
 
 
 def build_parser() -> argparse.ArgumentParser:
+    """Build the command-line argument parser for this script."""
     parser = argparse.ArgumentParser(
         description="Run a three-model ROI + OOF side experiment without modifying demo.yml."
     )
@@ -114,11 +115,13 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def _load_json(path: str | Path) -> dict[str, Any]:
+    """Load a JSON report and validate its top-level object."""
     with Path(path).open("r", encoding="utf-8") as handle:
         return json.load(handle)
 
 
 def _oof_mask_threshold(args: argparse.Namespace) -> float:
+    """Return the OOF mask threshold for a named method."""
     return (
         float(args.oof_mask_threshold)
         if args.oof_mask_threshold is not None
@@ -127,10 +130,12 @@ def _oof_mask_threshold(args: argparse.Namespace) -> float:
 
 
 def _reference_ids(views: dict[str, list[dict[str, Any]]]) -> list[str]:
+    """Return reference sample identifiers from cached report rows."""
     return [str(row["sample_id"]) for row in views["eff_identity"]]
 
 
 def _validate_view_order(views: dict[str, list[dict[str, Any]]], view_names: tuple[str, ...]) -> None:
+    """Validate view order."""
     reference = _reference_ids(views)
     for view_name in view_names:
         current = [str(row["sample_id"]) for row in views[view_name]]
@@ -144,6 +149,7 @@ def _combine_probabilities(
     view_names: tuple[str, ...] = THREE_MODEL_VIEWS,
     weights: dict[str, float] = THREE_MODEL_WEIGHTS,
 ) -> np.ndarray:
+    """Combine probabilities."""
     _validate_view_order(views, view_names)
     combined = np.zeros(len(views[view_names[0]]), dtype=np.float64)
     total_weight = 0.0
@@ -160,6 +166,7 @@ def _combine_probabilities(
 
 
 def _oof_targets_and_groups(report: dict[str, Any]) -> tuple[np.ndarray, np.ndarray]:
+    """Return OOF targets and group labels for stacking."""
     rows = report["views"]["eff_identity"]
     y_true = np.asarray(
         [LABEL_TO_INDEX[str(row["pathology_label"]).lower()] for row in rows],
@@ -177,6 +184,7 @@ def _generate_full_oof_view(
     device: str,
     batch_size: int,
 ) -> list[dict[str, Any]]:
+    """Generate full oof view."""
     config, paths = load_project_config(config_path)
     manifest = load_busbra_manifest(paths.busbra_root)
     seed = int(config.get("seed", 42))
@@ -221,6 +229,7 @@ def _generate_roi_oof_view(
     margin_ratio: float,
     mask_threshold: float,
 ) -> list[dict[str, Any]]:
+    """Generate roi oof view."""
     config, paths = load_project_config(config_path)
     manifest = load_busbra_manifest(paths.busbra_root)
     seed = int(config.get("seed", 42))
@@ -269,6 +278,7 @@ def _generate_roi_oof_view(
 
 
 def _ensure_full_oof_cache(args: argparse.Namespace) -> dict[str, Any]:
+    """Ensure full oof cache."""
     output_path = Path(args.full_oof_cache)
     if args.reuse_oof and output_path.exists():
         report = _load_json(output_path)
@@ -292,6 +302,7 @@ def _ensure_full_oof_cache(args: argparse.Namespace) -> dict[str, Any]:
 
 
 def _ensure_roi_oof_cache(args: argparse.Namespace) -> dict[str, Any]:
+    """Ensure roi oof cache."""
     output_path = Path(args.roi_oof_cache)
     target_mask_threshold = _oof_mask_threshold(args)
     if args.reuse_oof and output_path.exists():
@@ -330,6 +341,7 @@ def _ensure_roi_oof_cache(args: argparse.Namespace) -> dict[str, Any]:
 
 
 def _load_busi_full_three() -> tuple[list[dict[str, str]], np.ndarray, np.ndarray, dict[str, Any]]:
+    """Load busi full three."""
     report = _load_json("artifacts/reports/busi_ensemble_effnet_densenet_convnext_optimized.json")
     rows = report["rows"]
     reference = [
@@ -359,6 +371,7 @@ def _predict_busi_roi_three(
     device: str,
     batch_size: int,
 ) -> tuple[list[dict[str, str]], np.ndarray, np.ndarray, dict[str, Any]]:
+    """Predict busi roi three."""
     _, paths = load_project_config("configs/classifier/convnext_tiny_timm_recipe.yml")
     reference, roi_images, y_true, roi_stats = _busi_roi_images(
         source=source,
@@ -394,6 +407,7 @@ def _predict_busi_roi_three(
 
 
 def _compact_metrics(metrics: dict[str, Any]) -> str:
+    """Return compact metric fields used in reports."""
     return (
         f"AUC {metrics['auc']:.4f}, Sens {_format_metric(metrics, 'sensitivity')}, "
         f"Spec {_format_metric(metrics, 'specificity')}, Acc {_format_metric(metrics, 'accuracy')}, "
@@ -402,6 +416,7 @@ def _compact_metrics(metrics: dict[str, Any]) -> str:
 
 
 def _comparison_metrics(path: str) -> dict[str, Any] | None:
+    """Compare candidate probabilities against the baseline."""
     report_path = Path(path)
     if not report_path.exists():
         return None
@@ -410,6 +425,7 @@ def _comparison_metrics(path: str) -> dict[str, Any] | None:
 
 
 def build_markdown(report: dict[str, Any]) -> list[str]:
+    """Build the Markdown report body for this experiment."""
     stacker = report["stacker"]
     lines = [
         "# 三模型 ROI 与 OOF 融合旁路实验",
@@ -436,6 +452,7 @@ def build_markdown(report: dict[str, Any]) -> list[str]:
     ]
 
     def append_metric_row(name: str, metrics: dict[str, Any]) -> None:
+        """Run append metric row."""
         lines.append(
             "| "
             + " | ".join(
@@ -529,6 +546,7 @@ def build_markdown(report: dict[str, Any]) -> list[str]:
 
 
 def run(args: argparse.Namespace) -> dict[str, Any]:
+    """Run the experiment workflow and return the generated summary."""
     full_oof = _ensure_full_oof_cache(args)
     roi_oof = _ensure_roi_oof_cache(args)
     y_true, groups = _oof_targets_and_groups(full_oof)
@@ -590,6 +608,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
 
 
 def main() -> int:
+    """Parse CLI arguments and run the script entry point."""
     args = build_parser().parse_args()
     report = run(args)
     print(

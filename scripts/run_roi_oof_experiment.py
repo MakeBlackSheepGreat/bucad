@@ -48,6 +48,7 @@ PAIR_WEIGHTS = {"eff_identity": 0.427, "conv_crop_sweep": 0.573}
 
 
 def build_parser() -> argparse.ArgumentParser:
+    """Build the command-line argument parser for this script."""
     parser = argparse.ArgumentParser(
         description="Evaluate ROI-cropped lesion guidance with BUSBRA OOF stacking."
     )
@@ -109,6 +110,7 @@ def _predict_view_on_images(
     device: str,
     batch_size: int,
 ) -> np.ndarray:
+    """Predict view on images."""
     require_dependency("torch", torch)
     view = MODEL_VIEWS[view_name]
     checkpoint_path = _resolve_project_path(
@@ -152,6 +154,7 @@ def _roi_images_from_manifest(
     segmenter_image_size: int = 256,
     device: str = "cpu",
 ) -> list[np.ndarray]:
+    """Process ROI images from manifest."""
     images: list[np.ndarray] = []
     for row in manifest.itertuples(index=False):
         image = read_image(row.image_path, grayscale=True)
@@ -192,6 +195,7 @@ def _generate_roi_oof(
     segmenter_checkpoint_pattern: str = "artifacts/checkpoints/segmenter_5fold_fold{fold}.pt",
     segmenter_image_size: int = 256,
 ) -> dict[str, Any]:
+    """Generate roi oof."""
     config, paths = load_project_config(config_path)
     manifest = load_busbra_manifest(paths.busbra_root)
     seed = int(config.get("seed", 42))
@@ -292,6 +296,7 @@ def _generate_roi_oof(
 
 
 def _load_full_oof_pair(path: str | Path) -> tuple[list[str], np.ndarray, np.ndarray, np.ndarray]:
+    """Load full oof pair."""
     with Path(path).open("r", encoding="utf-8") as handle:
         report = json.load(handle)
     rows = report["views"]["eff_identity"]
@@ -306,6 +311,7 @@ def _load_full_oof_pair(path: str | Path) -> tuple[list[str], np.ndarray, np.nda
 
 
 def _combine_pair_probabilities(views: dict[str, list[dict[str, Any]]]) -> np.ndarray:
+    """Combine pair probabilities."""
     reference_ids: list[str] | None = None
     combined: np.ndarray | None = None
     total_weight = 0.0
@@ -334,6 +340,7 @@ def _fit_oof_stacker(
     y_true: np.ndarray,
     groups: np.ndarray,
 ) -> dict[str, Any]:
+    """Fit oof stacker."""
     matrix = np.vstack([full_probabilities, roi_probabilities]).T
     candidates: list[dict[str, Any]] = []
     for feature_mode in ("probability", "logit"):
@@ -412,6 +419,7 @@ def _fit_oof_stacker(
 
 
 def _load_busi_full_pair(path: str | Path) -> tuple[list[dict[str, str]], np.ndarray, np.ndarray]:
+    """Load busi full pair."""
     with Path(path).open("r", encoding="utf-8") as handle:
         report = json.load(handle)
     rows = report["rows"]
@@ -440,6 +448,7 @@ def _predict_segmenter_mask(
     image_size: int = 256,
     device: str = "cpu",
 ) -> np.ndarray:
+    """Predict segmenter mask."""
     require_dependency("torch", torch)
     input_tensor = prepare_classifier_input(image, image_size)
     with torch.no_grad():
@@ -448,6 +457,7 @@ def _predict_segmenter_mask(
 
 
 def _roi_area_ratio(mask: np.ndarray | None, *, margin_ratio: float, mask_threshold: float) -> tuple[float, bool]:
+    """Process ROI area ratio."""
     if mask is None:
         return 1.0, True
     bbox = mask_bbox(mask, threshold=mask_threshold, min_area_ratio=0.001)
@@ -465,6 +475,7 @@ def _roi_area_ratio(mask: np.ndarray | None, *, margin_ratio: float, mask_thresh
 
 
 def _summarize_ratios(ratios: list[float], fallback_count: int) -> dict[str, Any]:
+    """Summarize ROI area ratios for report metadata."""
     array = np.asarray(ratios, dtype=np.float64)
     return {
         "fallback_count": int(fallback_count),
@@ -484,6 +495,7 @@ def _busi_roi_images(
     margin_ratio: float,
     mask_threshold: float,
 ) -> tuple[list[dict[str, str]], list[np.ndarray], np.ndarray, dict[str, Any]]:
+    """Generate BUSI ROI image views for evaluation."""
     _, paths = load_project_config("configs/classifier/convnext_tiny_timm_recipe.yml")
     manifest = load_busi_manifest(paths.busi_root, include_normal=False)
     segmenter = None
@@ -552,6 +564,7 @@ def _predict_busi_roi_pair(
     device: str,
     batch_size: int,
 ) -> tuple[list[dict[str, str]], np.ndarray, np.ndarray, dict[str, Any]]:
+    """Predict busi roi pair."""
     _, paths = load_project_config("configs/classifier/convnext_tiny_timm_recipe.yml")
     reference, roi_images, y_true, roi_stats = _busi_roi_images(
         source=source,
@@ -588,6 +601,7 @@ def _predict_busi_roi_pair(
 
 
 def _metrics(y_true: np.ndarray, probabilities: np.ndarray, threshold: float = 0.5) -> dict[str, Any]:
+    """Calculate classification metrics for a probability vector."""
     default = classification_metrics(y_true, probabilities, threshold=threshold)
     best = best_threshold_by_youden(
         y_true,
@@ -608,6 +622,7 @@ def _evaluate_stacker_on_busi(
     roi_probabilities: np.ndarray,
     y_true: np.ndarray,
 ) -> dict[str, Any]:
+    """Evaluate stacker on busi."""
     matrix = np.vstack([full_probabilities, roi_probabilities]).T
     features = _transform_features(matrix, str(stacker["feature_mode"]))
     probabilities = stacker["model"].predict_proba(features)[:, 1]
@@ -625,6 +640,7 @@ def _evaluate_stacker_on_busi(
 
 
 def _slim_stacker(stacker: dict[str, Any]) -> dict[str, Any]:
+    """Serialize a compact stacker config for runtime use."""
     model = stacker["model"]
     classifier = model.named_steps["classifier"]
     scaler = model.named_steps["scaler"]
@@ -645,11 +661,13 @@ def _slim_stacker(stacker: dict[str, Any]) -> dict[str, Any]:
 
 
 def _format_metric(metric: dict[str, Any], key: str) -> str:
+    """Format one metric value for report tables."""
     value = metric.get(key)
     return f"{value:.4f}" if isinstance(value, float) else str(value)
 
 
 def build_markdown(report: dict[str, Any]) -> list[str]:
+    """Build the Markdown report body for this experiment."""
     lines = [
         "# ROI 裁剪与 OOF 融合实验报告",
         "",
@@ -739,6 +757,7 @@ def build_markdown(report: dict[str, Any]) -> list[str]:
 
 
 def run(args: argparse.Namespace) -> dict[str, Any]:
+    """Run the experiment workflow and return the generated summary."""
     full_oof_path = Path(args.full_oof_cache)
     if not full_oof_path.exists():
         raise FileNotFoundError(
@@ -817,6 +836,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
 
 
 def main() -> int:
+    """Parse CLI arguments and run the script entry point."""
     args = build_parser().parse_args()
     report = run(args)
     print(

@@ -17,6 +17,7 @@ torch = optional_import("torch")
 
 
 def build_parser() -> argparse.ArgumentParser:
+    """Build the command-line argument parser for this script."""
     parser = argparse.ArgumentParser(
         description="Average matching ConvNeXt-Tiny seed checkpoints fold by fold."
     )
@@ -38,6 +39,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def _load_checkpoint(path: str | Path) -> dict[str, Any]:
+    """Load checkpoint."""
     if torch is None:
         raise RuntimeError("Torch is required to build checkpoint soups.")
     checkpoint = torch.load(Path(path), map_location="cpu")
@@ -52,6 +54,7 @@ def _average_state_dicts(
     *,
     alpha: float,
 ) -> dict[str, Any]:
+    """Average compatible checkpoint state dictionaries."""
     if set(base_state) != set(candidate_state):
         missing = sorted(set(base_state).symmetric_difference(candidate_state))
         raise ValueError(f"Checkpoint state_dict keys do not match: {missing[:5]}")
@@ -71,6 +74,7 @@ def _average_state_dicts(
 
 
 def run(args: argparse.Namespace) -> list[str]:
+    """Run the experiment workflow and return the generated summary."""
     if torch is None:
         raise RuntimeError("Torch is required to build checkpoint soups.")
     alpha = float(args.alpha)
@@ -102,6 +106,7 @@ def run(args: argparse.Namespace) -> list[str]:
 
 
 def main() -> int:
+    """Parse CLI arguments and run the script entry point."""
     args = build_parser().parse_args()
     for path in run(args):
         print(path)

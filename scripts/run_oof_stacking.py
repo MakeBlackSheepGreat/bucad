@@ -39,6 +39,7 @@ torch = optional_import("torch")
 
 @dataclass(frozen=True)
 class ModelView:
+    """Represent ModelView for this module."""
     name: str
     model_name: str
     checkpoint_template: str
@@ -106,6 +107,7 @@ BUSI_REPORTS: dict[str, str] = {
 
 
 def build_parser() -> argparse.ArgumentParser:
+    """Build the command-line argument parser for this script."""
     parser = argparse.ArgumentParser(
         description="Generate BUSBRA OOF probabilities and evaluate lightweight stackers."
     )
@@ -141,6 +143,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def _resolve_project_path(project_root: Path, value: str | Path) -> Path:
+    """Resolve project path."""
     path = Path(value)
     if path.is_absolute():
         return path
@@ -154,6 +157,7 @@ def _load_or_create_splits(
     fold_count: int,
     seed: int,
 ) -> pd.DataFrame:
+    """Load or create splits."""
     if split_path.exists():
         return pd.read_csv(split_path)
     split_path.parent.mkdir(parents=True, exist_ok=True)
@@ -171,12 +175,14 @@ def _val_manifest_for_fold(
     assignments: pd.DataFrame,
     fold: int,
 ) -> pd.DataFrame:
+    """Return validation manifest rows for one fold."""
     fold_assignments = assignments[assignments["fold_id"] == fold]
     val_ids = set(fold_assignments.loc[fold_assignments["stage"] == "val", "sample_id"])
     return manifest[manifest["sample_id"].isin(val_ids)].reset_index(drop=True)
 
 
 def _apply_tta(image: np.ndarray, variant: dict[str, Any]) -> np.ndarray:
+    """Apply a configured test-time augmentation variant to an image."""
     name = str(variant.get("name", "identity")).lower()
     if name in {"identity", "none", "original"}:
         return image
@@ -186,6 +192,7 @@ def _apply_tta(image: np.ndarray, variant: dict[str, Any]) -> np.ndarray:
 
 
 def _prepare_view_tensor(image: np.ndarray, view: ModelView, variant: dict[str, Any]):
+    """Prepare view tensor."""
     return prepare_classifier_input(
         _apply_tta(image, variant),
         view.image_size,
@@ -198,6 +205,7 @@ def _prepare_view_tensor(image: np.ndarray, view: ModelView, variant: dict[str, 
 
 
 def _load_view_model(view: ModelView, checkpoint_path: Path):
+    """Load view model."""
     return load_classifier(
         {
             "name": view.model_name,
@@ -219,6 +227,7 @@ def _predict_view_for_manifest(
     device: str,
     batch_size: int,
 ) -> list[dict[str, Any]]:
+    """Predict view for manifest."""
     require_dependency("torch", torch)
     checkpoint_path = _resolve_project_path(
         project_root,
@@ -260,6 +269,7 @@ def _generate_oof_predictions(
     device: str,
     batch_size: int,
 ) -> dict[str, Any]:
+    """Generate oof predictions."""
     config, paths = load_project_config(config_path)
     seed = int(config.get("seed", 42))
     manifest = load_busbra_manifest(paths.busbra_root)
@@ -307,6 +317,7 @@ def _generate_oof_predictions(
 
 
 def _load_busi_view_probabilities() -> tuple[list[dict[str, str]], dict[str, np.ndarray], np.ndarray]:
+    """Load busi view probabilities."""
     reference_rows: list[dict[str, str]] | None = None
     y_true: np.ndarray | None = None
     probabilities: dict[str, np.ndarray] = {}
@@ -342,6 +353,7 @@ def _rows_to_matrix(
     oof_report: dict[str, Any],
     feature_names: tuple[str, ...],
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray, list[str]]:
+    """Convert report rows into a model-feature matrix."""
     reference = oof_report["views"][feature_names[0]]
     sample_ids = [row["sample_id"] for row in reference]
     y_true = np.asarray(
@@ -359,6 +371,7 @@ def _rows_to_matrix(
 
 
 def _transform_features(matrix: np.ndarray, mode: str) -> np.ndarray:
+    """Transform stacked probability features for the meta learner."""
     if mode == "probability":
         return matrix
     if mode == "logit":
@@ -368,6 +381,7 @@ def _transform_features(matrix: np.ndarray, mode: str) -> np.ndarray:
 
 
 def _make_pipeline(C: float, class_weight: str | None) -> Pipeline:
+    """Create pipeline."""
     return Pipeline(
         [
             ("scaler", StandardScaler()),
@@ -392,6 +406,7 @@ def _cv_score_stacker(
     C: float,
     class_weight: str | None,
 ) -> dict[str, Any]:
+    """Cross-validate a stacker and return its score summary."""
     unique_groups = np.unique(groups)
     n_splits = min(5, len(unique_groups))
     if n_splits < 2:
@@ -418,6 +433,7 @@ def _select_stacker(
     y_true: np.ndarray,
     groups: np.ndarray,
 ) -> dict[str, Any]:
+    """Select stacker."""
     candidates: list[dict[str, Any]] = []
     for feature_mode in ("probability", "logit"):
         transformed = _transform_features(matrix, feature_mode)
@@ -444,6 +460,7 @@ def _select_stacker(
 
 
 def _metrics_with_best_threshold(y_true: np.ndarray, probabilities: np.ndarray) -> dict[str, Any]:
+    """Calculate metrics with best threshold."""
     default = classification_metrics(y_true, probabilities, threshold=0.5)
     best = best_threshold_by_youden(
         y_true,
@@ -463,6 +480,7 @@ def _evaluate_feature_set(
     busi_probabilities: dict[str, np.ndarray],
     busi_y_true: np.ndarray,
 ) -> dict[str, Any]:
+    """Evaluate feature set."""
     matrix, y_true, groups, sample_ids = _rows_to_matrix(oof_report, feature_names)
     selected = _select_stacker(matrix, y_true, groups)
     feature_mode = str(selected["feature_mode"])
@@ -520,6 +538,7 @@ def _evaluate_feature_set(
 
 
 def _strip_large_payload(report: dict[str, Any]) -> dict[str, Any]:
+    """Remove bulky arrays from a report payload before writing."""
     slim = dict(report)
     slim["feature_set_results"] = []
     for result in report["feature_set_results"]:
@@ -531,6 +550,7 @@ def _strip_large_payload(report: dict[str, Any]) -> dict[str, Any]:
 
 
 def _format_metric(metric: dict[str, Any], key: str) -> str:
+    """Format one metric value for report tables."""
     value = metric.get(key)
     if isinstance(value, float):
         return f"{value:.4f}"
@@ -538,6 +558,7 @@ def _format_metric(metric: dict[str, Any], key: str) -> str:
 
 
 def _confusion_text(metric: dict[str, Any]) -> str:
+    """Format confusion-matrix counts for report tables."""
     confusion = metric.get("confusion", {})
     return (
         f"TN {confusion.get('tn')} / FP {confusion.get('fp')} / "
@@ -546,6 +567,7 @@ def _confusion_text(metric: dict[str, Any]) -> str:
 
 
 def build_markdown(report: dict[str, Any]) -> list[str]:
+    """Build the Markdown report body for this experiment."""
     lines = [
         "# 两模型 OOF Stacking 实验报告",
         "",
@@ -629,6 +651,7 @@ def build_markdown(report: dict[str, Any]) -> list[str]:
 
 
 def run(args: argparse.Namespace) -> dict[str, Any]:
+    """Run the experiment workflow and return the generated summary."""
     oof_cache_path = Path(args.oof_cache)
     if args.reuse_oof and oof_cache_path.exists():
         with oof_cache_path.open("r", encoding="utf-8") as handle:
@@ -675,6 +698,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
 
 
 def main() -> int:
+    """Parse CLI arguments and run the script entry point."""
     args = build_parser().parse_args()
     report = run(args)
     best = report["best_by_busi_auc"]

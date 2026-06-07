@@ -27,6 +27,7 @@ OPTIONAL_MODULES = [
 
 
 def check_module(name: str) -> Dict[str, str | bool]:
+    """Import one dependency and return availability plus version details."""
     try:
         module = importlib.import_module(name)
     except Exception as exc:  # pragma: no cover - environment dependent
@@ -37,6 +38,7 @@ def check_module(name: str) -> Dict[str, str | bool]:
 
 
 def main() -> int:
+    """Print the environment report and fail only when required modules are missing."""
     report: Dict[str, object] = {
         "python": sys.version.split()[0],
         "platform": platform.platform(),

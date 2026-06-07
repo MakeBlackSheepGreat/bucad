@@ -33,6 +33,7 @@ MARGIN_PRESETS = (0.20, 0.35, 0.50)
 
 
 def build_parser() -> argparse.ArgumentParser:
+    """Build the command-line argument parser for this script."""
     parser = argparse.ArgumentParser(
         description="Select ROI soft gate and multi-scale ROI crop parameters from BUSBRA OOF."
     )
@@ -56,20 +57,24 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def _load_json(path: str | Path) -> dict[str, Any]:
+    """Load a JSON report and validate its top-level object."""
     with Path(path).open("r", encoding="utf-8") as handle:
         return json.load(handle)
 
 
 def _sigmoid(values: np.ndarray) -> np.ndarray:
+    """Convert logits to probabilities with the sigmoid transform."""
     return 1.0 / (1.0 + np.exp(-values))
 
 
 def _logit(probabilities: np.ndarray) -> np.ndarray:
+    """Convert probabilities to clipped logits."""
     clipped = np.clip(probabilities, 1e-6, 1.0 - 1e-6)
     return np.log(clipped / (1.0 - clipped))
 
 
 def _metrics(y_true: np.ndarray, probabilities: np.ndarray, threshold: float) -> dict[str, Any]:
+    """Calculate classification metrics for a probability vector."""
     predictions = (probabilities >= float(threshold)).astype(np.int32)
     tn, fp, fn, tp = confusion_matrix(y_true, predictions, labels=[0, 1]).ravel()
     sensitivity = float(tp / (tp + fn)) if tp + fn else 0.0
@@ -109,6 +114,7 @@ def _best_threshold(
     *,
     min_sensitivity: float,
 ) -> dict[str, Any]:
+    """Find the threshold with the best Youden score."""
     rows = [
         _metrics(y_true, probabilities, float(threshold))
         for threshold in np.round(np.arange(0.1, 0.9001, 0.01), 2)
@@ -127,6 +133,7 @@ def _best_threshold(
 
 
 def _normalise_metric(metric: dict[str, Any]) -> dict[str, Any]:
+    """Normalize a metric value for comparison scoring."""
     confusion = metric["confusion"]
     sample_count = int(confusion["tn"] + confusion["fp"] + confusion["fn"] + confusion["tp"])
     positive_count = int(confusion["tp"] + confusion["fn"])
@@ -144,6 +151,7 @@ def _normalise_metric(metric: dict[str, Any]) -> dict[str, Any]:
 
 
 def _validate_order(views: dict[str, list[dict[str, Any]]]) -> list[str]:
+    """Validate order."""
     sample_ids = [str(row["sample_id"]) for row in views[PAIR_VIEWS[0]]]
     for view_name in PAIR_VIEWS[1:]:
         current = [str(row["sample_id"]) for row in views[view_name]]
@@ -153,6 +161,7 @@ def _validate_order(views: dict[str, list[dict[str, Any]]]) -> list[str]:
 
 
 def _view_array(views: dict[str, list[dict[str, Any]]], view_name: str) -> np.ndarray:
+    """Return a named prediction view as a NumPy vector."""
     return np.asarray(
         [float(row["malignant_probability"]) for row in views[view_name]],
         dtype=np.float64,
@@ -160,6 +169,7 @@ def _view_array(views: dict[str, list[dict[str, Any]]], view_name: str) -> np.nd
 
 
 def _pair_blend(views: dict[str, list[dict[str, Any]]]) -> np.ndarray:
+    """Blend paired probability vectors with configured weights."""
     _validate_order(views)
     return (
         PAIR_WEIGHTS["eff_identity"] * _view_array(views, "eff_identity")
@@ -172,6 +182,7 @@ def _runtime_stack(
     roi_probabilities: np.ndarray,
     runtime_config: dict[str, Any],
 ) -> np.ndarray:
+    """Apply runtime stacker settings to paired probabilities."""
     stacker = runtime_config["runtime"]["roi_enhancement"]["stacker"]
     matrix = np.vstack([_logit(full_probabilities), _logit(roi_probabilities)]).T
     scaled = (
@@ -184,12 +195,14 @@ def _runtime_stack(
 
 
 def _roi_oof_cache_path(margin_ratio: float) -> Path:
+    """Process ROI oof cache path."""
     return Path(
         f"artifacts/reports/roi_oof_lcc_mask04_margin{int(round(margin_ratio * 100)):03d}_predictions.json"
     )
 
 
 def _busi_roi_cache_path(margin_ratio: float) -> Path:
+    """Return the BUSI ROI cache path for one margin setting."""
     return Path(
         f"artifacts/reports/busi_roi_lcc_mask04_margin{int(round(margin_ratio * 100)):03d}_predictions.json"
     )
@@ -200,6 +213,7 @@ def _load_or_generate_roi_oof_for_margin(
     args: argparse.Namespace,
     margin_ratio: float,
 ) -> dict[str, Any]:
+    """Load or generate roi oof for margin."""
     if abs(margin_ratio - 0.35) < 1e-9:
         canonical = Path("artifacts/reports/roi_oof_lcc_mask04_protocol_predictions.json")
         if canonical.exists():
@@ -221,6 +235,7 @@ def _load_or_generate_roi_oof_for_margin(
 
 
 def _load_busi_full_views() -> tuple[list[dict[str, str]], np.ndarray, dict[str, list[dict[str, Any]]]]:
+    """Load busi full views."""
     reports = {
         "eff_identity": "artifacts/reports/busi_efficientnetv2_s_5fold_identity.json",
         "conv_crop_sweep": "artifacts/reports/busi_convnext_tiny_tta_crop_sweep.json",
@@ -257,6 +272,7 @@ def _load_busi_full_views() -> tuple[list[dict[str, str]], np.ndarray, dict[str,
 
 
 def _load_or_build_busi_masks(args: argparse.Namespace) -> tuple[list[dict[str, str]], list[np.ndarray], list[np.ndarray], np.ndarray]:
+    """Load or build busi masks."""
     _, paths = load_project_config(args.config)
     manifest = load_busi_manifest(paths.busi_root, include_normal=False)
     segmenter_checkpoint = Path(args.segmenter_checkpoint)
@@ -302,6 +318,7 @@ def _load_or_generate_busi_roi_for_margin(
     masks: list[np.ndarray],
     y_true: np.ndarray,
 ) -> dict[str, Any]:
+    """Load or generate busi roi for margin."""
     path = _busi_roi_cache_path(margin_ratio)
     if path.exists():
         return _load_json(path)
@@ -354,6 +371,7 @@ def _load_or_generate_busi_roi_for_margin(
 
 
 def _margin_weight_candidates(margins: tuple[float, ...]) -> list[tuple[float, ...]]:
+    """Generate soft-gate margin and weight candidates."""
     if len(margins) == 1:
         return [(1.0,)]
     if len(margins) == 2:
@@ -367,6 +385,7 @@ def _margin_weight_candidates(margins: tuple[float, ...]) -> list[tuple[float, .
 
 
 def _candidate_margin_sets() -> list[tuple[float, ...]]:
+    """Generate candidate margin sets for soft-gate search."""
     margins = list(MARGIN_PRESETS)
     sets: list[tuple[float, ...]] = []
     for size in (1, 2, 3):
@@ -383,6 +402,7 @@ def _soft_gate_weight(
     ramp_width: float,
     max_weight: float,
 ) -> np.ndarray:
+    """Calculate the soft ROI gate weight for one area ratio."""
     if ramp_width <= 0:
         low = (area_ratios >= min_area_ratio).astype(np.float64)
         high = (area_ratios <= max_area_ratio).astype(np.float64)
@@ -393,6 +413,7 @@ def _soft_gate_weight(
 
 
 def _weighted_average(probabilities: dict[float, np.ndarray], margins: tuple[float, ...], weights: tuple[float, ...]) -> np.ndarray:
+    """Return the weighted average of probability vectors."""
     output = np.zeros_like(next(iter(probabilities.values())), dtype=np.float64)
     total_weight = 0.0
     for margin, weight in zip(margins, weights):
@@ -412,6 +433,7 @@ def _search_candidates(
     min_sensitivity: float,
     max_auc_drop: float,
 ) -> list[dict[str, Any]]:
+    """Search candidates."""
     results: list[dict[str, Any]] = []
     min_values = [0.0, 0.03, 0.05, 0.08, 0.10, 0.12, 0.15]
     max_values = [0.65, 0.75, 0.85, 0.95, 1.01]
@@ -479,6 +501,7 @@ def _apply_candidate(
     runtime_config: dict[str, Any],
     candidate: dict[str, Any],
 ) -> np.ndarray:
+    """Apply candidate."""
     margins = tuple(float(value) for value in candidate["margins"])
     margin_weights = tuple(float(value) for value in candidate["margin_weights"])
     roi_probability = _weighted_average(roi_probabilities_by_margin, margins, margin_weights)
@@ -494,15 +517,18 @@ def _apply_candidate(
 
 
 def _format_metric(metric: dict[str, Any], key: str) -> str:
+    """Format one metric value for report tables."""
     return f"{float(metric[key]):.4f}"
 
 
 def _confusion_text(metric: dict[str, Any]) -> str:
+    """Format confusion-matrix counts for report tables."""
     c = metric["confusion"]
     return f"TN {c['tn']} / FP {c['fp']} / FN {c['fn']} / TP {c['tp']}"
 
 
 def _metrics_row(name: str, metric: dict[str, Any]) -> str:
+    """Format one metric row for a Markdown report."""
     return (
         "| "
         + " | ".join(
@@ -532,10 +558,12 @@ def _metrics_row(name: str, metric: dict[str, Any]) -> str:
 
 
 def _u(text: str) -> str:
+    """Return a short unique key for report labels."""
     return text.encode("utf-8").decode("unicode_escape")
 
 
 def build_markdown(report: dict[str, Any]) -> list[str]:
+    """Build the Markdown report body for this experiment."""
     selected = report["selected_candidate"]
     lines = [
         _u("# ROI \\u8f6f\\u95e8\\u63a7 + \\u591a\\u5c3a\\u5ea6\\u88c1\\u526a OOF \\u5b9e\\u9a8c"),
@@ -607,6 +635,7 @@ def build_markdown(report: dict[str, Any]) -> list[str]:
 
 
 def run(args: argparse.Namespace) -> dict[str, Any]:
+    """Run the experiment workflow and return the generated summary."""
     runtime_config = yaml.safe_load(Path(args.runtime_config).read_text(encoding="utf-8"))
     full_oof = _load_json(args.full_oof_cache)
     area_cache = _load_json(args.area_cache)
@@ -726,6 +755,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
 
 
 def main() -> int:
+    """Parse CLI arguments and run the script entry point."""
     args = build_parser().parse_args()
     report = run(args)
     print(

@@ -8,6 +8,7 @@ from src.utils.results import InferenceResponse, build_diagnostic_result
 
 
 def test_diagnosis_markdown_is_localized_to_chinese() -> None:
+    """Verify diagnosis markdown is localized to chinese."""
     response = InferenceResponse(
         status="completed",
         input_filename="sample.png",
@@ -25,6 +26,7 @@ def test_diagnosis_markdown_is_localized_to_chinese() -> None:
 
 
 def test_status_and_warning_panels_are_localized_to_chinese() -> None:
+    """Verify status and warning panels are localized to chinese."""
     response = InferenceResponse(
         status="quality_blocked",
         input_filename="sample.png",

@@ -101,6 +101,7 @@ FEATURE_SETS: dict[str, tuple[str, ...]] = {
 
 @dataclass(frozen=True)
 class CandidateSpec:
+    """Represent CandidateSpec for this module."""
     name: str
     feature_set: str
     c_value: float
@@ -108,6 +109,7 @@ class CandidateSpec:
 
 
 def build_parser() -> argparse.ArgumentParser:
+    """Build the command-line argument parser for this script."""
     parser = argparse.ArgumentParser(
         description=(
             "Fit a deployable descriptor-guided ROI router using BUSBRA OOF caches only. "
@@ -156,6 +158,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def _load_json(path: str | Path) -> dict[str, Any]:
+    """Load a JSON report and validate its top-level object."""
     with Path(path).open("r", encoding="utf-8") as handle:
         data = json.load(handle)
     if not isinstance(data, dict):
@@ -164,6 +167,7 @@ def _load_json(path: str | Path) -> dict[str, Any]:
 
 
 def _rows_for_view(report: dict[str, Any], view_name: str) -> list[dict[str, Any]]:
+    """Return rows for a named prediction view after validation."""
     views = report.get("views")
     if not isinstance(views, dict) or view_name not in views:
         raise ValueError(f"Missing view {view_name!r}.")
@@ -174,6 +178,7 @@ def _rows_for_view(report: dict[str, Any], view_name: str) -> list[dict[str, Any
 
 
 def _validate_order(*row_groups: list[dict[str, Any]]) -> list[str]:
+    """Validate order."""
     if not row_groups:
         raise ValueError("No row groups provided.")
     reference = [str(row["sample_id"]) for row in row_groups[0]]
@@ -185,19 +190,23 @@ def _validate_order(*row_groups: list[dict[str, Any]]) -> list[str]:
 
 
 def _probabilities(rows: list[dict[str, Any]]) -> np.ndarray:
+    """Return malignant probabilities as a NumPy vector."""
     return np.asarray([float(row["malignant_probability"]) for row in rows], dtype=np.float64)
 
 
 def _weighted_pair(eff: np.ndarray, conv: np.ndarray) -> np.ndarray:
+    """Blend paired model probability vectors with fixed weights."""
     total = PAIR_WEIGHTS["eff_identity"] + PAIR_WEIGHTS["conv_crop_sweep"]
     return (PAIR_WEIGHTS["eff_identity"] * eff + PAIR_WEIGHTS["conv_crop_sweep"] * conv) / total
 
 
 def _sigmoid(values: np.ndarray) -> np.ndarray:
+    """Convert logits to probabilities with the sigmoid transform."""
     return 1.0 / (1.0 + np.exp(-values))
 
 
 def _logit(probabilities: np.ndarray) -> np.ndarray:
+    """Convert probabilities to clipped logits."""
     clipped = np.clip(probabilities, 1e-6, 1.0 - 1e-6)
     return np.log(clipped / (1.0 - clipped))
 
@@ -208,6 +217,7 @@ def _runtime_stack(
     *,
     stacker: dict[str, Any],
 ) -> np.ndarray:
+    """Apply runtime stacker settings to paired probabilities."""
     values = np.vstack([full_probabilities, roi_probabilities]).T
     if str(stacker.get("feature_mode", "probability")) == "logit":
         values = _logit(values)
@@ -219,6 +229,7 @@ def _runtime_stack(
 
 
 def _best_threshold_metrics(y_true: np.ndarray, probabilities: np.ndarray) -> dict[str, Any]:
+    """Calculate metrics at the best Youden threshold."""
     rows = threshold_sweep(y_true, probabilities, thresholds=np.round(np.arange(0.1, 0.9001, 0.01), 2))
     if not rows:
         raise ValueError("No threshold rows generated.")
@@ -233,6 +244,7 @@ def _best_threshold_metrics(y_true: np.ndarray, probabilities: np.ndarray) -> di
 
 
 def _metrics_at_best_threshold(y_true: np.ndarray, probabilities: np.ndarray) -> dict[str, Any]:
+    """Calculate metrics at the best Youden threshold."""
     best = _best_threshold_metrics(y_true, probabilities)
     metrics = classification_metrics(y_true, probabilities, threshold=float(best["threshold"]))
     metrics["youden_j"] = float(metrics["sensitivity"] + metrics["specificity"] - 1.0)
@@ -240,6 +252,7 @@ def _metrics_at_best_threshold(y_true: np.ndarray, probabilities: np.ndarray) ->
 
 
 def _gate_reasons(area_ratios: np.ndarray, min_area: float, max_area: float) -> np.ndarray:
+    """Return ROI area gate reasons for each sample."""
     return np.asarray(
         [
             "too_small" if value < min_area else "too_large" if value > max_area else "none"
@@ -264,6 +277,7 @@ def _descriptor_rows(
     device: str,
     project_root: Path,
 ) -> list[dict[str, float]]:
+    """Format descriptor rows."""
     path = Path(cache_path)
     resolved_segmenter_checkpoint = _resolve_project_path(segmenter_checkpoint, project_root)
     resolved_pattern = str(segmenter_checkpoint_pattern)
@@ -349,6 +363,7 @@ def _descriptor_rows(
 
 
 def _resolve_project_path(path: str | Path, project_root: Path) -> Path:
+    """Resolve project path."""
     resolved = Path(path)
     if not resolved.is_absolute():
         resolved = (project_root / resolved).resolve()
@@ -356,6 +371,7 @@ def _resolve_project_path(path: str | Path, project_root: Path) -> Path:
 
 
 def _load_segmenter_model(checkpoint_path: str | Path, *, device: str):
+    """Load segmenter model."""
     if torch is None:
         raise RuntimeError("Torch is required for segmenter descriptor masks.")
     checkpoint = Path(checkpoint_path)
@@ -384,6 +400,7 @@ def _predict_segmenter_mask(
     image_size: int,
     device: str,
 ) -> np.ndarray:
+    """Predict segmenter mask."""
     if torch is None:
         raise RuntimeError("Torch is required for segmenter descriptor masks.")
     input_tensor = prepare_classifier_input(image, int(image_size))
@@ -400,6 +417,7 @@ def _feature_matrix(
     descriptors: list[dict[str, float]],
     feature_names: tuple[str, ...],
 ) -> np.ndarray:
+    """Build a model feature matrix for candidate scoring."""
     vectors = []
     for full_probability, roi_probability, stacked_probability, descriptor in zip(
         full_probabilities,
@@ -418,6 +436,7 @@ def _feature_matrix(
 
 
 def _make_model(spec: CandidateSpec) -> Pipeline:
+    """Create model."""
     return Pipeline(
         [
             ("scaler", StandardScaler()),
@@ -436,6 +455,7 @@ def _make_model(spec: CandidateSpec) -> Pipeline:
 
 
 def _candidate_specs() -> list[CandidateSpec]:
+    """Generate candidate model or stacker specifications."""
     specs: list[CandidateSpec] = []
     for feature_set in FEATURE_SETS:
         for c_value in (0.01, 0.03, 0.1, 0.3, 1.0, 3.0):
@@ -460,6 +480,7 @@ def _nested_router_probabilities(
     valid_mask: np.ndarray,
     fallback_probabilities: np.ndarray,
 ) -> np.ndarray:
+    """Generate nested router probabilities for a candidate."""
     probabilities = fallback_probabilities.astype(np.float64).copy()
     for fold_id in sorted(np.unique(fold_ids)):
         val_mask = (fold_ids == fold_id) & valid_mask
@@ -482,6 +503,7 @@ def _fit_final_router(
     y_true: np.ndarray,
     valid_mask: np.ndarray,
 ) -> Pipeline:
+    """Fit final router."""
     model = _make_model(spec)
     model.fit(matrix[valid_mask], y_true[valid_mask])
     return model
@@ -493,6 +515,7 @@ def _router_config_from_model(
     spec: CandidateSpec,
     feature_names: tuple[str, ...],
 ) -> dict[str, Any]:
+    """Serialize a trained router into runtime config."""
     scaler = model.named_steps["scaler"]
     classifier = model.named_steps["classifier"]
     return {
@@ -518,6 +541,7 @@ def _write_experimental_config(
     threshold: float,
     enabled: bool,
 ) -> None:
+    """Write experimental config."""
     with Path(base_config_path).open("r", encoding="utf-8") as handle:
         config = yaml.safe_load(handle)
     runtime = dict(config.get("runtime", {}))
@@ -543,6 +567,7 @@ def _candidate_row(
     metrics: dict[str, Any],
     feature_names: tuple[str, ...],
 ) -> dict[str, Any]:
+    """Build one candidate summary row for reporting."""
     return {
         "name": spec.name,
         "feature_set": spec.feature_set,
@@ -553,15 +578,18 @@ def _candidate_row(
 
 
 def _format_metric(row: dict[str, Any], key: str) -> str:
+    """Format one metric value for report tables."""
     return f"{float(row[key]):.4f}"
 
 
 def _confusion_text(row: dict[str, Any]) -> str:
+    """Format confusion-matrix counts for report tables."""
     c = row["confusion"]
     return f"TN {c['tn']} / FP {c['fp']} / FN {c['fn']} / TP {c['tp']}"
 
 
 def _metrics_table_row(name: str, metrics: dict[str, Any]) -> str:
+    """Format one metric row for a Markdown report."""
     return (
         "| "
         + " | ".join(
@@ -583,6 +611,7 @@ def _metrics_table_row(name: str, metrics: dict[str, Any]) -> str:
 
 
 def _build_markdown(report: dict[str, Any]) -> list[str]:
+    """Build the Markdown report body for this experiment."""
     selected = report["selected_candidate"]
     lines = [
         "# Descriptor-guided ROI Router OOF 实验",
@@ -660,6 +689,7 @@ def _build_markdown(report: dict[str, Any]) -> list[str]:
 
 
 def run(args: argparse.Namespace) -> dict[str, Any]:
+    """Run the experiment workflow and return the generated summary."""
     config, paths = load_project_config(args.config)
     runtime = dict(config.get("runtime", {}))
     roi_config = dict(runtime.get("roi_enhancement", {}))
@@ -838,6 +868,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
 
 
 def main() -> None:
+    """Parse CLI arguments and run the script entry point."""
     report = run(build_parser().parse_args())
     selected = report["selected_candidate"]
     metrics = selected["metrics"]

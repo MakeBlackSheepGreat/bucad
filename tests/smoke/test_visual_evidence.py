@@ -8,6 +8,7 @@ from src.engine.inference import BreastUltrasoundInferenceService
 
 
 def test_visual_evidence_outputs_are_attached_when_available() -> None:
+    """Verify visual evidence outputs are attached when available."""
     image = np.random.randint(0, 255, size=(128, 128), dtype=np.uint8)
     service = BreastUltrasoundInferenceService(
         {},
@@ -24,6 +25,7 @@ def test_visual_evidence_outputs_are_attached_when_available() -> None:
 
 
 def test_visual_evidence_reports_missing_outputs_in_place() -> None:
+    """Verify visual evidence reports missing outputs in place."""
     image = np.random.randint(0, 255, size=(128, 128), dtype=np.uint8)
     service = BreastUltrasoundInferenceService(
         {},

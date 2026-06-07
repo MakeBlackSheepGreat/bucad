@@ -96,6 +96,7 @@ EFF_VIEWS: dict[str, ModelView] = {
 
 
 def build_parser() -> argparse.ArgumentParser:
+    """Build the command-line argument parser for this script."""
     parser = argparse.ArgumentParser(
         description="Select EfficientNetV2-S TTA variants using BUSBRA OOF only."
     )
@@ -123,10 +124,12 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def _cache_path(kind: str, view_name: str) -> Path:
+    """Return the cache path for a generated prediction view."""
     return Path(f"artifacts/reports/{kind}_{view_name}_predictions.json")
 
 
 def _load_or_generate_full_view(args: argparse.Namespace, view: ModelView) -> dict[str, Any]:
+    """Load or generate full view."""
     path = _cache_path("oof", view.name)
     if path.exists():
         return _load_json(path)
@@ -170,6 +173,7 @@ def _load_or_generate_full_view(args: argparse.Namespace, view: ModelView) -> di
 
 
 def _load_or_generate_roi_view(args: argparse.Namespace, view: ModelView) -> dict[str, Any]:
+    """Load or generate roi view."""
     path = _cache_path("roi_oof_lcc_mask04", view.name)
     if path.exists():
         return _load_json(path)
@@ -247,6 +251,7 @@ def _final_probability(
     runtime_config: dict[str, Any],
     roi_stack_blend_weight: float,
 ) -> np.ndarray:
+    """Combine full and TTA probabilities into the final score."""
     full_probability = EFF_WEIGHT * eff_full + CONV_WEIGHT * conv_full
     roi_probability = EFF_WEIGHT * eff_roi + CONV_WEIGHT * conv_roi
     stack_probability = _runtime_stack(full_probability, roi_probability, runtime_config)
@@ -272,6 +277,7 @@ def _scan_candidates(
     min_sensitivity: float,
     max_auc_drop: float,
 ) -> list[dict[str, Any]]:
+    """Scan candidates."""
     results: list[dict[str, Any]] = []
     for view_name in EFF_VIEWS:
         for blend_weight in (0.75, 0.85, 0.95, 1.0):
@@ -322,6 +328,7 @@ def _write_candidate_config(
     destination: str | Path,
     selected: dict[str, Any],
 ) -> None:
+    """Write candidate config."""
     config = yaml.safe_load(Path(runtime_config_path).read_text(encoding="utf-8"))
     runtime = config["runtime"]
     for member in runtime["classifier_members"]:
@@ -341,6 +348,7 @@ def _write_candidate_config(
 
 
 def build_markdown(report: dict[str, Any]) -> list[str]:
+    """Build the Markdown report body for this experiment."""
     selected = report["selected_candidate"]
     lines = [
         "# EfficientNetV2-S TTA OOF Protocol",
@@ -403,6 +411,7 @@ def build_markdown(report: dict[str, Any]) -> list[str]:
 
 
 def run(args: argparse.Namespace) -> dict[str, Any]:
+    """Run the experiment workflow and return the generated summary."""
     runtime_config = yaml.safe_load(Path(args.runtime_config).read_text(encoding="utf-8"))
     full_oof = _load_json(args.full_oof_cache)
     roi_oof = _load_json(args.roi_oof_cache)
@@ -497,6 +506,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
 
 
 def main() -> int:
+    """Parse CLI arguments and run the script entry point."""
     args = build_parser().parse_args()
     report = run(args)
     selected = report["selected_candidate"]

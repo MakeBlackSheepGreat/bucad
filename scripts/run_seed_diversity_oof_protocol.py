@@ -61,6 +61,7 @@ SEED123_VIEW = ModelView(
 
 
 def build_parser() -> argparse.ArgumentParser:
+    """Build the command-line argument parser for this script."""
     parser = argparse.ArgumentParser(
         description="Select a ConvNeXt-Tiny seed-diversity candidate using BUSBRA OOF only."
     )
@@ -96,20 +97,24 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def _load_json(path: str | Path) -> dict[str, Any]:
+    """Load a JSON report and validate its top-level object."""
     with Path(path).open("r", encoding="utf-8") as handle:
         return json.load(handle)
 
 
 def _sigmoid(values: np.ndarray) -> np.ndarray:
+    """Convert logits to probabilities with the sigmoid transform."""
     return 1.0 / (1.0 + np.exp(-values))
 
 
 def _logit(probabilities: np.ndarray) -> np.ndarray:
+    """Convert probabilities to clipped logits."""
     clipped = np.clip(probabilities, 1e-6, 1.0 - 1e-6)
     return np.log(clipped / (1.0 - clipped))
 
 
 def _metrics(y_true: np.ndarray, probabilities: np.ndarray, threshold: float) -> dict[str, Any]:
+    """Calculate classification metrics for a probability vector."""
     predictions = (probabilities >= float(threshold)).astype(np.int32)
     tn, fp, fn, tp = confusion_matrix(y_true, predictions, labels=[0, 1]).ravel()
     sensitivity = float(tp / (tp + fn)) if tp + fn else 0.0
@@ -149,6 +154,7 @@ def _best_threshold(
     *,
     min_sensitivity: float,
 ) -> dict[str, Any]:
+    """Find the threshold with the best Youden score."""
     rows = [
         _metrics(y_true, probabilities, float(threshold))
         for threshold in np.round(np.arange(0.1, 0.9001, 0.01), 2)
@@ -167,10 +173,12 @@ def _best_threshold(
 
 
 def _array_from_rows(rows: list[dict[str, Any]]) -> np.ndarray:
+    """Return a NumPy probability vector from report rows."""
     return np.asarray([float(row["malignant_probability"]) for row in rows], dtype=np.float64)
 
 
 def _validate_same_order(*row_sets: list[dict[str, Any]]) -> list[str]:
+    """Validate same order."""
     reference = [str(row["sample_id"]) for row in row_sets[0]]
     for rows in row_sets[1:]:
         current = [str(row["sample_id"]) for row in rows]
@@ -180,6 +188,7 @@ def _validate_same_order(*row_sets: list[dict[str, Any]]) -> list[str]:
 
 
 def _load_labels(rows: list[dict[str, Any]]) -> np.ndarray:
+    """Load labels."""
     return np.asarray(
         [1 if str(row["pathology_label"]).lower() == "malignant" else 0 for row in rows],
         dtype=np.int32,
@@ -187,6 +196,7 @@ def _load_labels(rows: list[dict[str, Any]]) -> np.ndarray:
 
 
 def _load_or_generate_seed123_full(args: argparse.Namespace) -> dict[str, Any]:
+    """Load or generate seed123 full."""
     path = Path(args.seed123_full_cache)
     if path.exists():
         return _load_json(path)
@@ -239,6 +249,7 @@ def _predict_model_view_on_images(
     device: str,
     batch_size: int,
 ) -> np.ndarray:
+    """Predict model view on images."""
     require_dependency("torch", torch)
     checkpoint_path = _resolve_project_path(
         project_root,
@@ -273,6 +284,7 @@ def _predict_model_view_on_images(
 
 
 def _load_or_generate_seed123_roi(args: argparse.Namespace) -> dict[str, Any]:
+    """Load or generate seed123 roi."""
     path = Path(args.seed123_roi_cache)
     if path.exists():
         return _load_json(path)
@@ -345,6 +357,7 @@ def _runtime_stack(
     roi_probabilities: np.ndarray,
     runtime_config: dict[str, Any],
 ) -> np.ndarray:
+    """Apply runtime stacker settings to paired probabilities."""
     stacker = runtime_config["runtime"]["roi_enhancement"]["stacker"]
     matrix = np.vstack([_logit(full_probabilities), _logit(roi_probabilities)]).T
     scaled = (
@@ -369,6 +382,7 @@ def _candidate_probability(
     seed123_share: float,
     roi_stack_blend_weight: float,
 ) -> np.ndarray:
+    """Return candidate probability."""
     conv_full = (1.0 - seed123_share) * conv42_full + seed123_share * conv123_full
     conv_roi = (1.0 - seed123_share) * conv42_roi + seed123_share * conv123_roi
     full_probability = EFF_WEIGHT * eff_full + CONV_WEIGHT * conv_full
@@ -399,6 +413,7 @@ def _scan_candidates(
     min_sensitivity: float,
     max_auc_drop: float,
 ) -> list[dict[str, Any]]:
+    """Scan candidates."""
     results: list[dict[str, Any]] = []
     for seed123_share in (0.0, 0.10, 0.20, 0.30, 0.40, 0.50, 0.67, 1.0):
         for blend_weight in (0.75, 0.85, 0.95, 1.0):
@@ -446,6 +461,7 @@ def _scan_candidates(
 
 
 def _with_sample_counts(metric: dict[str, Any]) -> dict[str, Any]:
+    """Return with sample counts."""
     confusion = metric["confusion"]
     enriched = dict(metric)
     enriched["sample_count"] = int(confusion["tn"] + confusion["fp"] + confusion["fn"] + confusion["tp"])
@@ -460,6 +476,7 @@ def _write_candidate_config(
     destination: str | Path,
     selected: dict[str, Any],
 ) -> None:
+    """Write candidate config."""
     config = yaml.safe_load(Path(runtime_config_path).read_text(encoding="utf-8"))
     runtime = config["runtime"]
     share = float(selected["seed123_share"])
@@ -496,15 +513,18 @@ def _write_candidate_config(
 
 
 def _format_metric(metric: dict[str, Any], key: str) -> str:
+    """Format one metric value for report tables."""
     return f"{float(metric[key]):.4f}"
 
 
 def _confusion_text(metric: dict[str, Any]) -> str:
+    """Format confusion-matrix counts for report tables."""
     c = metric["confusion"]
     return f"TN {c['tn']} / FP {c['fp']} / FN {c['fn']} / TP {c['tp']}"
 
 
 def _metrics_row(name: str, metric: dict[str, Any]) -> str:
+    """Format one metric row for a Markdown report."""
     return (
         "| "
         + " | ".join(
@@ -530,6 +550,7 @@ def _metrics_row(name: str, metric: dict[str, Any]) -> str:
 
 
 def build_markdown(report: dict[str, Any]) -> list[str]:
+    """Build the Markdown report body for this experiment."""
     selected = report["selected_candidate"]
     lines = [
         "# ConvNeXt-Tiny Seed Diversity OOF Protocol",
@@ -592,6 +613,7 @@ def build_markdown(report: dict[str, Any]) -> list[str]:
 
 
 def run(args: argparse.Namespace) -> dict[str, Any]:
+    """Run the experiment workflow and return the generated summary."""
     runtime_config = yaml.safe_load(Path(args.runtime_config).read_text(encoding="utf-8"))
     full_oof = _load_json(args.full_oof_cache)
     roi_oof = _load_json(args.roi_oof_cache)
@@ -687,6 +709,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
 
 
 def main() -> int:
+    """Parse CLI arguments and run the script entry point."""
     args = build_parser().parse_args()
     report = run(args)
     selected = report["selected_candidate"]

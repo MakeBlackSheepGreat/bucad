@@ -12,6 +12,7 @@ TEST_ROOT = Path("artifacts/test-workspace/test_unit_config")
 
 
 def test_yaml_round_trip() -> None:
+    """Verify yaml round trip."""
     shutil.rmtree(TEST_ROOT, ignore_errors=True)
     TEST_ROOT.mkdir(parents=True, exist_ok=True)
     path = TEST_ROOT / "config.yml"
@@ -22,11 +23,13 @@ def test_yaml_round_trip() -> None:
 
 
 def test_deep_merge_preserves_nested_values() -> None:
+    """Verify deep merge preserves nested values."""
     merged = deep_merge({"a": 1, "nested": {"b": 2}}, {"nested": {"c": 3}})
     assert merged == {"a": 1, "nested": {"b": 2, "c": 3}}
 
 
 def test_load_project_config_resolves_paths_relative_to_paths_file() -> None:
+    """Verify load project config resolves paths relative to paths file."""
     shutil.rmtree(TEST_ROOT, ignore_errors=True)
     config_root = TEST_ROOT / "demo-project"
     (config_root / "configs" / "classifier").mkdir(parents=True, exist_ok=True)

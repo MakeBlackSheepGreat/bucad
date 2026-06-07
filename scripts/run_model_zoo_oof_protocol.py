@@ -88,6 +88,7 @@ EXTRA_MODEL_VIEWS: dict[str, ModelView] = {
 
 @dataclass(frozen=True)
 class CandidateSpec:
+    """Represent CandidateSpec for this module."""
     name: str
     weights: tuple[float, ...]
     min_area_ratio: float
@@ -97,6 +98,7 @@ class CandidateSpec:
 
 
 def build_parser() -> argparse.ArgumentParser:
+    """Build the command-line argument parser for this script."""
     parser = argparse.ArgumentParser(
         description="Select a model-zoo ROI stack candidate using BUSBRA OOF only."
     )
@@ -135,6 +137,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def _load_json(path: str | Path) -> dict[str, Any]:
+    """Load a JSON report and validate its top-level object."""
     with Path(path).open("r", encoding="utf-8") as handle:
         data = json.load(handle)
     if not isinstance(data, dict):
@@ -143,10 +146,12 @@ def _load_json(path: str | Path) -> dict[str, Any]:
 
 
 def _sample_ids(rows: list[dict[str, Any]]) -> list[str]:
+    """Return sample identifiers from report rows."""
     return [str(row["sample_id"]) for row in rows]
 
 
 def _view_array(report: dict[str, Any], view_name: str, sample_ids: list[str]) -> np.ndarray:
+    """Return a named prediction view as a NumPy vector."""
     rows = report["views"][view_name]
     if _sample_ids(rows) != sample_ids:
         raise ValueError(f"Sample order mismatch for view {view_name}.")
@@ -161,6 +166,7 @@ def _generate_extra_oof_view(
     device: str,
     batch_size: int,
 ) -> list[dict[str, Any]]:
+    """Generate extra oof view."""
     config, paths = load_project_config(config_path)
     manifest = load_busbra_manifest(paths.busbra_root)
     split_path = Path(
@@ -195,6 +201,7 @@ def _generate_extra_oof_view(
 
 
 def _load_or_generate_model_zoo_oof(args: argparse.Namespace) -> dict[str, Any]:
+    """Load or generate model zoo oof."""
     destination = Path(args.model_zoo_oof_cache)
     if destination.exists():
         report = _load_json(destination)
@@ -220,6 +227,7 @@ def _load_or_generate_model_zoo_oof(args: argparse.Namespace) -> dict[str, Any]:
 
 
 def _label_arrays(report: dict[str, Any]) -> tuple[list[str], np.ndarray, np.ndarray]:
+    """Return label and group arrays for OOF evaluation."""
     reference = report["views"][FULL_VIEW_NAMES[0]]
     sample_ids = _sample_ids(reference)
     y_true = np.asarray(
@@ -231,6 +239,7 @@ def _label_arrays(report: dict[str, Any]) -> tuple[list[str], np.ndarray, np.nda
 
 
 def _weighted_probability(matrix: np.ndarray, weights: np.ndarray) -> np.ndarray:
+    """Blend probability views with normalized weights."""
     weights = np.asarray(weights, dtype=np.float64)
     weights = np.clip(weights, 0.0, None)
     if float(weights.sum()) <= 0:
@@ -239,6 +248,7 @@ def _weighted_probability(matrix: np.ndarray, weights: np.ndarray) -> np.ndarray
 
 
 def _roi_pair_probability(roi_report: dict[str, Any], sample_ids: list[str]) -> np.ndarray:
+    """Process ROI pair probability."""
     eff = _view_array(roi_report, "eff_identity", sample_ids)
     conv = _view_array(roi_report, "conv_crop_sweep", sample_ids)
     total = ROI_PAIR_WEIGHTS["eff_identity"] + ROI_PAIR_WEIGHTS["conv_crop_sweep"]
@@ -249,11 +259,13 @@ def _roi_pair_probability(roi_report: dict[str, Any], sample_ids: list[str]) -> 
 
 
 def _logit(values: np.ndarray) -> np.ndarray:
+    """Convert probabilities to clipped logits."""
     clipped = np.clip(values, 1e-6, 1.0 - 1e-6)
     return np.log(clipped / (1.0 - clipped))
 
 
 def _feature_matrix(full_probability: np.ndarray, roi_probability: np.ndarray) -> np.ndarray:
+    """Build a model feature matrix for candidate scoring."""
     return np.vstack([_logit(full_probability), _logit(roi_probability)]).T
 
 
@@ -264,6 +276,7 @@ def _fit_stacker(
     c_value: float,
     class_weight: str | None,
 ) -> Pipeline:
+    """Fit stacker."""
     model = Pipeline(
         [
             ("scaler", StandardScaler()),
@@ -288,6 +301,7 @@ def _threshold_for_constraints(
     *,
     min_sensitivity: float,
 ) -> dict[str, Any]:
+    """Select the best threshold under sensitivity constraints."""
     rows = threshold_sweep(y_true, probabilities)
     feasible = [row for row in rows if row["sensitivity"] >= min_sensitivity] or rows
     return max(
@@ -310,6 +324,7 @@ def _candidate_nested_predictions(
     y_true: np.ndarray,
     fold_ids: np.ndarray,
 ) -> np.ndarray:
+    """Generate nested predictions for a candidate stacker."""
     weights = np.asarray(spec.weights, dtype=np.float64)
     full_probability = _weighted_probability(full_matrix, weights)
     fallback = (area_ratios < spec.min_area_ratio) | (area_ratios > spec.max_area_ratio)
@@ -337,6 +352,7 @@ def _candidate_nested_predictions(
 
 
 def _normalise_weights(values: tuple[float, ...] | list[float] | np.ndarray) -> tuple[float, ...]:
+    """Normalize ensemble weights to a valid probability simplex."""
     array = np.asarray(values, dtype=np.float64)
     array = np.clip(array, 0.0, None)
     if float(array.sum()) <= 0:
@@ -346,6 +362,7 @@ def _normalise_weights(values: tuple[float, ...] | list[float] | np.ndarray) -> 
 
 
 def _candidate_specs(random_count: int, seed: int) -> list[CandidateSpec]:
+    """Generate candidate model or stacker specifications."""
     manual_weights = [
         (0.427, 0.573, 0.0, 0.0, 0.0),
         (0.358, 0.398, 0.244, 0.0, 0.0),
@@ -418,6 +435,7 @@ def _evaluate_candidate(
     fold_ids: np.ndarray,
     min_sensitivity: float,
 ) -> dict[str, Any]:
+    """Evaluate candidate."""
     predictions = _candidate_nested_predictions(
         spec,
         full_matrix=full_matrix,
@@ -459,6 +477,7 @@ def _fit_final_model(
     area_ratios: np.ndarray,
     y_true: np.ndarray,
 ) -> tuple[Pipeline, np.ndarray, np.ndarray]:
+    """Fit final model."""
     weights = np.asarray([selected["weights"][name] for name in FULL_VIEW_NAMES], dtype=np.float64)
     full_probability = _weighted_probability(full_matrix, weights)
     fallback = (
@@ -481,6 +500,7 @@ def _fit_final_model(
 
 
 def _slim_stacker(model: Pipeline) -> dict[str, Any]:
+    """Serialize a compact stacker config for runtime use."""
     scaler = model.named_steps["scaler"]
     classifier = model.named_steps["classifier"]
     return {
@@ -493,6 +513,7 @@ def _slim_stacker(model: Pipeline) -> dict[str, Any]:
 
 
 def _member_specs_for_config(weights: dict[str, float]) -> list[dict[str, Any]]:
+    """Build runtime member specs from selected model views."""
     crop_sweep_variants = [
         {"name": "identity", "crop_pct": 0.90},
         {"name": "hflip", "crop_pct": 0.90},
@@ -583,6 +604,7 @@ def _write_candidate_config(
     selected: dict[str, Any],
     stacker: dict[str, Any],
 ) -> None:
+    """Write candidate config."""
     config = yaml.safe_load(Path(runtime_config_path).read_text(encoding="utf-8"))
     runtime = config["runtime"]
     runtime["ensemble_display_name"] = "Model-Zoo OOF Candidate + ROI Area Gate"
@@ -613,11 +635,13 @@ def _write_candidate_config(
 
 
 def _format_metric(metrics: dict[str, Any], key: str) -> str:
+    """Format one metric value for report tables."""
     value = metrics.get(key)
     return f"{float(value):.4f}" if isinstance(value, (int, float)) else str(value)
 
 
 def build_markdown(report: dict[str, Any]) -> list[str]:
+    """Build the Markdown report body for this experiment."""
     baseline = report["baseline_current_demo_oof_metrics"]
     selected = report["selected_candidate"]
     final = report["selected_refit_oof_metrics"]
@@ -727,6 +751,7 @@ def build_markdown(report: dict[str, Any]) -> list[str]:
 
 
 def run(args: argparse.Namespace) -> dict[str, Any]:
+    """Run the experiment workflow and return the generated summary."""
     model_zoo_oof = _load_or_generate_model_zoo_oof(args)
     roi_oof = _load_json(args.roi_oof_cache)
     sample_ids, y_true, fold_ids = _label_arrays(model_zoo_oof)
@@ -843,6 +868,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
 
 
 def main() -> None:
+    """Parse CLI arguments and run the script entry point."""
     args = build_parser().parse_args()
     report = run(args)
     selected = report["selected_candidate"]

@@ -20,6 +20,8 @@ torch = optional_import("torch")
 
 
 class ClassifierEnsemble:
+    """Load configured classifier members, apply TTA, and average probabilities."""
+
     def __init__(self, runtime_config: RuntimeConfig, *, paths=None) -> None:
         self.runtime_config = runtime_config
         self.paths = paths

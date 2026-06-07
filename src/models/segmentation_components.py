@@ -221,6 +221,8 @@ if nn is not None:
 
 
     class CENetLite(nn.Module):
+        """Compact CE-Net style decoder used for lightweight segmentation trials."""
+
         def __init__(
             self,
             *,
@@ -295,6 +297,8 @@ if nn is not None:
 
 
     class TimmFeaturePyramidSegmenter(nn.Module):
+        """Feature-pyramid segmenter backed by a timm encoder for replacement trials."""
+
         def __init__(
             self,
             *,

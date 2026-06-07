@@ -42,6 +42,7 @@ def _display_model_version(model_version: str, metadata: dict | None = None) -> 
 
 
 def diagnosis_markdown(response: InferenceResponse) -> str:
+    """Render the compact Chinese diagnosis card shown in the Gradio app."""
     if response.result is None:
         return """
 <div class="result-card">

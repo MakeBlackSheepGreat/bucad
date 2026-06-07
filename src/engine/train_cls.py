@@ -378,6 +378,7 @@ def _train_classifier_epoch(
     cutmix_alpha: float,
     mix_probability: float,
 ) -> float:
+    """Run one classifier epoch with optional sample weights and mix augmentations."""
     model.train()
     losses: list[float] = []
     for batch in train_loader:
@@ -637,23 +638,98 @@ def _write_classifier_training_outputs(
     train_manifest: pd.DataFrame,
     val_manifest: pd.DataFrame,
 ) -> dict[str, Any]:
+    """Persist the selected classifier checkpoint and its training report."""
     checkpoints_dir = ensure_dir(paths.checkpoints_root)
     reports_dir = ensure_dir(paths.reports_root)
     checkpoint_path = checkpoints_dir / output_cfg.get("checkpoint_name", "classifier_fold{fold}.pt").format(fold=fold)
     report_path = reports_dir / output_cfg.get("report_name", "train_cls_fold{fold}.json").format(fold=fold)
 
     _atomic_torch_save(
-        {
-            "state_dict": model.state_dict(),
-            "model_config": config.get("model", {}),
-            "fold": fold,
-            "metrics": metrics,
-            "best_epoch": best_epoch,
-            "best_metrics": best_metrics,
-        },
+        _classifier_checkpoint_payload(
+            config=config,
+            model=model,
+            fold=fold,
+            metrics=metrics,
+            best_epoch=best_epoch,
+            best_metrics=best_metrics,
+        ),
         checkpoint_path,
     )
-    report = {
+    report = _classifier_training_report(
+        fold=fold,
+        device=device,
+        checkpoint_path=checkpoint_path,
+        metrics=metrics,
+        best_epoch=best_epoch,
+        best_metrics=best_metrics,
+        checkpoint_strategy=checkpoint_strategy,
+        preprocess_settings=preprocess_settings,
+        scheduler_cfg=scheduler_cfg,
+        class_weights=class_weights,
+        label_smoothing=label_smoothing,
+        loss_name=loss_name,
+        focal_gamma=focal_gamma,
+        mixup_alpha=mixup_alpha,
+        cutmix_alpha=cutmix_alpha,
+        mix_probability=mix_probability,
+        sample_weight_path=sample_weight_path,
+        sample_weights=sample_weights,
+        min_specificity=min_specificity,
+        epoch_reports=epoch_reports,
+        train_manifest=train_manifest,
+        val_manifest=val_manifest,
+    )
+    write_json_report(report_path, report)
+    return report
+
+
+def _classifier_checkpoint_payload(
+    *,
+    config: dict[str, Any],
+    model,
+    fold: int,
+    metrics: dict[str, Any],
+    best_epoch: int,
+    best_metrics: dict[str, Any] | None,
+) -> dict[str, Any]:
+    """Keep the checkpoint schema in one place for training and tests."""
+    return {
+        "state_dict": model.state_dict(),
+        "model_config": config.get("model", {}),
+        "fold": fold,
+        "metrics": metrics,
+        "best_epoch": best_epoch,
+        "best_metrics": best_metrics,
+    }
+
+
+def _classifier_training_report(
+    *,
+    fold: int,
+    device: str,
+    checkpoint_path: Path,
+    metrics: dict[str, Any],
+    best_epoch: int,
+    best_metrics: dict[str, Any] | None,
+    checkpoint_strategy: str,
+    preprocess_settings: dict[str, Any],
+    scheduler_cfg: dict[str, Any],
+    class_weights,
+    label_smoothing: float,
+    loss_name: str,
+    focal_gamma: float,
+    mixup_alpha: float,
+    cutmix_alpha: float,
+    mix_probability: float,
+    sample_weight_path: Path | None,
+    sample_weights: dict[str, float],
+    min_specificity: float,
+    epoch_reports: list[dict[str, Any]],
+    train_manifest: pd.DataFrame,
+    val_manifest: pd.DataFrame,
+) -> dict[str, Any]:
+    """Build the JSON report without performing filesystem writes."""
+    return {
         "fold": fold,
         "device": device,
         "checkpoint_path": str(checkpoint_path),
@@ -677,8 +753,6 @@ def _write_classifier_training_outputs(
         "train_size": int(len(train_manifest)),
         "val_size": int(len(val_manifest)),
     }
-    write_json_report(report_path, report)
-    return report
 
 
 @dataclasses.dataclass(slots=True)

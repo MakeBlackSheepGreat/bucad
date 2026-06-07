@@ -515,6 +515,7 @@ def _threshold_analysis_markdown(
     best_threshold: dict[str, Any],
     rows: list[dict[str, Any]],
 ) -> list[str]:
+    """Render BUSI threshold sweep metrics as a small Markdown report."""
     lines = [
         "# Threshold Analysis",
         "",

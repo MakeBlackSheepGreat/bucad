@@ -270,6 +270,7 @@ def _style_docx(document: Any) -> None:
 
 
 def export_docx(blocks: list[ReportBlock], output_path: str | Path) -> Path:
+    """Write collected report blocks to a Word document with readable defaults."""
     from docx import Document
     from docx.enum.section import WD_SECTION_START
     from docx.enum.text import WD_ALIGN_PARAGRAPH

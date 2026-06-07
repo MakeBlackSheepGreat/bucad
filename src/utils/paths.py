@@ -21,6 +21,8 @@ def resolve_path(value: str | Path, *, base_dir: str | Path | None = None) -> Pa
 
 @dataclass(slots=True)
 class ProjectPaths:
+    """Resolved filesystem roots shared by training, inference, and reports."""
+
     project_root: Path
     busbra_root: Path
     busi_root: Path

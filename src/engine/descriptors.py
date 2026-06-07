@@ -146,17 +146,9 @@ def _image_sharpness(image: np.ndarray) -> float:
     return float(np.var(gx) + np.var(gy))
 
 
-def extract_roi_descriptors(
-    image: np.ndarray,
-    mask: np.ndarray | None,
-    *,
-    threshold: float = 0.5,
-    margin_ratio: float = 0.35,
-    min_area_ratio: float = 0.001,
-    largest_component: bool = False,
-) -> dict[str, float]:
-    unit_image = _as_unit_float_image(image)
-    descriptors: dict[str, float] = {
+def _default_roi_descriptors(unit_image: np.ndarray) -> dict[str, float]:
+    """Return a complete descriptor payload for invalid or missing masks."""
+    return {
         "roi_valid": 0.0,
         "roi_area_ratio": 1.0,
         "mask_area_ratio": 0.0,
@@ -172,6 +164,58 @@ def extract_roi_descriptors(
         "image_std": float(unit_image.std()) if unit_image.size else 0.0,
         "image_sharpness": _image_sharpness(unit_image),
     }
+
+
+def _roi_geometry_descriptors(
+    *,
+    unit_image: np.ndarray,
+    resized_mask: np.ndarray,
+    binary: np.ndarray,
+    bbox: tuple[int, int, int, int],
+    margin_ratio: float,
+) -> dict[str, float]:
+    """Compute geometric and boundary descriptors for a valid lesion box."""
+    x1, y1, x2, y2 = bbox
+    height, width = binary.shape[:2]
+    total_area = float(max(1, height * width))
+    lesion_width = max(1, x2 - x1)
+    lesion_height = max(1, y2 - y1)
+    lesion_bbox_area = float(lesion_width * lesion_height)
+    ex1, ey1, ex2, ey2 = expand_bbox(
+        bbox,
+        image_shape=binary.shape,
+        margin_ratio=float(margin_ratio),
+        square=True,
+    )
+    roi_area = float(max(1, ex2 - ex1) * max(1, ey2 - ey1))
+    mask_area = float(binary.sum())
+    compactness, complexity, edge_contrast = _boundary_stats(binary, unit_image)
+    return {
+        "roi_valid": 1.0,
+        "roi_area_ratio": float(roi_area / total_area),
+        "mask_area_ratio": float(mask_area / total_area),
+        "lesion_bbox_area_ratio": float(lesion_bbox_area / total_area),
+        "lesion_aspect_ratio": float(lesion_width / lesion_height),
+        "mask_extent": float(mask_area / max(1.0, lesion_bbox_area)),
+        "mask_compactness": compactness,
+        "boundary_complexity": complexity,
+        "mask_mean_probability": float(resized_mask[binary].mean()),
+        "edge_contrast": edge_contrast,
+    }
+
+
+def extract_roi_descriptors(
+    image: np.ndarray,
+    mask: np.ndarray | None,
+    *,
+    threshold: float = 0.5,
+    margin_ratio: float = 0.35,
+    min_area_ratio: float = 0.001,
+    largest_component: bool = False,
+) -> dict[str, float]:
+    """Extract stable ROI geometry, boundary, and image statistics for routing."""
+    unit_image = _as_unit_float_image(image)
+    descriptors = _default_roi_descriptors(unit_image)
     if mask is None or unit_image.size == 0:
         return descriptors
 
@@ -192,36 +236,14 @@ def extract_roi_descriptors(
     if bbox is None:
         return descriptors
 
-    x1, y1, x2, y2 = bbox
-    height, width = binary.shape[:2]
-    total_area = float(max(1, height * width))
-    lesion_width = max(1, x2 - x1)
-    lesion_height = max(1, y2 - y1)
-    lesion_bbox_area = float(lesion_width * lesion_height)
-    expanded = expand_bbox(
-        bbox,
-        image_shape=binary.shape,
-        margin_ratio=float(margin_ratio),
-        square=True,
-    )
-    ex1, ey1, ex2, ey2 = expanded
-    roi_area = float(max(1, ex2 - ex1) * max(1, ey2 - ey1))
-    mask_area = float(binary.sum())
-    compactness, complexity, edge_contrast = _boundary_stats(binary, unit_image)
-
     descriptors.update(
-        {
-            "roi_valid": 1.0,
-            "roi_area_ratio": float(roi_area / total_area),
-            "mask_area_ratio": float(mask_area / total_area),
-            "lesion_bbox_area_ratio": float(lesion_bbox_area / total_area),
-            "lesion_aspect_ratio": float(lesion_width / lesion_height),
-            "mask_extent": float(mask_area / max(1.0, lesion_bbox_area)),
-            "mask_compactness": compactness,
-            "boundary_complexity": complexity,
-            "mask_mean_probability": float(resized_mask[binary].mean()),
-            "edge_contrast": edge_contrast,
-        }
+        _roi_geometry_descriptors(
+            unit_image=unit_image,
+            resized_mask=resized_mask,
+            binary=binary,
+            bbox=bbox,
+            margin_ratio=margin_ratio,
+        )
     )
     return descriptors
 

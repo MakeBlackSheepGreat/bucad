@@ -35,6 +35,23 @@ def _resolve_runtime_checkpoint_paths(
     return resolve_runtime_checkpoint_paths(runtime_config, project_root=project_root)
 
 
+def _inference_service_from_project_config(
+    config_path: str | Path,
+    *,
+    classifier_predictor: Callable[[np.ndarray], tuple[float, float]] | None = None,
+) -> tuple["BreastUltrasoundInferenceService", Any]:
+    config, paths = load_project_config(config_path)
+    runtime_config = dict(config.get("runtime", {}))
+    runtime_config = _resolve_runtime_checkpoint_paths(runtime_config, project_root=paths.project_root)
+    runtime_config.setdefault("device", config.get("device", "cpu"))
+    service = BreastUltrasoundInferenceService(
+        runtime_config,
+        paths=paths,
+        classifier_predictor=classifier_predictor,
+    )
+    return service, paths
+
+
 def assess_image_quality(image: np.ndarray) -> str:
     """Return a coarse quality gate result before expensive model inference."""
     if image.ndim < 2 or min(image.shape[:2]) < 32:
@@ -94,11 +111,8 @@ class BreastUltrasoundInferenceService:
     @classmethod
     def from_config(cls, config_path: str | Path) -> "BreastUltrasoundInferenceService":
         """Build the service from a project YAML config and resolve checkpoint paths."""
-        config, paths = load_project_config(config_path)
-        runtime_config = dict(config.get("runtime", {}))
-        runtime_config = _resolve_runtime_checkpoint_paths(runtime_config, project_root=paths.project_root)
-        runtime_config.setdefault("device", config.get("device", "cpu"))
-        return cls(runtime_config, paths=paths)
+        service, _paths = _inference_service_from_project_config(config_path)
+        return service
 
     def diagnose(
         self,
@@ -361,16 +375,30 @@ def evaluate_busi_dataset(
     output_path: str | Path | None = None,
 ) -> dict[str, Any]:
     """Evaluate the configured classifier path on BUSI benign/malignant samples."""
-    config, paths = load_project_config(config_path)
-    runtime_config = dict(config.get("runtime", {}))
-    runtime_config = _resolve_runtime_checkpoint_paths(runtime_config, project_root=paths.project_root)
-    runtime_config.setdefault("device", config.get("device", "cpu"))
-    service = BreastUltrasoundInferenceService(
-        runtime_config,
-        paths=paths,
+    service, paths = _inference_service_from_project_config(
+        config_path,
         classifier_predictor=classifier_predictor,
     )
     manifest = load_busi_manifest(paths.busi_root, include_normal=False)
+    y_true, malignant_probabilities, rows = _collect_busi_predictions(service, manifest)
+
+    report = _build_busi_report(
+        config_path=config_path,
+        service=service,
+        y_true=y_true,
+        malignant_probabilities=malignant_probabilities,
+        rows=rows,
+    )
+    destination = Path(output_path) if output_path is not None else paths.reports_root / "busi_eval.json"
+    _write_busi_report_outputs(report, destination, write_named_threshold_report=output_path is not None)
+    return report
+
+
+def _collect_busi_predictions(
+    service: BreastUltrasoundInferenceService,
+    manifest,
+) -> tuple[list[int], list[float], list[dict[str, Any]]]:
+    """Run BUSI samples through diagnosis and keep only completed predictions."""
     malignant_probabilities: list[float] = []
     y_true: list[int] = []
     rows: list[dict[str, Any]] = []
@@ -393,7 +421,18 @@ def evaluate_busi_dataset(
                 "final_label": response.result.final_label,
             }
         )
+    return y_true, malignant_probabilities, rows
 
+
+def _build_busi_report(
+    *,
+    config_path: str | Path,
+    service: BreastUltrasoundInferenceService,
+    y_true: list[int],
+    malignant_probabilities: list[float],
+    rows: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """Build the BUSI report payload without touching the filesystem."""
     default_threshold = float(service.runtime_config.get("default_threshold", 0.5))
     metrics = classification_metrics(
         y_true,
@@ -419,16 +458,30 @@ def evaluate_busi_dataset(
         },
         "rows": rows,
     }
-    destination = Path(output_path) if output_path is not None else paths.reports_root / "busi_eval.json"
+    return report
+
+
+def _write_busi_report_outputs(
+    report: dict[str, Any],
+    destination: Path,
+    *,
+    write_named_threshold_report: bool,
+) -> None:
+    """Write JSON plus the standard and optional named threshold reports."""
     write_json_report(destination, report)
-    threshold_markdown = _threshold_analysis_markdown(metrics, best_threshold, threshold_rows)
+    metrics = report["metrics"]
+    threshold_analysis = report["threshold_analysis"]
+    threshold_markdown = _threshold_analysis_markdown(
+        metrics,
+        threshold_analysis.get("best_by_youden", {}),
+        threshold_analysis.get("rows", []),
+    )
     write_markdown_report(destination.parent / "threshold_analysis.md", threshold_markdown)
-    if output_path is not None:
+    if write_named_threshold_report:
         write_markdown_report(
             destination.with_name(f"threshold_analysis_{destination.stem}.md"),
             threshold_markdown,
         )
-    return report
 
 
 def _threshold_analysis_markdown(

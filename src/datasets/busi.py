@@ -55,6 +55,8 @@ def load_busi_manifest(root: str | Path, *, include_normal: bool = False) -> pd.
 
 
 class BUSIDataset(DatasetBase):
+    """Torch dataset wrapper for BUSI classification and optional masks."""
+
     def __init__(
         self,
         manifest: pd.DataFrame,

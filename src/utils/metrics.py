@@ -38,6 +38,7 @@ def classification_metrics(
     *,
     threshold: float = 0.5,
 ) -> dict[str, Any]:
+    """Compute binary diagnostic metrics from malignant probabilities."""
     y_true_arr = np.asarray(y_true, dtype=np.int32)
     prob_arr = np.asarray(malignant_probabilities, dtype=np.float32)
     preds = (prob_arr >= threshold).astype(np.int32)

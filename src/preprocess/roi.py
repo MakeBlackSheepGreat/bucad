@@ -20,6 +20,7 @@ def _resize_mask_to_image(mask: np.ndarray, image: np.ndarray) -> np.ndarray:
 
 
 def _largest_connected_component(binary: np.ndarray) -> np.ndarray:
+    """Return only the largest foreground component, with a NumPy fallback."""
     mask = binary.astype(np.uint8)
     if cv2 is None:
         height, width = mask.shape[:2]
@@ -116,6 +117,7 @@ def crop_to_mask_bbox(
     square: bool = True,
     fallback: Literal["full"] = "full",
 ) -> np.ndarray:
+    """Crop an image around a mask bbox, falling back to the full image."""
     if mask is None:
         return image.copy()
     resized_mask = _resize_mask_to_image(mask, image)

@@ -82,6 +82,7 @@ def _weighted_prototype(features, weights):
 
 
 def prototype_contrast_loss(features, targets, *, positive_region: str = "foreground"):
+    """Contrast foreground or edge prototypes against their complementary region."""
     require_dependency("torch", torch)
     require_dependency("torch.nn.functional", F)
     resized_targets = F.interpolate(

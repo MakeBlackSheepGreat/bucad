@@ -171,6 +171,7 @@ def _train_segmentation_epoch(
     loss_cfg: dict[str, Any],
     max_train_batches: int | None,
 ) -> tuple[float, dict[str, float]]:
+    """Run one segmenter epoch and summarize total/component losses."""
     model.train()
     losses: list[float] = []
     component_losses: dict[str, list[float]] = {}

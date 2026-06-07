@@ -84,6 +84,7 @@ def _create_custom_segmenter(
     classes: int,
     model_kwargs: dict[str, Any],
 ):
+    """Create project-specific segmenters before trying SMP architectures."""
     if architecture in {"cenet_lite", "cenet-lite"}:
         return CENetLite(
             in_channels=in_channels,

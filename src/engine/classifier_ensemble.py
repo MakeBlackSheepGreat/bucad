@@ -265,6 +265,7 @@ class ClassifierEnsemble:
         *,
         member_weight_overrides: dict[str, float] | None = None,
     ) -> tuple[float, float]:
+        """Return ensemble benign/malignant probabilities for one image."""
         member_configs = self.resolved_classifier_member_configs()
         if not member_configs:
             raise ClassificationUnavailableError("No classifier checkpoint is configured.")

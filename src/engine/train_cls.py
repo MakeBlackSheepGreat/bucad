@@ -145,6 +145,7 @@ def _classification_loss(
     loss_name: str,
     focal_gamma: float,
 ):
+    """Compute weighted cross-entropy or focal loss with optional per-sample weights."""
     if loss_name == "focal":
         per_sample_loss = torch.nn.functional.cross_entropy(
             logits,
@@ -435,6 +436,7 @@ def _score_checkpoint_candidate(
     sensitivity_weight: float,
     min_specificity: float,
 ) -> tuple[dict[str, Any], float]:
+    """Score one epoch according to the configured checkpoint selection strategy."""
     # Selection strategies reuse the validation probabilities already computed
     # for epoch metrics, so one epoch does one validation forward pass.
     if checkpoint_strategy in {"selected_threshold", "sensitivity", "high_sensitivity"}:

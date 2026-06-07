@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 import sys
 from pathlib import Path
 
@@ -25,6 +26,26 @@ from src.engine.inference import BreastUltrasoundInferenceService
 
 
 DEFAULT_THRESHOLD = 0.51
+
+
+@dataclass(slots=True)
+class _ControlPanel:
+    image_input: gr.Image
+    threshold: gr.Slider
+    need_segmentation: gr.Checkbox
+    need_explanation: gr.Checkbox
+    analyze_button: gr.Button
+    clear_button: gr.Button
+    diagnosis_output: gr.HTML
+    status_output: gr.HTML
+    warning_output: gr.HTML
+
+
+@dataclass(slots=True)
+class _ViewerPanel:
+    original_output: gr.Image
+    lesion_output: gr.Image
+    explanation_output: gr.Image
 
 
 def bundled_resource_path(relative_path: str | Path) -> Path:
@@ -136,6 +157,96 @@ def _bind_app_events(
     )
 
 
+def _build_control_panel(*, default_threshold: float) -> _ControlPanel:
+    """Create upload controls, toggles, action buttons, and text outputs."""
+    with gr.Column(scale=4, min_width=390, elem_classes=["left-panel"]):
+        gr.HTML('<div class="section-title">图像输入与诊断设置</div>')
+        image_input = gr.Image(
+            type="numpy",
+            label="点击或拖拽上传乳腺超声图像",
+            elem_classes=["upload-box"],
+            height=180,
+        )
+        gr.HTML('<div class="control-caption">支持常见 JPG / PNG 图像。DICOM 需先转换为普通图像后上传。</div>')
+
+        threshold = gr.Slider(
+            0.1,
+            0.9,
+            value=default_threshold,
+            step=0.001,
+            label="恶性判定阈值",
+            info=f"当前主线推荐 {default_threshold:.3f}；分割器为 UNet-ResNet18，ROI 使用 0.40 mask 阈值、最大连通域与面积质量门控。",
+        )
+        with gr.Row():
+            need_segmentation = gr.Checkbox(value=True, label="生成病灶定位图")
+            need_explanation = gr.Checkbox(value=True, label="生成 Grad-CAM 热力图")
+
+        with gr.Row():
+            analyze_button = gr.Button(
+                "▶ 开始诊断",
+                variant="primary",
+                elem_classes=["primary-btn"],
+                scale=2,
+            )
+            clear_button = gr.Button(
+                value="清空",
+                elem_classes=["secondary-btn"],
+                scale=1,
+            )
+
+        diagnosis_output = gr.HTML(EMPTY_DIAGNOSIS_HTML)
+        status_output = gr.HTML(EMPTY_STATUS_HTML)
+        warning_output = gr.HTML(EMPTY_WARNING_HTML)
+
+    return _ControlPanel(
+        image_input=image_input,
+        threshold=threshold,
+        need_segmentation=need_segmentation,
+        need_explanation=need_explanation,
+        analyze_button=analyze_button,
+        clear_button=clear_button,
+        diagnosis_output=diagnosis_output,
+        status_output=status_output,
+        warning_output=warning_output,
+    )
+
+
+def _build_viewer_panel() -> _ViewerPanel:
+    """Create image viewers for original, lesion overlay, and Grad-CAM output."""
+    with gr.Column(scale=8, min_width=680, elem_classes=["right-panel"]):
+        gr.HTML(viewer_header_html())
+        with gr.Column(elem_classes=["image-grid"]):
+            with gr.Column(elem_classes=["main-image-card"]):
+                original_output = gr.Image(
+                    label="原始超声图像",
+                    type="numpy",
+                    height=None,
+                    elem_classes=["image-frame", "compact-image"],
+                )
+            with gr.Row(equal_height=True, elem_classes=["mini-image-row"]):
+                with gr.Column(elem_classes=["mini-card"]):
+                    lesion_output = gr.Image(
+                        label="病灶定位叠加图",
+                        type="numpy",
+                        height=None,
+                        elem_classes=["image-frame", "compact-image"],
+                    )
+                with gr.Column(elem_classes=["mini-card"]):
+                    explanation_output = gr.Image(
+                        label="模型关注区域（Grad-CAM）",
+                        type="numpy",
+                        height=None,
+                        elem_classes=["image-frame", "compact-image"],
+                    )
+        gr.HTML(footer_note_html())
+
+    return _ViewerPanel(
+        original_output=original_output,
+        lesion_output=lesion_output,
+        explanation_output=explanation_output,
+    )
+
+
 def build_app(config_path: str | Path | None = None):
     """Build the BUCAD Gradio Blocks app without launching a server."""
     if config_path is None:
@@ -153,86 +264,23 @@ def build_app(config_path: str | Path | None = None):
             gr.HTML(hero_html(ensemble_display_name))
 
             with gr.Row(equal_height=True, elem_classes=["workspace-row"]):
-                with gr.Column(scale=4, min_width=390, elem_classes=["left-panel"]):
-                    gr.HTML('<div class="section-title">图像输入与诊断设置</div>')
-                    image_input = gr.Image(
-                        type="numpy",
-                        label="点击或拖拽上传乳腺超声图像",
-                        elem_classes=["upload-box"],
-                        height=180,
-                    )
-                    gr.HTML('<div class="control-caption">支持常见 JPG / PNG 图像。DICOM 需先转换为普通图像后上传。</div>')
-
-                    threshold = gr.Slider(
-                        0.1,
-                        0.9,
-                        value=default_threshold,
-                        step=0.001,
-                        label="恶性判定阈值",
-                        info=f"当前主线推荐 {default_threshold:.3f}；分割器为 UNet-ResNet18，ROI 使用 0.40 mask 阈值、最大连通域与面积质量门控。",
-                    )
-                    with gr.Row():
-                        need_segmentation = gr.Checkbox(value=True, label="生成病灶定位图")
-                        need_explanation = gr.Checkbox(value=True, label="生成 Grad-CAM 热力图")
-
-                    with gr.Row():
-                        analyze_button = gr.Button(
-                            "▶ 开始诊断",
-                            variant="primary",
-                            elem_classes=["primary-btn"],
-                            scale=2,
-                        )
-                        clear_button = gr.Button(
-                            value="清空",
-                            elem_classes=["secondary-btn"],
-                            scale=1,
-                        )
-
-                    diagnosis_output = gr.HTML(EMPTY_DIAGNOSIS_HTML)
-                    status_output = gr.HTML(EMPTY_STATUS_HTML)
-                    warning_output = gr.HTML(EMPTY_WARNING_HTML)
-
-                with gr.Column(scale=8, min_width=680, elem_classes=["right-panel"]):
-                    gr.HTML(viewer_header_html())
-                    with gr.Column(elem_classes=["image-grid"]):
-                        with gr.Column(elem_classes=["main-image-card"]):
-                            original_output = gr.Image(
-                                label="原始超声图像",
-                                type="numpy",
-                                height=None,
-                                elem_classes=["image-frame", "compact-image"],
-                            )
-                        with gr.Row(equal_height=True, elem_classes=["mini-image-row"]):
-                            with gr.Column(elem_classes=["mini-card"]):
-                                lesion_output = gr.Image(
-                                    label="病灶定位叠加图",
-                                    type="numpy",
-                                    height=None,
-                                    elem_classes=["image-frame", "compact-image"],
-                                )
-                            with gr.Column(elem_classes=["mini-card"]):
-                                explanation_output = gr.Image(
-                                    label="模型关注区域（Grad-CAM）",
-                                    type="numpy",
-                                    height=None,
-                                    elem_classes=["image-frame", "compact-image"],
-                                )
-                    gr.HTML(footer_note_html())
+                controls = _build_control_panel(default_threshold=default_threshold)
+                viewer = _build_viewer_panel()
 
             _bind_app_events(
                 service=service,
-                analyze_button=analyze_button,
-                clear_button=clear_button,
-                image_input=image_input,
-                threshold=threshold,
-                need_segmentation=need_segmentation,
-                need_explanation=need_explanation,
-                status_output=status_output,
-                diagnosis_output=diagnosis_output,
-                original_output=original_output,
-                lesion_output=lesion_output,
-                explanation_output=explanation_output,
-                warning_output=warning_output,
+                analyze_button=controls.analyze_button,
+                clear_button=controls.clear_button,
+                image_input=controls.image_input,
+                threshold=controls.threshold,
+                need_segmentation=controls.need_segmentation,
+                need_explanation=controls.need_explanation,
+                status_output=controls.status_output,
+                diagnosis_output=controls.diagnosis_output,
+                original_output=viewer.original_output,
+                lesion_output=viewer.lesion_output,
+                explanation_output=viewer.explanation_output,
+                warning_output=controls.warning_output,
             )
     return demo
 

@@ -234,6 +234,7 @@ if nn is not None:
             use_nonlocal: bool = True,
             boundary_head: bool = False,
         ) -> None:
+            """Assemble encoder, context block, decoder, mask head, and optional boundary head."""
             super().__init__()
             widths = [base_channels, base_channels * 2, base_channels * 4, base_channels * 8]
             self.boundary_head_enabled = bool(boundary_head)

@@ -57,6 +57,7 @@ class RoiEnhancer:
         descriptors: dict[str, float],
         router: dict[str, Any],
     ) -> float:
+        """Apply the optional descriptor-based correction after ROI stacking."""
         if not bool(router.get("enabled", False)):
             return float(stacked_probability)
         feature_names = [str(name) for name in router.get("feature_names", [])]

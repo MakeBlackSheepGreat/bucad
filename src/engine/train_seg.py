@@ -338,22 +338,69 @@ def _write_segmentation_training_outputs(
     max_train_batches: int | None,
     max_val_batches: int | None,
 ) -> dict[str, Any]:
+    """Persist the trained segmenter checkpoint and fold report."""
     checkpoints_dir = ensure_dir(paths.checkpoints_root)
     reports_dir = ensure_dir(paths.reports_root)
     checkpoint_path = checkpoints_dir / output_cfg.get("checkpoint_name", "segmenter_fold{fold}.pt").format(fold=fold)
     report_path = reports_dir / output_cfg.get("report_name", "train_seg_fold{fold}.json").format(fold=fold)
 
     _atomic_torch_save(
-        {
-            "state_dict": model.state_dict(),
-            "model_config": config.get("model", {}),
-            "loss_config": loss_cfg,
-            "fold": fold,
-            "metrics": metrics,
-        },
+        _segmentation_checkpoint_payload(
+            config=config,
+            model=model,
+            loss_cfg=loss_cfg,
+            fold=fold,
+            metrics=metrics,
+        ),
         checkpoint_path,
     )
-    report = {
+    report = _segmentation_training_report(
+        fold=fold,
+        device=device,
+        checkpoint_path=checkpoint_path,
+        metrics=metrics,
+        loss_cfg=loss_cfg,
+        train_manifest=train_manifest,
+        val_manifest=val_manifest,
+        max_train_batches=max_train_batches,
+        max_val_batches=max_val_batches,
+    )
+    write_json_report(report_path, report)
+    return report
+
+
+def _segmentation_checkpoint_payload(
+    *,
+    config: dict[str, Any],
+    model,
+    loss_cfg: dict[str, Any],
+    fold: int,
+    metrics: dict[str, Any],
+) -> dict[str, Any]:
+    """Keep the segmenter checkpoint schema next to the report schema."""
+    return {
+        "state_dict": model.state_dict(),
+        "model_config": config.get("model", {}),
+        "loss_config": loss_cfg,
+        "fold": fold,
+        "metrics": metrics,
+    }
+
+
+def _segmentation_training_report(
+    *,
+    fold: int,
+    device: str,
+    checkpoint_path: Path,
+    metrics: dict[str, Any],
+    loss_cfg: dict[str, Any],
+    train_manifest: pd.DataFrame,
+    val_manifest: pd.DataFrame,
+    max_train_batches: int | None,
+    max_val_batches: int | None,
+) -> dict[str, Any]:
+    """Build the JSON report for one segmenter fold without writing files."""
+    return {
         "fold": fold,
         "device": device,
         "checkpoint_path": str(checkpoint_path),
@@ -364,8 +411,6 @@ def _write_segmentation_training_outputs(
         "max_train_batches": max_train_batches,
         "max_val_batches": max_val_batches,
     }
-    write_json_report(report_path, report)
-    return report
 
 
 def run_segmentation_training(

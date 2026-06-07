@@ -121,6 +121,7 @@ def _extract_mask_logits(outputs: Any):
 
 
 def segmentation_loss(outputs: Any, targets, config: dict[str, Any] | None = None):
+    """Combine configured mask, boundary, affinity, and prototype loss terms."""
     require_dependency("torch", torch)
     require_dependency("torch.nn.functional", F)
     cfg = config or {}

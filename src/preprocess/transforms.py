@@ -244,6 +244,7 @@ def build_classifier_transform(
     interpolation: str = "area",
     crop_pct: float = 1.0,
 ):
+    """Create the stochastic training/evaluation transform used by classifiers."""
     def transform(image: np.ndarray) -> Any:
         processed = image
         if scale_min != 1.0 or scale_max != 1.0:

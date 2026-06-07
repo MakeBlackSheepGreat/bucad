@@ -93,6 +93,7 @@ def _connected_component_summary(binary: np.ndarray) -> tuple[int, np.ndarray]:
 
 
 def _boundary_stats(binary: np.ndarray, image: np.ndarray) -> tuple[float, float, float]:
+    """Estimate compactness, boundary complexity, and edge contrast for a mask."""
     binary_uint8 = np.asarray(binary, dtype=np.uint8)
     area = float(binary_uint8.sum())
     if area <= 0:

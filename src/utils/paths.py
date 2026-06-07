@@ -37,6 +37,7 @@ class ProjectPaths:
     def from_mapping(
         cls, mapping: Mapping[str, Any], *, config_path: str | Path | None = None
     ) -> "ProjectPaths":
+        """Resolve relative config paths against the config file then project root."""
         config_dir = (
             Path(config_path).resolve().parent if config_path is not None else project_root()
         )

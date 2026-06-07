@@ -331,6 +331,7 @@ def _mixed_classification_loss(
     loss_name: str,
     focal_gamma: float,
 ):
+    """Blend normal and mixed-label losses for MixUp/CutMix batches."""
     if labels_b is None:
         return _classification_loss(
             logits,
@@ -507,6 +508,7 @@ def _build_classifier_model_and_transforms(
     data_cfg: dict[str, Any],
     device: str,
 ):
+    """Construct the classifier plus train/eval transforms from one config."""
     preprocess_cfg = data_cfg.get("preprocess", {})
     augmentation_cfg = data_cfg.get("augmentation", {})
     model_cfg = config.get("model", {})

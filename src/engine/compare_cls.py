@@ -130,6 +130,7 @@ def _run_model_entry(
     epochs_override: int | None,
     dry_run: bool,
 ) -> dict[str, Any]:
+    """Run or validate one comparison model while preserving failure details."""
     started = time.perf_counter()
     config_file = _write_model_run_config(
         base_config=base_config,
@@ -204,6 +205,7 @@ def run_classifier_comparison(
     model_limit: int | None = None,
     dry_run: bool = False,
 ) -> dict[str, Any]:
+    """Run configured classifier comparison entries and write one summary report."""
     config, paths = load_project_config(config_path)
     base_config = _load_base_config(config, config_path)
     entries = _select_model_entries(config, model_limit)

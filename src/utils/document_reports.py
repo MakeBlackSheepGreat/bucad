@@ -54,6 +54,7 @@ def _is_table_separator(line: str) -> bool:
 
 
 def _markdown_to_blocks(text: str) -> list[ReportBlock]:
+    """Parse the subset of Markdown used by generated BUCAD reports."""
     blocks: list[ReportBlock] = []
     lines = text.splitlines()
     index = 0
@@ -155,6 +156,7 @@ def _comparison_table(results: list[Any]) -> ReportBlock:
 
 
 def _json_to_blocks(path: Path, payload: dict[str, Any]) -> list[ReportBlock]:
+    """Convert one structured JSON report into readable report blocks."""
     blocks = [ReportBlock("heading", f"结构化报告：{path.name}", level=2)]
     if "sample_count" in payload:
         blocks.append(ReportBlock("paragraph", f"样本数量：{payload['sample_count']}"))

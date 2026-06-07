@@ -1,4 +1,6 @@
 # -*- mode: python ; coding: utf-8 -*-
+"""PyInstaller spec for the browser-based BUCAD demo bundle."""
+
 from pathlib import Path
 
 import yaml
@@ -15,6 +17,7 @@ package_datas = (
 
 
 def _demo_checkpoint_datas():
+    """Collect checkpoint files referenced by the frozen demo config."""
     config_path = project_root / 'configs' / 'inference' / 'demo.yml'
     config = yaml.safe_load(config_path.read_text(encoding='utf-8')) or {}
     runtime = config.get('runtime', {})

@@ -47,7 +47,7 @@ def test_long_code_objects_have_docstrings() -> None:
             if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
                 continue
             length = int(node.end_lineno or node.lineno) - int(node.lineno) + 1
-            if length >= 40 and ast.get_docstring(node) is None:
+            if length >= 35 and ast.get_docstring(node) is None:
                 missing.append(f"{relative_path}:{node.lineno} {node.name}")
 
     assert missing == []

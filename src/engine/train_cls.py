@@ -193,6 +193,7 @@ def _maybe_apply_mix_augmentation(
     cutmix_alpha: float,
     mix_probability: float,
 ):
+    """Apply MixUp or CutMix to one batch and keep paired labels/weights."""
     if max(float(mixup_alpha), float(cutmix_alpha)) <= 0.0:
         return images, labels, None, 1.0, sample_weights, None
     if images.shape[0] < 2 or np.random.random() >= float(mix_probability):
@@ -249,6 +250,7 @@ def _resolve_preprocess_settings(
     preprocess_cfg: dict[str, Any],
     model_data_settings: dict[str, Any],
 ) -> dict[str, Any]:
+    """Merge config and timm pretrained data settings into concrete preprocessing values."""
     image_size = int(
         preprocess_cfg.get(
             "image_size",
@@ -562,6 +564,7 @@ def _build_classifier_loaders(
     data_cfg: dict[str, Any],
     device: str,
 ):
+    """Create train/validation DataLoaders with Windows-safe worker defaults."""
     train_dataset = BUSBRAClassificationDataset(
         train_manifest, image_size=image_size, transform=train_transform
     )

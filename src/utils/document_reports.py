@@ -202,6 +202,7 @@ def _json_to_blocks(path: Path, payload: dict[str, Any]) -> list[ReportBlock]:
 
 
 def collect_report_blocks(reports_dir: str | Path) -> list[ReportBlock]:
+    """Collect the canonical Markdown/JSON report files into ordered blocks."""
     root = Path(reports_dir)
     if not root.exists():
         raise FileNotFoundError(f"Report directory does not exist: {root}")

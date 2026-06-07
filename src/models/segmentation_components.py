@@ -313,6 +313,7 @@ if nn is not None:
             use_nonlocal: bool = True,
             boundary_head: bool = False,
         ) -> None:
+            """Build a timm feature pyramid decoder with optional boundary output."""
             super().__init__()
             if timm is None:
                 raise RuntimeError("timm is required for the PVT-v2 CENet experiment.")

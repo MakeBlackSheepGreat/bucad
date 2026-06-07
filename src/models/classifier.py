@@ -49,6 +49,7 @@ def create_classifier(
     num_classes: int = 2,
     **model_kwargs,
 ):
+    """Create a classifier from local aliases, torchvision, timm, or a tiny fallback."""
     require_dependency("torch", torch)
     require_dependency("torch.nn", nn)
     normalized_name = model_name.lower()

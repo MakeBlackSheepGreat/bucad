@@ -156,6 +156,7 @@ def load_segmenter(
     *,
     map_location: str = "cpu",
 ):
+    """Load a segmenter, allowing checkpoint model_config to override defaults."""
     state = None
     if checkpoint_path is not None and Path(checkpoint_path).exists():
         state = torch.load(checkpoint_path, map_location=map_location)

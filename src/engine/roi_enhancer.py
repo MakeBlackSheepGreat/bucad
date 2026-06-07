@@ -150,6 +150,95 @@ class RoiEnhancer:
             return True
         return bool(max_area is not None and area_ratio > max_area)
 
+    @staticmethod
+    def _member_weight_overrides(config: dict[str, Any]) -> dict[str, float] | None:
+        raw_weight_overrides = config.get("classifier_weight_overrides", {})
+        if not isinstance(raw_weight_overrides, dict) or not raw_weight_overrides:
+            return None
+        return {str(key): float(value) for key, value in raw_weight_overrides.items()}
+
+    @staticmethod
+    def _roi_image(image: np.ndarray, mask: np.ndarray, config: dict[str, Any]) -> np.ndarray:
+        return crop_to_mask_bbox(
+            image,
+            mask,
+            threshold=float(config.get("mask_threshold", 0.5)),
+            margin_ratio=float(config.get("margin_ratio", 0.35)),
+            largest_component=bool(config.get("largest_component", False)),
+        )
+
+    @staticmethod
+    def _blend_with_full_probability(
+        *,
+        full_malignant_probability: float,
+        roi_malignant_probability: float,
+        blend_weight: float,
+    ) -> float:
+        if blend_weight >= 1.0:
+            return float(roi_malignant_probability)
+        clipped_weight = float(np.clip(blend_weight, 0.0, 1.0))
+        return float(
+            clipped_weight * roi_malignant_probability
+            + (1.0 - clipped_weight) * full_malignant_probability
+        )
+
+    def _apply_optional_descriptor_router(
+        self,
+        *,
+        image: np.ndarray,
+        mask: np.ndarray,
+        full_malignant_probability: float,
+        roi_malignant_probability: float,
+        stacked_probability: float,
+        config: dict[str, Any],
+    ) -> float:
+        descriptor_router = config.get("descriptor_router")
+        if not isinstance(descriptor_router, dict) or not bool(descriptor_router.get("enabled", False)):
+            return float(stacked_probability)
+        descriptors = extract_roi_descriptors(
+            image,
+            mask,
+            threshold=float(config.get("mask_threshold", 0.5)),
+            margin_ratio=float(config.get("margin_ratio", 0.35)),
+            min_area_ratio=float(config.get("min_mask_area_ratio", 0.001)),
+            largest_component=bool(config.get("largest_component", False)),
+        )
+        return self.apply_descriptor_router(
+            full_probability=full_malignant_probability,
+            roi_probability=roi_malignant_probability,
+            stacked_probability=stacked_probability,
+            descriptors=descriptors,
+            router=descriptor_router,
+        )
+
+    def _combine_full_and_roi_probabilities(
+        self,
+        *,
+        image: np.ndarray,
+        mask: np.ndarray,
+        full_malignant_probability: float,
+        roi_malignant_probability: float,
+        config: dict[str, Any],
+    ) -> float:
+        stacked_probability = self.apply_roi_stacker(
+            full_probability=full_malignant_probability,
+            roi_probability=roi_malignant_probability,
+            stacker=config["stacker"],
+        )
+        stacked_probability = self._blend_with_full_probability(
+            full_malignant_probability=full_malignant_probability,
+            roi_malignant_probability=stacked_probability,
+            blend_weight=float(config.get("roi_stack_blend_weight", 1.0)),
+        )
+        return self._apply_optional_descriptor_router(
+            image=image,
+            mask=mask,
+            full_malignant_probability=full_malignant_probability,
+            roi_malignant_probability=roi_malignant_probability,
+            stacked_probability=stacked_probability,
+            config=config,
+        )
+
     def predict(
         self,
         image: np.ndarray,
@@ -164,50 +253,16 @@ class RoiEnhancer:
         mask = segmenter_predictor(image)
         if self.should_fallback_by_area(mask, config):
             return full_benign_probability, full_malignant_probability, "roi_area_gate"
-        roi_image = crop_to_mask_bbox(
-            image,
-            mask,
-            threshold=float(config.get("mask_threshold", 0.5)),
-            margin_ratio=float(config.get("margin_ratio", 0.35)),
-            largest_component=bool(config.get("largest_component", False)),
-        )
-        raw_weight_overrides = config.get("classifier_weight_overrides", {})
-        member_weight_overrides = (
-            {str(key): float(value) for key, value in raw_weight_overrides.items()}
-            if isinstance(raw_weight_overrides, dict) and raw_weight_overrides
-            else None
-        )
+        roi_image = self._roi_image(image, mask, config)
         _, roi_malignant_probability = classifier_predictor(
             roi_image,
-            member_weight_overrides=member_weight_overrides,
+            member_weight_overrides=self._member_weight_overrides(config),
         )
-        malignant_probability = self.apply_roi_stacker(
-            full_probability=full_malignant_probability,
-            roi_probability=roi_malignant_probability,
-            stacker=config["stacker"],
+        malignant_probability = self._combine_full_and_roi_probabilities(
+            image=image,
+            mask=mask,
+            full_malignant_probability=full_malignant_probability,
+            roi_malignant_probability=roi_malignant_probability,
+            config=config,
         )
-        blend_weight = float(config.get("roi_stack_blend_weight", 1.0))
-        if blend_weight < 1.0:
-            blend_weight = float(np.clip(blend_weight, 0.0, 1.0))
-            malignant_probability = (
-                blend_weight * malignant_probability
-                + (1.0 - blend_weight) * full_malignant_probability
-            )
-        descriptor_router = config.get("descriptor_router")
-        if isinstance(descriptor_router, dict) and bool(descriptor_router.get("enabled", False)):
-            descriptors = extract_roi_descriptors(
-                image,
-                mask,
-                threshold=float(config.get("mask_threshold", 0.5)),
-                margin_ratio=float(config.get("margin_ratio", 0.35)),
-                min_area_ratio=float(config.get("min_mask_area_ratio", 0.001)),
-                largest_component=bool(config.get("largest_component", False)),
-            )
-            malignant_probability = self.apply_descriptor_router(
-                full_probability=full_malignant_probability,
-                roi_probability=roi_malignant_probability,
-                stacked_probability=malignant_probability,
-                descriptors=descriptors,
-                router=descriptor_router,
-            )
         return 1.0 - malignant_probability, malignant_probability, None

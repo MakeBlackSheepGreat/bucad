@@ -73,6 +73,44 @@ class VisualEvidenceService:
             model.to(device)
         self._segmenter_device = device
 
+    @staticmethod
+    def _default_segmenter_model_config() -> dict[str, Any]:
+        return {
+            "architecture": "unet",
+            "encoder_name": "resnet18",
+            "encoder_weights": None,
+            "in_channels": 3,
+            "classes": 1,
+        }
+
+    def _ensure_segmenters_loaded(self, checkpoints: list[str]) -> None:
+        if self._segmenter_models is not None:
+            return
+        self._segmenter_models = []
+        for checkpoint in checkpoints:
+            model = load_segmenter(
+                self._default_segmenter_model_config(),
+                checkpoint_path=checkpoint,
+                map_location="cpu",
+            )
+            model.eval()
+            self._segmenter_models.append(model)
+        self._segmenter_model = self._segmenter_models[0] if self._segmenter_models else None
+
+    def _segmenter_input_batch(self, image: np.ndarray, *, device: str):
+        input_tensor = prepare_classifier_input(
+            image, int(self.runtime_config.get("segmenter_image_size", 256))
+        )
+        if not hasattr(input_tensor, "unsqueeze"):
+            raise OptionalOutputUnavailableError("Torch tensor conversion failed for segmentation.")
+        return input_tensor.unsqueeze(0).to(device=device, dtype=torch.float32)
+
+    @staticmethod
+    def _average_masks(masks: list[np.ndarray]) -> np.ndarray:
+        if not masks:
+            raise OptionalOutputUnavailableError("Segmentation weights are not available.")
+        return np.mean(np.asarray(masks, dtype=np.float32), axis=0)
+
     def attach_optional_visuals(
         self,
         response: InferenceResponse,
@@ -119,41 +157,17 @@ class VisualEvidenceService:
             raise OptionalOutputUnavailableError("Segmentation weights are not available.")
         if torch is None:
             raise OptionalOutputUnavailableError("Torch is not available for segmentation.")
-        if self._segmenter_models is None:
-            model_config = {
-                "architecture": "unet",
-                "encoder_name": "resnet18",
-                "encoder_weights": None,
-                "in_channels": 3,
-                "classes": 1,
-            }
-            self._segmenter_models = []
-            for checkpoint in checkpoints:
-                model = load_segmenter(
-                    model_config,
-                    checkpoint_path=checkpoint,
-                    map_location="cpu",
-                )
-                model.eval()
-                self._segmenter_models.append(model)
-            self._segmenter_model = self._segmenter_models[0] if self._segmenter_models else None
-        input_tensor = prepare_classifier_input(
-            image, int(self.runtime_config.get("segmenter_image_size", 256))
-        )
-        if not hasattr(input_tensor, "unsqueeze"):
-            raise OptionalOutputUnavailableError("Torch tensor conversion failed for segmentation.")
-        masks = []
+        self._ensure_segmenters_loaded(checkpoints)
         device = self.segmenter_device()
         self._ensure_segmenters_on_device(device)
+        batch = self._segmenter_input_batch(image, device=device)
+        masks = []
         inference_context = torch.inference_mode if hasattr(torch, "inference_mode") else torch.no_grad
         with inference_context():
-            batch = input_tensor.unsqueeze(0).to(device=device, dtype=torch.float32)
             for model in self._segmenter_models:
                 logits = model(batch)
                 masks.append(torch.sigmoid(logits)[0, 0].cpu().numpy())
-        if not masks:
-            raise OptionalOutputUnavailableError("Segmentation weights are not available.")
-        return np.mean(np.asarray(masks, dtype=np.float32), axis=0)
+        return self._average_masks(masks)
 
     def predict_explanation(self, image: np.ndarray) -> np.ndarray:
         """Generate Grad-CAM from the already-loaded primary classifier."""

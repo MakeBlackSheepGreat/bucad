@@ -128,42 +128,14 @@ class BreastUltrasoundInferenceService:
             Path(image_input).name if isinstance(image_input, (str, Path)) else "uploaded.png"
         )
         try:
-            image = read_image(image_input, grayscale=True)
-            validate_image_array(image)
-            quality = assess_image_quality(image)
-            if quality == "invalid":
-                raise InvalidInputError("Uploaded image is invalid or too small.")
-            if quality == "low_quality":
-                raise QualityBlockedError("Image quality is too poor for reliable analysis.")
-
+            image = self._validated_input_image(image_input)
             benign_probability, malignant_probability = self._predict_classification(image)
-            threshold = float(
-                decision_threshold
-                if decision_threshold is not None
-                else self.runtime_config.get("default_threshold", 0.5)
-            )
-            result = build_diagnostic_result(
-                benign_probability,
-                malignant_probability,
-                threshold=threshold,
-                borderline_margin=float(self.runtime_config.get("borderline_margin", 0.08)),
-                model_version=self._model_identifier(),
-            )
-            response = InferenceResponse(
-                status="completed",
-                input_filename=filename,
-                result=result,
-                original_image_view=ensure_three_channels(image),
-                metadata={
-                    "model_identifier": self._model_identifier(),
-                    "decision_threshold": threshold,
-                    "primary_model": self.runtime_config.get(
-                        "primary_classifier_model",
-                        "unknown",
-                    ),
-                    "ensemble_display_name": self.runtime_config.get("ensemble_display_name"),
-                    "roi_fallback_reason": self._last_roi_fallback_reason,
-                },
+            response = self._build_completed_response(
+                filename=filename,
+                image=image,
+                benign_probability=benign_probability,
+                malignant_probability=malignant_probability,
+                decision_threshold=decision_threshold,
             )
             self._attach_optional_visuals(
                 response,
@@ -183,6 +155,60 @@ class BreastUltrasoundInferenceService:
         except Exception as exc:  # pragma: no cover - defensive branch
             wrapped = UnexpectedRuntimeError(str(exc))
             return InferenceResponse(status="unexpected_runtime_error", input_filename=filename, result=None, warnings=[str(wrapped)])
+
+    def _validated_input_image(self, image_input: str | Path | np.ndarray) -> np.ndarray:
+        image = read_image(image_input, grayscale=True)
+        validate_image_array(image)
+        quality = assess_image_quality(image)
+        if quality == "invalid":
+            raise InvalidInputError("Uploaded image is invalid or too small.")
+        if quality == "low_quality":
+            raise QualityBlockedError("Image quality is too poor for reliable analysis.")
+        return image
+
+    def _decision_threshold(self, override: float | None) -> float:
+        return float(
+            override
+            if override is not None
+            else self.runtime_config.get("default_threshold", 0.5)
+        )
+
+    def _response_metadata(self, decision_threshold: float) -> dict[str, Any]:
+        return {
+            "model_identifier": self._model_identifier(),
+            "decision_threshold": decision_threshold,
+            "primary_model": self.runtime_config.get(
+                "primary_classifier_model",
+                "unknown",
+            ),
+            "ensemble_display_name": self.runtime_config.get("ensemble_display_name"),
+            "roi_fallback_reason": self._last_roi_fallback_reason,
+        }
+
+    def _build_completed_response(
+        self,
+        *,
+        filename: str,
+        image: np.ndarray,
+        benign_probability: float,
+        malignant_probability: float,
+        decision_threshold: float | None,
+    ) -> InferenceResponse:
+        threshold = self._decision_threshold(decision_threshold)
+        result = build_diagnostic_result(
+            benign_probability,
+            malignant_probability,
+            threshold=threshold,
+            borderline_margin=float(self.runtime_config.get("borderline_margin", 0.08)),
+            model_version=self._model_identifier(),
+        )
+        return InferenceResponse(
+            status="completed",
+            input_filename=filename,
+            result=result,
+            original_image_view=ensure_three_channels(image),
+            metadata=self._response_metadata(threshold),
+        )
 
     def _resolved_classifier_checkpoint(self) -> str | None:
         return self.classifier_ensemble.resolved_classifier_checkpoint()

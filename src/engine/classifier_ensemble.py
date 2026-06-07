@@ -114,6 +114,77 @@ class ClassifierEnsemble:
             model.to(device)
         self._model_device = device
 
+    def _model_config_for_member(self, member: dict[str, Any]) -> dict[str, Any]:
+        return {
+            "name": member["model"],
+            "pretrained": bool(
+                self.member_config_value(
+                    member,
+                    "pretrained",
+                    "classifier_pretrained",
+                    False,
+                )
+            ),
+            "in_chans": 3,
+            "num_classes": 2,
+        }
+
+    def _ensure_classifier_members_loaded(self, member_configs: list[dict[str, Any]]) -> None:
+        if self._classifier_members is not None:
+            return
+        # Classifier checkpoints are loaded lazily because Gradio can build the
+        # app before a user submits an image.
+        self._classifier_members = []
+        self._classifier_models = []
+        for member in member_configs:
+            model = load_classifier(
+                self._model_config_for_member(member),
+                checkpoint_path=member["checkpoint"],
+                map_location="cpu",
+            )
+            model.eval()
+            self._classifier_models.append(model)
+            self._classifier_members.append({**member, "model_instance": model})
+        self._classifier_model = self._classifier_members[0]["model_instance"]
+
+    @staticmethod
+    def _member_weight(
+        member: dict[str, Any],
+        member_weight_overrides: dict[str, float] | None,
+    ) -> float:
+        weight = float(member.get("weight", 1.0))
+        if member_weight_overrides:
+            return float(member_weight_overrides.get(str(member.get("model")), weight))
+        return weight
+
+    def _predict_member_probabilities(
+        self,
+        image: np.ndarray,
+        member: dict[str, Any],
+        *,
+        device: str,
+    ) -> np.ndarray:
+        input_tensors = self.input_tensors(image, member)
+        if not input_tensors or not hasattr(input_tensors[0], "unsqueeze"):
+            raise ClassificationUnavailableError("Torch tensor conversion failed for classifier input.")
+        batch = torch.stack(input_tensors)
+        tta_probs = classifier_probabilities(
+            member["model_instance"],
+            batch,
+            device=device,
+            move_model=False,
+        )
+        return np.mean(tta_probs, axis=0)
+
+    @staticmethod
+    def _weighted_average_probabilities(
+        weighted_probabilities: list[np.ndarray],
+        weights: list[float],
+    ) -> np.ndarray:
+        if not weights:
+            raise ClassificationUnavailableError("No classifier member has a positive weight.")
+        return np.sum(np.asarray(weighted_probabilities, dtype=np.float32), axis=0) / float(sum(weights))
+
     def tta_variants(self, member: dict[str, Any] | None = None) -> list[dict[str, Any]]:
         configured = self.member_config_value(
             member,
@@ -198,57 +269,21 @@ class ClassifierEnsemble:
         if torch is None:
             raise ClassificationUnavailableError("Torch is not available in the current environment.")
 
-        if self._classifier_members is None:
-            self._classifier_members = []
-            self._classifier_models = []
-            for member in member_configs:
-                model_config = {
-                    "name": member["model"],
-                    "pretrained": bool(
-                        self.member_config_value(
-                            member,
-                            "pretrained",
-                            "classifier_pretrained",
-                            False,
-                        )
-                    ),
-                    "in_chans": 3,
-                    "num_classes": 2,
-                }
-                model = load_classifier(
-                    model_config,
-                    checkpoint_path=member["checkpoint"],
-                    map_location="cpu",
-                )
-                model.eval()
-                self._classifier_models.append(model)
-                self._classifier_members.append({**member, "model_instance": model})
-            self._classifier_model = self._classifier_members[0]["model_instance"]
-
+        self._ensure_classifier_members_loaded(member_configs)
         device = self.device()
         self._ensure_models_on_device(device)
-        ensemble_probs = []
+        weighted_probabilities = []
         weights = []
         for member in self._classifier_members:
-            weight = float(member.get("weight", 1.0))
-            if member_weight_overrides:
-                weight = float(member_weight_overrides.get(str(member.get("model")), weight))
+            weight = self._member_weight(member, member_weight_overrides)
             if weight <= 0.0:
                 continue
-            input_tensors = self.input_tensors(image, member)
-            if not input_tensors or not hasattr(input_tensors[0], "unsqueeze"):
-                raise ClassificationUnavailableError("Torch tensor conversion failed for classifier input.")
-            batch = torch.stack(input_tensors)
-            model = member["model_instance"]
-            tta_probs = classifier_probabilities(
-                model,
-                batch,
+            member_probabilities = self._predict_member_probabilities(
+                image,
+                member,
                 device=device,
-                move_model=False,
             )
-            ensemble_probs.append(np.mean(tta_probs, axis=0) * weight)
+            weighted_probabilities.append(member_probabilities * weight)
             weights.append(weight)
-        if not weights:
-            raise ClassificationUnavailableError("No classifier member has a positive weight.")
-        probs = np.sum(np.asarray(ensemble_probs, dtype=np.float32), axis=0) / float(sum(weights))
+        probs = self._weighted_average_probabilities(weighted_probabilities, weights)
         return float(probs[0]), float(probs[1])

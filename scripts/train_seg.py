@@ -1,3 +1,5 @@
+"""CLI wrapper for BUSBRA segmenter training."""
+
 from __future__ import annotations
 
 import argparse

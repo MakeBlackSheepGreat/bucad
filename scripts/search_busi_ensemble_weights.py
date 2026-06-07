@@ -1,3 +1,5 @@
+"""Utility script for search busi ensemble weights workflows."""
+
 from __future__ import annotations
 
 import argparse

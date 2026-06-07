@@ -1,3 +1,5 @@
+"""Unit tests for ui localization."""
+
 from __future__ import annotations
 
 from app.components.result_panels import diagnosis_markdown

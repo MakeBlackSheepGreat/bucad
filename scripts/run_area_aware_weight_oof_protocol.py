@@ -1,3 +1,5 @@
+"""Utility script for area aware weight oof protocol workflows."""
+
 from __future__ import annotations
 
 import argparse

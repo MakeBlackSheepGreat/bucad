@@ -1,3 +1,5 @@
+"""Image and mask I/O validation utilities for training and inference."""
+
 from __future__ import annotations
 
 from pathlib import Path

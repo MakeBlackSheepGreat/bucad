@@ -1,3 +1,5 @@
+"""Smoke tests for gradio flow."""
+
 from __future__ import annotations
 
 import pytest

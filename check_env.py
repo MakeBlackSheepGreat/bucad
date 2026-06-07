@@ -1,3 +1,5 @@
+"""Report required and optional Python dependencies for the BUCAD environment."""
+
 from __future__ import annotations
 
 import importlib

@@ -1,3 +1,5 @@
+"""Small report writers for JSON and Markdown artifacts."""
+
 from __future__ import annotations
 
 import json

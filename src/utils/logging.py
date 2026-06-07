@@ -1,3 +1,5 @@
+"""Project logging factory used by CLI training and export scripts."""
+
 from __future__ import annotations
 
 import logging

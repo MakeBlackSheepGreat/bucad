@@ -1,3 +1,5 @@
+"""DOCX report export utilities for BUCAD evidence handoff artifacts."""
+
 from __future__ import annotations
 
 import json

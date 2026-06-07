@@ -1,3 +1,5 @@
+"""Utility script for model zoo oof protocol workflows."""
+
 from __future__ import annotations
 
 import argparse

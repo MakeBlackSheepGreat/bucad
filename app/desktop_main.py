@@ -1,3 +1,5 @@
+"""Desktop launcher helpers for the packaged BUCAD Gradio demo."""
+
 from __future__ import annotations
 
 import argparse

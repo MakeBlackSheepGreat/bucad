@@ -1,3 +1,5 @@
+"""Utility script for roi oof experiment workflows."""
+
 from __future__ import annotations
 
 import argparse

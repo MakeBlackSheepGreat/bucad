@@ -1,3 +1,5 @@
+"""Unit tests for classifier transforms."""
+
 from __future__ import annotations
 
 import numpy as np

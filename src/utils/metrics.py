@@ -1,3 +1,5 @@
+"""Classification and segmentation metrics used by training and evaluation."""
+
 from __future__ import annotations
 
 from typing import Any

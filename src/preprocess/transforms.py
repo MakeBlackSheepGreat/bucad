@@ -1,3 +1,5 @@
+"""Classifier and segmenter preprocessing transforms for numpy and torch inputs."""
+
 from __future__ import annotations
 
 from typing import Any, Sequence

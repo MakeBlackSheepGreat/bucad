@@ -1,3 +1,5 @@
+"""Unit tests for io."""
+
 from __future__ import annotations
 
 import shutil

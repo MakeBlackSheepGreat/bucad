@@ -1,3 +1,5 @@
+"""Gradio theme and CSS constants for the BUCAD demo UI."""
+
 from __future__ import annotations
 
 import gradio as gr

@@ -1,3 +1,5 @@
+"""Utility script for unetplusplus resnet34 custom roi optimization workflows."""
+
 from __future__ import annotations
 
 import argparse

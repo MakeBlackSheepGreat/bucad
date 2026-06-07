@@ -1,3 +1,5 @@
+"""Utility script for seed diversity oof protocol workflows."""
+
 from __future__ import annotations
 
 import argparse

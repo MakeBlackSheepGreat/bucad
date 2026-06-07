@@ -1,3 +1,5 @@
+"""Public inference service facade for single-image diagnosis and BUSI evaluation."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -34,6 +36,7 @@ def _resolve_runtime_checkpoint_paths(
 
 
 def assess_image_quality(image: np.ndarray) -> str:
+    """Return a coarse quality gate result before expensive model inference."""
     if image.ndim < 2 or min(image.shape[:2]) < 32:
         return "invalid"
     if float(np.std(image)) < 3.0:
@@ -42,6 +45,8 @@ def assess_image_quality(image: np.ndarray) -> str:
 
 
 class BreastUltrasoundInferenceService:
+    """High-level diagnosis service kept stable for CLI, tests, and Gradio."""
+
     def __init__(
         self,
         runtime_config: dict[str, Any],
@@ -59,6 +64,7 @@ class BreastUltrasoundInferenceService:
         self.explanation_generator = explanation_generator
         self.classifier_ensemble = ClassifierEnsemble(self.runtime, paths=paths)
         self.roi_enhancer = RoiEnhancer()
+        self._last_roi_fallback_reason: str | None = None
         self.visual_evidence = VisualEvidenceService(
             self.runtime,
             self.classifier_ensemble,
@@ -87,6 +93,7 @@ class BreastUltrasoundInferenceService:
 
     @classmethod
     def from_config(cls, config_path: str | Path) -> "BreastUltrasoundInferenceService":
+        """Build the service from a project YAML config and resolve checkpoint paths."""
         config, paths = load_project_config(config_path)
         runtime_config = dict(config.get("runtime", {}))
         runtime_config = _resolve_runtime_checkpoint_paths(runtime_config, project_root=paths.project_root)
@@ -102,6 +109,7 @@ class BreastUltrasoundInferenceService:
         need_segmentation: bool = True,
         need_explanation: bool = True,
     ) -> InferenceResponse:
+        """Run single-image diagnosis with optional segmentation and Grad-CAM evidence."""
         filename = input_filename or (
             Path(image_input).name if isinstance(image_input, (str, Path)) else "uploaded.png"
         )
@@ -140,6 +148,7 @@ class BreastUltrasoundInferenceService:
                         "unknown",
                     ),
                     "ensemble_display_name": self.runtime_config.get("ensemble_display_name"),
+                    "roi_fallback_reason": self._last_roi_fallback_reason,
                 },
             )
             self._attach_optional_visuals(
@@ -282,7 +291,8 @@ class BreastUltrasoundInferenceService:
         full_malignant_probability: float,
         config: dict[str, Any],
     ) -> tuple[float, float]:
-        return self.roi_enhancer.predict(
+        """Apply ROI reclassification while preserving the reason for full-image fallback."""
+        benign_probability, malignant_probability, fallback_reason = self.roi_enhancer.predict(
             image,
             full_benign_probability=full_benign_probability,
             full_malignant_probability=full_malignant_probability,
@@ -294,8 +304,11 @@ class BreastUltrasoundInferenceService:
                 else self._predict_segmentation
             ),
         )
+        self._last_roi_fallback_reason = fallback_reason
+        return benign_probability, malignant_probability
 
     def _predict_classification(self, image: np.ndarray) -> tuple[float, float]:
+        self._last_roi_fallback_reason = None
         if self.classifier_predictor is not None:
             benign, malignant = self.classifier_predictor(image)
             return float(benign), float(malignant)
@@ -313,6 +326,7 @@ class BreastUltrasoundInferenceService:
             )
         except BucadError:
             if bool(roi_config.get("fallback_to_full", True)):
+                self._last_roi_fallback_reason = "roi_enhancement_failed"
                 return full_benign, full_malignant
             raise
 
@@ -346,6 +360,7 @@ def evaluate_busi_dataset(
     classifier_predictor: Callable[[np.ndarray], tuple[float, float]] | None = None,
     output_path: str | Path | None = None,
 ) -> dict[str, Any]:
+    """Evaluate the configured classifier path on BUSI benign/malignant samples."""
     config, paths = load_project_config(config_path)
     runtime_config = dict(config.get("runtime", {}))
     runtime_config = _resolve_runtime_checkpoint_paths(runtime_config, project_root=paths.project_root)

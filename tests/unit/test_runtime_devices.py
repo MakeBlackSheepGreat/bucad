@@ -1,6 +1,9 @@
+"""Unit tests for runtime devices."""
+
 from __future__ import annotations
 
 from src.engine.devices import resolve_torch_device
+from src.utils import runtime
 
 
 class _Cuda:
@@ -26,3 +29,9 @@ def test_cuda_request_falls_back_to_cpu_when_unavailable() -> None:
 
 def test_explicit_cpu_is_stable() -> None:
     assert resolve_torch_device("cpu", _Torch(cuda_available=True)) == "cpu"
+
+
+def test_runtime_select_device_uses_shared_resolver(monkeypatch) -> None:
+    monkeypatch.setattr(runtime, "optional_import", lambda _: _Torch(cuda_available=False))
+
+    assert runtime.select_device("cuda") == "cpu"

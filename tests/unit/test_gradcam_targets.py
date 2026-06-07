@@ -1,3 +1,5 @@
+"""Unit tests for gradcam targets."""
+
 from __future__ import annotations
 
 import pytest

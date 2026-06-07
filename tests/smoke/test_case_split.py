@@ -1,3 +1,5 @@
+"""Smoke tests for case split."""
+
 from __future__ import annotations
 
 import shutil

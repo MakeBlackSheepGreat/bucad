@@ -1,3 +1,5 @@
+"""Utility script for busbra hard sample weights workflows."""
+
 from __future__ import annotations
 
 import argparse

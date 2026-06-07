@@ -1,3 +1,5 @@
+"""Unit tests for roi inference."""
+
 from __future__ import annotations
 
 import math
@@ -157,6 +159,42 @@ def test_roi_quality_gate_falls_back_to_full_probability() -> None:
     assert calls == 1
     assert math.isclose(benign_probability, 0.8, rel_tol=1e-6)
     assert math.isclose(malignant_probability, 0.2, rel_tol=1e-6)
+    assert service._last_roi_fallback_reason == "roi_area_gate"
+
+
+def test_roi_fallback_reason_is_exposed_in_response_metadata() -> None:
+    mask = np.ones((64, 64), dtype=np.float32)
+    service = BreastUltrasoundInferenceService(
+        {
+            "roi_enhancement": {
+                "enabled": True,
+                "mask_threshold": 0.5,
+                "quality_gate": {
+                    "enabled": True,
+                    "max_area_ratio": 0.75,
+                    "fallback_to_full": True,
+                },
+                "stacker": {
+                    "feature_mode": "probability",
+                    "scaler_mean": [0.0, 0.0],
+                    "scaler_scale": [1.0, 1.0],
+                    "coef": [0.0, 1.0],
+                    "intercept": 0.0,
+                },
+            }
+        },
+        classifier_predictor=None,
+        segmenter_predictor=lambda _: mask,
+    )
+    service._predict_classifier_ensemble_on_image = lambda *_args, **_kwargs: (0.7, 0.3)  # type: ignore[method-assign]
+
+    response = service.diagnose(
+        np.random.randint(0, 255, size=(64, 64), dtype=np.uint8),
+        need_segmentation=False,
+        need_explanation=False,
+    )
+
+    assert response.metadata["roi_fallback_reason"] == "roi_area_gate"
 
 
 def test_roi_stack_probability_can_blend_with_full_probability() -> None:

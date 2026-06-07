@@ -1,3 +1,5 @@
+"""Structured runtime configuration parsing and checkpoint path resolution."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -10,6 +12,7 @@ from src.utils.paths import resolve_path
 def resolve_runtime_checkpoint_paths(
     runtime_config: dict[str, Any], *, project_root: Path
 ) -> dict[str, Any]:
+    """Resolve runtime checkpoint entries relative to the project root."""
     resolved = dict(runtime_config)
 
     def resolve_checkpoint(value: Any) -> Any:
@@ -48,6 +51,8 @@ def resolve_runtime_checkpoint_paths(
 
 @dataclass(slots=True)
 class ClassifierMemberConfig:
+    """One classifier ensemble member plus its member-level overrides."""
+
     model: str
     checkpoint: str
     weight: float = 1.0
@@ -77,6 +82,8 @@ class ClassifierMemberConfig:
 
 @dataclass(slots=True)
 class RuntimeConfig:
+    """Parsed runtime config with normalized classifier and segmenter checkpoint lists."""
+
     raw: dict[str, Any]
     classifier_members: list[ClassifierMemberConfig] = field(default_factory=list)
     classifier_checkpoints: list[str] = field(default_factory=list)
@@ -173,6 +180,7 @@ class RuntimeConfig:
         return [member.to_runtime_dict() for member in self.classifier_members]
 
     def roi_enhancement_config(self) -> dict[str, Any] | None:
+        """Return enabled ROI config only when the mandatory stacker is present."""
         config = self.raw.get("roi_enhancement")
         if not isinstance(config, dict) or not bool(config.get("enabled", False)):
             return None

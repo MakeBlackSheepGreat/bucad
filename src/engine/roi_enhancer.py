@@ -1,3 +1,5 @@
+"""ROI-enhanced classification logic built on segmentation masks and stacker rules."""
+
 from __future__ import annotations
 
 from typing import Any, Callable
@@ -14,6 +16,8 @@ from src.preprocess.roi import crop_to_mask_bbox, expand_bbox, mask_bbox
 
 
 class RoiEnhancer:
+    """Combine full-image and mask-cropped predictions into one malignancy score."""
+
     @staticmethod
     def stacker_features(
         full_probability: float, roi_probability: float, feature_mode: str
@@ -31,6 +35,7 @@ class RoiEnhancer:
         roi_probability: float,
         stacker: dict[str, Any],
     ) -> float:
+        """Apply the configured two-feature logistic stacker to full and ROI scores."""
         feature_mode = str(stacker.get("feature_mode", "probability"))
         features = self.stacker_features(full_probability, roi_probability, feature_mode)
         mean = np.asarray(stacker.get("scaler_mean", [0.0, 0.0]), dtype=np.float64)
@@ -132,6 +137,7 @@ class RoiEnhancer:
         mask: np.ndarray | None,
         config: dict[str, Any],
     ) -> bool:
+        """Return True when the segmentation mask is too small, too large, or absent."""
         gate = self.roi_area_gate_config(config)
         if gate is None or not gate["enabled"] or not gate["fallback_to_full"]:
             return False
@@ -153,10 +159,11 @@ class RoiEnhancer:
         config: dict[str, Any],
         classifier_predictor: Callable[..., tuple[float, float]],
         segmenter_predictor: Callable[[np.ndarray], np.ndarray],
-    ) -> tuple[float, float]:
+    ) -> tuple[float, float, str | None]:
+        """Predict with ROI crop when mask quality passes, otherwise return fallback reason."""
         mask = segmenter_predictor(image)
         if self.should_fallback_by_area(mask, config):
-            return full_benign_probability, full_malignant_probability
+            return full_benign_probability, full_malignant_probability, "roi_area_gate"
         roi_image = crop_to_mask_bbox(
             image,
             mask,
@@ -203,4 +210,4 @@ class RoiEnhancer:
                 descriptors=descriptors,
                 router=descriptor_router,
             )
-        return 1.0 - malignant_probability, malignant_probability
+        return 1.0 - malignant_probability, malignant_probability, None

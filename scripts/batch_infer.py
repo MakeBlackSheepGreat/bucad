@@ -1,3 +1,5 @@
+"""Batch inference CLI for folders of ultrasound images."""
+
 from __future__ import annotations
 
 import argparse

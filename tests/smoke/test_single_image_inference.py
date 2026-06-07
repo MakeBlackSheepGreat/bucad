@@ -1,3 +1,5 @@
+"""Smoke tests for single image inference."""
+
 from __future__ import annotations
 
 import numpy as np

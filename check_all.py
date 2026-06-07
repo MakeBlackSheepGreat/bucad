@@ -1,3 +1,5 @@
+"""Run environment checks and the supported BUCAD unit/smoke test suites."""
+
 from __future__ import annotations
 
 import subprocess

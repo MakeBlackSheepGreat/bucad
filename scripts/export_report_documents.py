@@ -1,3 +1,5 @@
+"""CLI for exporting DOCX report artifacts."""
+
 from __future__ import annotations
 
 import argparse

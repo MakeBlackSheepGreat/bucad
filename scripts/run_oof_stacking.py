@@ -1,3 +1,5 @@
+"""Utility script for oof stacking workflows."""
+
 from __future__ import annotations
 
 import argparse

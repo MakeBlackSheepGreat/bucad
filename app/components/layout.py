@@ -1,3 +1,5 @@
+"""Reusable HTML layout fragments for the BUCAD Gradio interface."""
+
 from __future__ import annotations
 
 

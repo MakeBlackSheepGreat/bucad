@@ -1,3 +1,5 @@
+"""CLI for running classifier comparison experiments."""
+
 from __future__ import annotations
 
 import argparse

@@ -1,3 +1,5 @@
+"""Utility script for analyze busi errors workflows."""
+
 from __future__ import annotations
 
 import argparse

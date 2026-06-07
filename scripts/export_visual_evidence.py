@@ -1,3 +1,5 @@
+"""CLI for exporting segmentation and Grad-CAM visual evidence."""
+
 from __future__ import annotations
 
 import argparse

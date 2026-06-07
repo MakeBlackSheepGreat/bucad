@@ -1,3 +1,5 @@
+"""Utility script for roi area gate oof protocol workflows."""
+
 from __future__ import annotations
 
 import argparse

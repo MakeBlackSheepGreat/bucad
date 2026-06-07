@@ -1,3 +1,5 @@
+"""CLI for generating reproducible BUSBRA case-level folds."""
+
 from __future__ import annotations
 
 import argparse

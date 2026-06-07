@@ -1,3 +1,5 @@
+"""HTML rendering helpers for BUCAD diagnosis result panels."""
+
 from __future__ import annotations
 
 from html import escape

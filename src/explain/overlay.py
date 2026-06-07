@@ -1,3 +1,5 @@
+"""Image overlay rendering utilities for segmentation masks and heatmaps."""
+
 from __future__ import annotations
 
 import numpy as np

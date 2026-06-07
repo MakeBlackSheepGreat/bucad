@@ -1,3 +1,5 @@
+"""ROI bounding-box extraction and mask crop helpers."""
+
 from __future__ import annotations
 
 from typing import Literal

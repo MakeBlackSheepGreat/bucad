@@ -1,3 +1,5 @@
+"""Shared dataset record types for breast ultrasound samples."""
+
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass

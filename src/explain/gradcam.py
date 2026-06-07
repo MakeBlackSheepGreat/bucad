@@ -1,3 +1,5 @@
+"""Grad-CAM generation wrapper used by the BUCAD visual evidence path."""
+
 from __future__ import annotations
 
 import numpy as np

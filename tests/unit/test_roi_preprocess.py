@@ -1,3 +1,5 @@
+"""Unit tests for roi preprocess."""
+
 from __future__ import annotations
 
 import numpy as np

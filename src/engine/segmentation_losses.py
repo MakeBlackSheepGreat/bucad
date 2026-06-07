@@ -1,3 +1,5 @@
+"""Segmentation loss components for mask, boundary, affinity, and prototype terms."""
+
 from __future__ import annotations
 
 from typing import Any

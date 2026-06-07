@@ -1,3 +1,5 @@
+"""CLI for exporting packaged demo assets."""
+
 from __future__ import annotations
 
 import argparse

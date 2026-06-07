@@ -1,6 +1,9 @@
+"""Classifier training loop and report writer for BUSBRA folds."""
+
 from __future__ import annotations
 
 import math
+import dataclasses
 from pathlib import Path
 from typing import Any
 
@@ -8,6 +11,7 @@ import numpy as np
 import pandas as pd
 
 from src.datasets.busbra import BUSBRAClassificationDataset, generate_busbra_split_assignments, load_busbra_manifest
+from src.engine.checkpoints import atomic_torch_save
 from src.models.classifier import create_classifier
 from src.preprocess.transforms import build_classifier_transform
 from src.utils.config import load_project_config
@@ -424,10 +428,7 @@ def _snapshot_state_dict(model) -> dict[str, Any]:
 
 
 def _atomic_torch_save(payload: dict[str, Any], destination: Path) -> None:
-    destination.parent.mkdir(parents=True, exist_ok=True)
-    temporary_path = destination.with_name(f".{destination.name}.tmp")
-    torch.save(payload, temporary_path)
-    temporary_path.replace(destination)
+    atomic_torch_save(payload, destination)
 
 
 def _resolve_sample_weight_path(paths, training_cfg: dict[str, Any]) -> Path | None:
@@ -530,6 +531,7 @@ def _build_classifier_loaders(
     )
     num_workers = int(data_cfg.get("num_workers", 0))
     pin_memory = device.startswith("cuda")
+    # Persistent workers only make sense when DataLoader starts child workers.
     loader_kwargs = {
         "batch_size": int(data_cfg.get("batch_size", 8)),
         "num_workers": num_workers,
@@ -643,12 +645,114 @@ def _write_classifier_training_outputs(
     return report
 
 
+@dataclasses.dataclass(slots=True)
+class _TrainingLoopConfig:
+    """All settings the training loop needs to pick checkpoints."""
+
+    epochs: int
+    scheduler_cfg: dict[str, Any]
+    checkpoint_strategy: str
+    selection_threshold: float
+    sensitivity_weight: float
+    min_specificity: float
+    class_weights: Any
+    label_smoothing: float
+    loss_name: str
+    focal_gamma: float
+    mixup_alpha: float
+    cutmix_alpha: float
+    mix_probability: float
+    sample_weights: dict[str, float]
+
+
+def _run_training_loop(
+    *,
+    model,
+    train_loader,
+    val_loader,
+    optimizer,
+    device: str,
+    fold: int,
+    loop_config: _TrainingLoopConfig,
+    base_learning_rate: float,
+    logger,
+) -> tuple[dict[str, Any] | None, int, dict[str, Any] | None, list[dict[str, Any]]]:
+    """Return (best_state_dict, best_epoch, best_metrics, epoch_reports)."""
+    cfg = loop_config
+    best_state_dict = None
+    best_metrics: dict[str, Any] | None = None
+    best_epoch = 0
+    best_score = float("-inf")
+    epoch_reports: list[dict[str, Any]] = []
+
+    for epoch in range(cfg.epochs):
+        current_lr = _lr_for_epoch(
+            epoch,
+            base_lr=base_learning_rate,
+            epochs=cfg.epochs,
+            scheduler_cfg=cfg.scheduler_cfg,
+        )
+        _set_optimizer_lr(optimizer, current_lr)
+        mean_loss = _train_classifier_epoch(
+            model,
+            train_loader,
+            optimizer,
+            device=device,
+            class_weights=cfg.class_weights,
+            sample_weights=cfg.sample_weights,
+            label_smoothing=cfg.label_smoothing,
+            loss_name=cfg.loss_name,
+            focal_gamma=cfg.focal_gamma,
+            mixup_alpha=cfg.mixup_alpha,
+            cutmix_alpha=cfg.cutmix_alpha,
+            mix_probability=cfg.mix_probability,
+        )
+        val_y_true, val_malignant_probabilities = _collect_validation_probabilities(
+            model, val_loader, device,
+        )
+        # Keep epoch metrics and checkpoint selection on the same validation pass.
+        epoch_metrics = classification_metrics(val_y_true, val_malignant_probabilities)
+        score_metrics, score = _score_checkpoint_candidate(
+            epoch_metrics=epoch_metrics,
+            y_true=val_y_true,
+            malignant_probabilities=val_malignant_probabilities,
+            checkpoint_strategy=cfg.checkpoint_strategy,
+            selection_threshold=cfg.selection_threshold,
+            sensitivity_weight=cfg.sensitivity_weight,
+            min_specificity=cfg.min_specificity,
+        )
+        if score > best_score:
+            best_score = score
+            best_epoch = epoch + 1
+            best_metrics = score_metrics
+            best_state_dict = _snapshot_state_dict(model)
+        epoch_reports.append({
+            "epoch": epoch + 1,
+            "learning_rate": current_lr,
+            "loss": mean_loss,
+            "metrics": epoch_metrics,
+            "score_metrics": score_metrics,
+            "selection_score": score,
+        })
+        logger.info(
+            "fold=%s epoch=%s loss=%.4f auc=%.4f sens=%.4f score=%.4f",
+            fold,
+            epoch + 1,
+            mean_loss,
+            float(epoch_metrics.get("auc") or 0.0),
+            float(score_metrics.get("sensitivity", 0.0)),
+            score,
+        )
+    return best_state_dict, best_epoch, best_metrics, epoch_reports
+
+
 def run_classifier_training(
     config_path: str | Path,
     *,
     fold: int = 1,
     epochs_override: int | None = None,
 ) -> dict[str, Any]:
+    """Train one BUSBRA classification fold and write checkpoint plus JSON report."""
     require_dependency("torch", torch)
     require_dependency("torch.optim", optim)
     require_dependency("torch.utils.data", torch_utils_data)
@@ -664,6 +768,7 @@ def run_classifier_training(
     data_cfg = config.get("data", {})
     output_cfg = config.get("output", {})
 
+    # Fold split, model, loaders, and weights are all prepared before the loop.
     train_manifest, val_manifest = _prepare_fold_manifests(
         manifest=manifest,
         paths=paths,
@@ -707,80 +812,35 @@ def run_classifier_training(
         weight_column=str(training_cfg.get("sample_weight_column", "sample_weight")),
     )
 
-    epochs = int(epochs_override or training_cfg.get("epochs", 5))
-    scheduler_cfg = training_cfg.get("scheduler", {}) or {}
-    checkpoint_strategy = str(training_cfg.get("checkpoint_strategy", "last")).lower()
-    selection_threshold = float(training_cfg.get("selection_threshold", 0.5))
-    sensitivity_weight = float(training_cfg.get("sensitivity_weight", 0.0))
-    min_specificity = float(training_cfg.get("min_specificity", 0.0))
-    best_state_dict = None
-    best_metrics: dict[str, Any] | None = None
-    best_epoch = 0
-    best_score = float("-inf")
-    epoch_reports: list[dict[str, Any]] = []
-    for epoch in range(epochs):
-        current_lr = _lr_for_epoch(
-            epoch,
-            base_lr=base_learning_rate,
-            epochs=epochs,
-            scheduler_cfg=scheduler_cfg,
-        )
-        _set_optimizer_lr(optimizer, current_lr)
-        mean_loss = _train_classifier_epoch(
-            model,
-            train_loader,
-            optimizer,
-            device=device,
-            class_weights=class_weights,
-            sample_weights=sample_weights,
-            label_smoothing=label_smoothing,
-            loss_name=loss_name,
-            focal_gamma=focal_gamma,
-            mixup_alpha=mixup_alpha,
-            cutmix_alpha=cutmix_alpha,
-            mix_probability=mix_probability,
-        )
-        val_y_true, val_malignant_probabilities = _collect_validation_probabilities(
-            model,
-            val_loader,
-            device,
-        )
-        epoch_metrics = classification_metrics(val_y_true, val_malignant_probabilities)
-        score_metrics, score = _score_checkpoint_candidate(
-            epoch_metrics=epoch_metrics,
-            y_true=val_y_true,
-            malignant_probabilities=val_malignant_probabilities,
-            checkpoint_strategy=checkpoint_strategy,
-            selection_threshold=selection_threshold,
-            sensitivity_weight=sensitivity_weight,
-            min_specificity=min_specificity,
-        )
-        if score > best_score:
-            best_score = score
-            best_epoch = epoch + 1
-            best_metrics = score_metrics
-            best_state_dict = _snapshot_state_dict(model)
-        epoch_reports.append(
-            {
-                "epoch": epoch + 1,
-                "learning_rate": current_lr,
-                "loss": mean_loss,
-                "metrics": epoch_metrics,
-                "score_metrics": score_metrics,
-                "selection_score": score,
-            }
-        )
-        logger.info(
-            "fold=%s epoch=%s loss=%.4f auc=%.4f sens=%.4f score=%.4f",
-            fold,
-            epoch + 1,
-            mean_loss,
-            float(epoch_metrics.get("auc") or 0.0),
-            float(score_metrics.get("sensitivity", 0.0)),
-            score,
-        )
+    loop_config = _TrainingLoopConfig(
+        epochs=int(epochs_override or training_cfg.get("epochs", 5)),
+        scheduler_cfg=training_cfg.get("scheduler", {}) or {},
+        checkpoint_strategy=str(training_cfg.get("checkpoint_strategy", "last")).lower(),
+        selection_threshold=float(training_cfg.get("selection_threshold", 0.5)),
+        sensitivity_weight=float(training_cfg.get("sensitivity_weight", 0.0)),
+        min_specificity=float(training_cfg.get("min_specificity", 0.0)),
+        class_weights=class_weights,
+        label_smoothing=label_smoothing,
+        loss_name=loss_name,
+        focal_gamma=focal_gamma,
+        mixup_alpha=mixup_alpha,
+        cutmix_alpha=cutmix_alpha,
+        mix_probability=mix_probability,
+        sample_weights=sample_weights,
+    )
+    best_state_dict, best_epoch, best_metrics, epoch_reports = _run_training_loop(
+        model=model,
+        train_loader=train_loader,
+        val_loader=val_loader,
+        optimizer=optimizer,
+        device=device,
+        fold=fold,
+        loop_config=loop_config,
+        base_learning_rate=base_learning_rate,
+        logger=logger,
+    )
 
-    if checkpoint_strategy != "last" and best_state_dict is not None:
+    if loop_config.checkpoint_strategy != "last" and best_state_dict is not None:
         model.load_state_dict(best_state_dict)
     metrics = _evaluate_model(model, val_loader, device)
     return _write_classifier_training_outputs(

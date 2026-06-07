@@ -1,3 +1,5 @@
+"""Project path resolution primitives for configs, data, artifacts, and reports."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass

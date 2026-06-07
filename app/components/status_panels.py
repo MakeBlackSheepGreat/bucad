@@ -1,3 +1,5 @@
+"""HTML rendering helpers for BUCAD runtime status and warnings."""
+
 from __future__ import annotations
 
 from html import escape

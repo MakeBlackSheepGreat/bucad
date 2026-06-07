@@ -1,3 +1,5 @@
+"""Pytest path bootstrap for running BUCAD tests from the repository root."""
+
 from __future__ import annotations
 
 import sys

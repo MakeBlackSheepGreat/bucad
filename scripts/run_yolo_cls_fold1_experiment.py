@@ -1,3 +1,5 @@
+"""Utility script for yolo cls fold1 experiment workflows."""
+
 from __future__ import annotations
 
 import argparse

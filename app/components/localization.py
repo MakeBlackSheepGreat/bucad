@@ -1,3 +1,5 @@
+"""Chinese UI labels and clinical wording helpers for diagnosis results."""
+
 from __future__ import annotations
 
 from src.utils.results import AUXILIARY_USE_DISCLAIMER

@@ -1,3 +1,5 @@
+"""Runtime dependency, seeding, device, and filesystem helpers."""
+
 from __future__ import annotations
 
 import importlib
@@ -46,13 +48,10 @@ def seed_everything(seed: int) -> None:
 
 
 def select_device(requested: str = "auto") -> str:
+    from src.engine.devices import resolve_torch_device
+
     torch = optional_import("torch")
-    requested = requested.lower()
-    if requested != "auto":
-        return requested
-    if torch is not None and torch.cuda.is_available():  # pragma: no cover - env dependent
-        return "cuda"
-    return "cpu"
+    return resolve_torch_device(requested, torch)
 
 
 def is_torch_available() -> bool:

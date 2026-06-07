@@ -1,3 +1,5 @@
+"""Integration tests for packaged demo."""
+
 from __future__ import annotations
 
 import shutil

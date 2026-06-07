@@ -1,3 +1,5 @@
+"""Integration tests for visual exports."""
+
 from __future__ import annotations
 
 import shutil

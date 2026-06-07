@@ -1,3 +1,5 @@
+"""Diagnosis result dataclasses and clinical recommendation helpers."""
+
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field

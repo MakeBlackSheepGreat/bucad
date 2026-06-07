@@ -1,3 +1,5 @@
+"""ROI descriptor features used by area-aware and router experiments."""
+
 from __future__ import annotations
 
 import math

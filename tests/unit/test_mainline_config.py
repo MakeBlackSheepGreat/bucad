@@ -1,3 +1,5 @@
+"""Unit tests for mainline config."""
+
 from __future__ import annotations
 
 import subprocess

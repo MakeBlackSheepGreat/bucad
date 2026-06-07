@@ -1,3 +1,5 @@
+"""Integration tests for report documents."""
+
 from __future__ import annotations
 
 import json

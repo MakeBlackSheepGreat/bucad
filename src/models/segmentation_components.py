@@ -1,3 +1,5 @@
+"""Custom segmentation blocks used by paper-guided segmenter variants."""
+
 from __future__ import annotations
 
 from typing import Any

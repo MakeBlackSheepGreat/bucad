@@ -1,3 +1,5 @@
+"""Unit tests for results."""
+
 from __future__ import annotations
 
 from src.utils.results import build_diagnostic_result

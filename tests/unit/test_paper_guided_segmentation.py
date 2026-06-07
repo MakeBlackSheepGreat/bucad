@@ -1,3 +1,5 @@
+"""Unit tests for paper guided segmentation."""
+
 from __future__ import annotations
 
 import math
@@ -6,6 +8,7 @@ import numpy as np
 import pytest
 
 from src.engine import segmentation_losses
+from src.engine.train_seg import _atomic_torch_save
 from src.models import segmenter
 from src.models.segmenter import create_segmenter
 from src.utils.metrics import boundary_f1_score, hd95_score, iou_score
@@ -73,3 +76,14 @@ def test_segmentation_metrics_cover_overlap_boundary_and_hd95() -> None:
     assert 0.0 < boundary_f1_score(shifted, mask) <= 1.0
     assert hd95_score(mask, mask) == pytest.approx(0.0)
     assert math.isfinite(hd95_score(shifted, mask))
+
+
+@pytest.mark.skipif(segmentation_losses.torch is None, reason="torch is not installed")
+def test_segmentation_checkpoint_save_is_atomic(tmp_path) -> None:
+    destination = tmp_path / "segmenter.pt"
+
+    _atomic_torch_save({"value": 1}, destination)
+    _atomic_torch_save({"value": 2}, destination)
+
+    assert destination.exists()
+    assert not list(tmp_path.glob(".segmenter.pt.*.tmp"))

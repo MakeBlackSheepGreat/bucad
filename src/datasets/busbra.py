@@ -1,3 +1,5 @@
+"""BUSBRA manifest, split, and dataset adapters used by training."""
+
 from __future__ import annotations
 
 from dataclasses import asdict

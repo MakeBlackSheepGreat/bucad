@@ -1,3 +1,5 @@
+"""Classifier comparison runner for candidate model experiments."""
+
 from __future__ import annotations
 
 import tempfile

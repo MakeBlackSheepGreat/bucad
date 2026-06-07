@@ -1,3 +1,5 @@
+"""Utility script for convnext seed soup workflows."""
+
 from __future__ import annotations
 
 import argparse

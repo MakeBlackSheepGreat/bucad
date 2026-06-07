@@ -1,3 +1,5 @@
+"""Utility script for segmenter architecture replacement protocol workflows."""
+
 from __future__ import annotations
 
 import argparse

@@ -1,3 +1,5 @@
+"""Domain-specific exception types for BUCAD runtime failures."""
+
 from __future__ import annotations
 
 

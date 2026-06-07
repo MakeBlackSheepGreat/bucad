@@ -1,3 +1,5 @@
+"""CLI wrapper for BUSI external evaluation."""
+
 from __future__ import annotations
 
 import argparse

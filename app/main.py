@@ -1,3 +1,5 @@
+"""Gradio application assembly for the BUCAD diagnostic demo."""
+
 from __future__ import annotations
 
 import sys
@@ -41,6 +43,7 @@ def analyze_upload(
     *,
     service: BreastUltrasoundInferenceService,
 ):
+    """Run a Gradio upload through the inference service and return UI panel values."""
     response = service.diagnose(
         image,
         decision_threshold=threshold,
@@ -58,6 +61,7 @@ def analyze_upload(
 
 
 def reset_workspace():
+    """Restore the demo to its initial empty component state."""
     return (
         None,
         EMPTY_STATUS_HTML,
@@ -133,6 +137,7 @@ def _bind_app_events(
 
 
 def build_app(config_path: str | Path | None = None):
+    """Build the BUCAD Gradio Blocks app without launching a server."""
     if config_path is None:
         config_path = bundled_resource_path("configs/inference/demo.yml")
     service = BreastUltrasoundInferenceService.from_config(config_path)
@@ -233,6 +238,7 @@ def build_app(config_path: str | Path | None = None):
 
 
 def main() -> None:
+    """Launch the Gradio demo with the packaged/default inference config."""
     app = build_app()
     app.launch(inbrowser=True, show_error=True, theme=build_theme())
 

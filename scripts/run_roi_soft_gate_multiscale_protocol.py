@@ -1,3 +1,5 @@
+"""Utility script for roi soft gate multiscale protocol workflows."""
+
 from __future__ import annotations
 
 import argparse

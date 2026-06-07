@@ -1,3 +1,5 @@
+"""BUSI manifest and dataset adapters used by external evaluation."""
+
 from __future__ import annotations
 
 from pathlib import Path

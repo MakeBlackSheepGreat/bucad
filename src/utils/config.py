@@ -1,3 +1,5 @@
+"""YAML config loading, merging, and project path resolution helpers."""
+
 from __future__ import annotations
 
 from pathlib import Path

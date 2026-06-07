@@ -1,3 +1,5 @@
+"""Shared torch device resolution helpers for training and inference."""
+
 from __future__ import annotations
 
 from typing import Any

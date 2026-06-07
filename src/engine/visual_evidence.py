@@ -1,3 +1,5 @@
+"""Optional segmentation overlays and Grad-CAM evidence generation for inference."""
+
 from __future__ import annotations
 
 from typing import Any, Callable
@@ -20,6 +22,8 @@ torch = optional_import("torch")
 
 
 class VisualEvidenceService:
+    """Attach optional mask overlays and Grad-CAM maps to diagnosis responses."""
+
     def __init__(
         self,
         runtime_config: RuntimeConfig,
@@ -79,6 +83,7 @@ class VisualEvidenceService:
         segmenter_predictor: Callable[[np.ndarray], np.ndarray] | None = None,
         explanation_generator: Callable[[np.ndarray], np.ndarray] | None = None,
     ) -> None:
+        """Populate visual fields and downgrade the response to partial on optional failures."""
         partial = False
         if need_segmentation:
             try:
@@ -108,6 +113,7 @@ class VisualEvidenceService:
             response.status = "partial"
 
     def predict_segmentation(self, image: np.ndarray) -> np.ndarray:
+        """Run the configured segmenter ensemble and average probability masks."""
         checkpoints = self.resolved_segmenter_checkpoints()
         if not checkpoints or not self.runtime_config.get("segmentation_enabled", True):
             raise OptionalOutputUnavailableError("Segmentation weights are not available.")
@@ -150,6 +156,7 @@ class VisualEvidenceService:
         return np.mean(np.asarray(masks, dtype=np.float32), axis=0)
 
     def predict_explanation(self, image: np.ndarray) -> np.ndarray:
+        """Generate Grad-CAM from the already-loaded primary classifier."""
         if not self.runtime_config.get("gradcam_enabled", True):
             raise OptionalOutputUnavailableError("Grad-CAM is disabled in runtime config.")
         classifier_model = self.classifier_ensemble.primary_model

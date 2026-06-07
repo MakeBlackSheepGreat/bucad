@@ -4,11 +4,15 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pandas as pd
+
 from src.engine.train_cls import (
     _atomic_torch_save,
     _extra_model_kwargs,
     _score_checkpoint_candidate,
+    run_classifier_training,
 )
+from src.engine import train_cls
 
 
 def test_extra_model_kwargs_excludes_standard_classifier_fields() -> None:
@@ -47,3 +51,62 @@ def test_atomic_torch_save_replaces_destination(tmp_path: Path) -> None:
 
     assert destination.exists()
     assert not (tmp_path / ".model.pt.tmp").exists()
+
+
+def test_run_classifier_training_smoke_uses_loop_config_outputs(tmp_path: Path, monkeypatch) -> None:
+    if train_cls.torch is None:
+        return
+    torch = train_cls.torch
+    manifest = pd.DataFrame(
+        [
+            {"sample_id": "a", "case_id": "c1", "pathology_label": "benign"},
+            {"sample_id": "b", "case_id": "c2", "pathology_label": "malignant"},
+            {"sample_id": "c", "case_id": "c3", "pathology_label": "benign"},
+            {"sample_id": "d", "case_id": "c4", "pathology_label": "malignant"},
+        ]
+    )
+
+    class _Dataset(torch.utils.data.Dataset):
+        def __init__(self, frame, **_kwargs) -> None:
+            self.frame = frame.reset_index(drop=True)
+
+        def __len__(self) -> int:
+            return len(self.frame)
+
+        def __getitem__(self, index: int):
+            row = self.frame.iloc[index]
+            label = 1 if row["pathology_label"] == "malignant" else 0
+            return {
+                "image": torch.full((3, 8, 8), float(label)),
+                "label": torch.tensor(label, dtype=torch.long),
+                "sample_id": row["sample_id"],
+            }
+
+    class _TinyClassifier(torch.nn.Module):
+        def __init__(self) -> None:
+            super().__init__()
+            self.fc = torch.nn.Linear(3 * 8 * 8, 2)
+
+        def forward(self, images):
+            return self.fc(images.flatten(1))
+
+    class _Paths:
+        project_root = tmp_path
+        busbra_root = tmp_path / "unused"
+        checkpoints_root = tmp_path / "checkpoints"
+        reports_root = tmp_path / "reports"
+
+    config_path = tmp_path / "config.yml"
+    config_path.write_text("seed: 42\n", encoding="utf-8")
+    monkeypatch.setattr(train_cls, "load_project_config", lambda _path: ({"device": "cpu", "training": {"epochs": 1}, "output": {}}, _Paths()))
+    monkeypatch.setattr(train_cls, "load_busbra_manifest", lambda _root: manifest)
+    monkeypatch.setattr(train_cls, "_prepare_fold_manifests", lambda **_kwargs: (manifest.iloc[:2], manifest.iloc[2:]))
+    monkeypatch.setattr(train_cls, "BUSBRAClassificationDataset", _Dataset)
+    monkeypatch.setattr(train_cls, "_build_classifier_model_and_transforms", lambda **_kwargs: (_TinyClassifier(), 8, None, None, {"image_size": 8}))
+
+    report = run_classifier_training(config_path, fold=1)
+
+    assert report["checkpoint_strategy"] == "last"
+    assert report["scheduler"] == {}
+    assert report["min_specificity"] == 0.0
+    assert len(report["epoch_reports"]) == 1

@@ -665,6 +665,106 @@ class _TrainingLoopConfig:
     sample_weights: dict[str, float]
 
 
+@dataclasses.dataclass(slots=True)
+class _PreparedTrainingRun:
+    """Objects and settings prepared before classifier epochs start."""
+
+    model: Any
+    train_loader: Any
+    val_loader: Any
+    train_manifest: pd.DataFrame
+    val_manifest: pd.DataFrame
+    preprocess_settings: dict[str, Any]
+    class_weights: Any
+    sample_weight_path: Path | None
+    sample_weights: dict[str, float]
+    loop_config: _TrainingLoopConfig
+    base_learning_rate: float
+    optimizer: Any
+
+
+def _prepare_classifier_training_run(
+    *,
+    config: dict[str, Any],
+    paths,
+    fold: int,
+    seed: int,
+    device: str,
+    epochs_override: int | None,
+) -> _PreparedTrainingRun:
+    """Prepare data splits, loaders, model, optimizer, and loop settings."""
+    manifest = load_busbra_manifest(paths.busbra_root)
+    training_cfg = config.get("training", {})
+    data_cfg = config.get("data", {})
+
+    train_manifest, val_manifest = _prepare_fold_manifests(
+        manifest=manifest,
+        paths=paths,
+        training_cfg=training_cfg,
+        fold=fold,
+        seed=seed,
+    )
+    model, image_size, train_transform, eval_transform, preprocess_settings = (
+        _build_classifier_model_and_transforms(
+            config=config,
+            data_cfg=data_cfg,
+            device=device,
+        )
+    )
+    train_loader, val_loader = _build_classifier_loaders(
+        train_manifest=train_manifest,
+        val_manifest=val_manifest,
+        image_size=image_size,
+        train_transform=train_transform,
+        eval_transform=eval_transform,
+        data_cfg=data_cfg,
+        device=device,
+    )
+
+    base_learning_rate = float(training_cfg.get("learning_rate", 3e-4))
+    optimizer = optim.AdamW(
+        model.parameters(),
+        lr=base_learning_rate,
+        weight_decay=float(training_cfg.get("weight_decay", 1e-4)),
+    )
+    class_weights = _build_class_weights(train_manifest, training_cfg, device=device)
+    sample_weight_path = _resolve_sample_weight_path(paths, training_cfg)
+    sample_weights = _load_sample_weights(
+        sample_weight_path,
+        weight_column=str(training_cfg.get("sample_weight_column", "sample_weight")),
+    )
+    loop_config = _TrainingLoopConfig(
+        epochs=int(epochs_override or training_cfg.get("epochs", 5)),
+        scheduler_cfg=training_cfg.get("scheduler", {}) or {},
+        checkpoint_strategy=str(training_cfg.get("checkpoint_strategy", "last")).lower(),
+        selection_threshold=float(training_cfg.get("selection_threshold", 0.5)),
+        sensitivity_weight=float(training_cfg.get("sensitivity_weight", 0.0)),
+        min_specificity=float(training_cfg.get("min_specificity", 0.0)),
+        class_weights=class_weights,
+        label_smoothing=float(training_cfg.get("label_smoothing", 0.0)),
+        loss_name=str(training_cfg.get("loss", "cross_entropy")).lower(),
+        focal_gamma=float(training_cfg.get("focal_gamma", 2.0)),
+        mixup_alpha=float(training_cfg.get("mixup_alpha", 0.0)),
+        cutmix_alpha=float(training_cfg.get("cutmix_alpha", 0.0)),
+        mix_probability=float(training_cfg.get("mix_probability", 0.0)),
+        sample_weights=sample_weights,
+    )
+    return _PreparedTrainingRun(
+        model=model,
+        train_loader=train_loader,
+        val_loader=val_loader,
+        train_manifest=train_manifest,
+        val_manifest=val_manifest,
+        preprocess_settings=preprocess_settings,
+        class_weights=class_weights,
+        sample_weight_path=sample_weight_path,
+        sample_weights=sample_weights,
+        loop_config=loop_config,
+        base_learning_rate=base_learning_rate,
+        optimizer=optimizer,
+    )
+
+
 def _run_training_loop(
     *,
     model,
@@ -762,111 +862,54 @@ def run_classifier_training(
     seed = int(config.get("seed", 42))
     seed_everything(seed)
     device = select_device(str(config.get("device", "auto")))
-
-    manifest = load_busbra_manifest(paths.busbra_root)
-    training_cfg = config.get("training", {})
-    data_cfg = config.get("data", {})
     output_cfg = config.get("output", {})
-
-    # Fold split, model, loaders, and weights are all prepared before the loop.
-    train_manifest, val_manifest = _prepare_fold_manifests(
-        manifest=manifest,
+    prepared = _prepare_classifier_training_run(
+        config=config,
         paths=paths,
-        training_cfg=training_cfg,
         fold=fold,
         seed=seed,
-    )
-    model, image_size, train_transform, eval_transform, preprocess_settings = (
-        _build_classifier_model_and_transforms(
-            config=config,
-            data_cfg=data_cfg,
-            device=device,
-        )
-    )
-    train_loader, val_loader = _build_classifier_loaders(
-        train_manifest=train_manifest,
-        val_manifest=val_manifest,
-        image_size=image_size,
-        train_transform=train_transform,
-        eval_transform=eval_transform,
-        data_cfg=data_cfg,
         device=device,
-    )
-
-    base_learning_rate = float(training_cfg.get("learning_rate", 3e-4))
-    optimizer = optim.AdamW(
-        model.parameters(),
-        lr=base_learning_rate,
-        weight_decay=float(training_cfg.get("weight_decay", 1e-4)),
-    )
-    class_weights = _build_class_weights(train_manifest, training_cfg, device=device)
-    label_smoothing = float(training_cfg.get("label_smoothing", 0.0))
-    loss_name = str(training_cfg.get("loss", "cross_entropy")).lower()
-    focal_gamma = float(training_cfg.get("focal_gamma", 2.0))
-    mixup_alpha = float(training_cfg.get("mixup_alpha", 0.0))
-    cutmix_alpha = float(training_cfg.get("cutmix_alpha", 0.0))
-    mix_probability = float(training_cfg.get("mix_probability", 0.0))
-    sample_weight_path = _resolve_sample_weight_path(paths, training_cfg)
-    sample_weights = _load_sample_weights(
-        sample_weight_path,
-        weight_column=str(training_cfg.get("sample_weight_column", "sample_weight")),
-    )
-
-    loop_config = _TrainingLoopConfig(
-        epochs=int(epochs_override or training_cfg.get("epochs", 5)),
-        scheduler_cfg=training_cfg.get("scheduler", {}) or {},
-        checkpoint_strategy=str(training_cfg.get("checkpoint_strategy", "last")).lower(),
-        selection_threshold=float(training_cfg.get("selection_threshold", 0.5)),
-        sensitivity_weight=float(training_cfg.get("sensitivity_weight", 0.0)),
-        min_specificity=float(training_cfg.get("min_specificity", 0.0)),
-        class_weights=class_weights,
-        label_smoothing=label_smoothing,
-        loss_name=loss_name,
-        focal_gamma=focal_gamma,
-        mixup_alpha=mixup_alpha,
-        cutmix_alpha=cutmix_alpha,
-        mix_probability=mix_probability,
-        sample_weights=sample_weights,
+        epochs_override=epochs_override,
     )
     best_state_dict, best_epoch, best_metrics, epoch_reports = _run_training_loop(
-        model=model,
-        train_loader=train_loader,
-        val_loader=val_loader,
-        optimizer=optimizer,
+        model=prepared.model,
+        train_loader=prepared.train_loader,
+        val_loader=prepared.val_loader,
+        optimizer=prepared.optimizer,
         device=device,
         fold=fold,
-        loop_config=loop_config,
-        base_learning_rate=base_learning_rate,
+        loop_config=prepared.loop_config,
+        base_learning_rate=prepared.base_learning_rate,
         logger=logger,
     )
 
-    if loop_config.checkpoint_strategy != "last" and best_state_dict is not None:
-        model.load_state_dict(best_state_dict)
-    metrics = _evaluate_model(model, val_loader, device)
+    if prepared.loop_config.checkpoint_strategy != "last" and best_state_dict is not None:
+        prepared.model.load_state_dict(best_state_dict)
+    metrics = _evaluate_model(prepared.model, prepared.val_loader, device)
     return _write_classifier_training_outputs(
         config=config,
         paths=paths,
         output_cfg=output_cfg,
         fold=fold,
         device=device,
-        model=model,
+        model=prepared.model,
         metrics=metrics,
         best_epoch=best_epoch,
         best_metrics=best_metrics,
-        checkpoint_strategy=checkpoint_strategy,
-        preprocess_settings=preprocess_settings,
-        scheduler_cfg=scheduler_cfg,
-        class_weights=class_weights,
-        label_smoothing=label_smoothing,
-        loss_name=loss_name,
-        focal_gamma=focal_gamma,
-        mixup_alpha=mixup_alpha,
-        cutmix_alpha=cutmix_alpha,
-        mix_probability=mix_probability,
-        sample_weight_path=sample_weight_path,
-        sample_weights=sample_weights,
-        min_specificity=min_specificity,
+        checkpoint_strategy=prepared.loop_config.checkpoint_strategy,
+        preprocess_settings=prepared.preprocess_settings,
+        scheduler_cfg=prepared.loop_config.scheduler_cfg,
+        class_weights=prepared.class_weights,
+        label_smoothing=prepared.loop_config.label_smoothing,
+        loss_name=prepared.loop_config.loss_name,
+        focal_gamma=prepared.loop_config.focal_gamma,
+        mixup_alpha=prepared.loop_config.mixup_alpha,
+        cutmix_alpha=prepared.loop_config.cutmix_alpha,
+        mix_probability=prepared.loop_config.mix_probability,
+        sample_weight_path=prepared.sample_weight_path,
+        sample_weights=prepared.sample_weights,
+        min_specificity=prepared.loop_config.min_specificity,
         epoch_reports=epoch_reports,
-        train_manifest=train_manifest,
-        val_manifest=val_manifest,
+        train_manifest=prepared.train_manifest,
+        val_manifest=prepared.val_manifest,
     )

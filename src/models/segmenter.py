@@ -49,10 +49,42 @@ def create_segmenter(
     classes: int = 1,
     **model_kwargs,
 ):
+    """Create a configured segmenter, preferring custom/SMP models before fallback."""
     require_dependency("torch", torch)
     require_dependency("torch.nn", nn)
     normalized_architecture = architecture.lower()
-    if normalized_architecture in {"cenet_lite", "cenet-lite"}:
+    custom_model = _create_custom_segmenter(
+        architecture=normalized_architecture,
+        encoder_name=encoder_name,
+        encoder_weights=encoder_weights,
+        in_channels=in_channels,
+        classes=classes,
+        model_kwargs=model_kwargs,
+    )
+    if custom_model is not None:
+        return custom_model
+    smp_model = _create_smp_segmenter(
+        architecture=normalized_architecture,
+        encoder_name=encoder_name,
+        encoder_weights=encoder_weights,
+        in_channels=in_channels,
+        classes=classes,
+    )
+    if smp_model is not None:
+        return smp_model
+    return TinySegmentationNet(in_channels=in_channels, classes=classes)
+
+
+def _create_custom_segmenter(
+    *,
+    architecture: str,
+    encoder_name: str,
+    encoder_weights: str | None,
+    in_channels: int,
+    classes: int,
+    model_kwargs: dict[str, Any],
+):
+    if architecture in {"cenet_lite", "cenet-lite"}:
         return CENetLite(
             in_channels=in_channels,
             classes=classes,
@@ -62,7 +94,7 @@ def create_segmenter(
             use_nonlocal=bool(model_kwargs.get("use_nonlocal", True)),
             boundary_head=bool(model_kwargs.get("boundary_head", False)),
         )
-    if normalized_architecture in {"cenet_pvtv2", "cenet-pvtv2", "pvtv2_cenet"}:
+    if architecture in {"cenet_pvtv2", "cenet-pvtv2", "pvtv2_cenet"}:
         return TimmFeaturePyramidSegmenter(
             encoder_name=encoder_name or "pvt_v2_b0",
             encoder_weights=encoder_weights,
@@ -74,22 +106,20 @@ def create_segmenter(
             use_nonlocal=bool(model_kwargs.get("use_nonlocal", True)),
             boundary_head=bool(model_kwargs.get("boundary_head", False)),
         )
+    return None
+
+
+def _create_smp_segmenter(
+    *,
+    architecture: str,
+    encoder_name: str,
+    encoder_weights: str | None,
+    in_channels: int,
+    classes: int,
+):
+    """Return an SMP model when the dependency and architecture are available."""
     if smp is not None:
-        smp_architectures = {
-            "unet": smp.Unet,
-            "unetplusplus": getattr(smp, "UnetPlusPlus", None),
-            "unet++": getattr(smp, "UnetPlusPlus", None),
-            "unet_plus_plus": getattr(smp, "UnetPlusPlus", None),
-            "fpn": getattr(smp, "FPN", None),
-            "deeplabv3": getattr(smp, "DeepLabV3", None),
-            "deeplabv3plus": getattr(smp, "DeepLabV3Plus", None),
-            "deeplabv3+": getattr(smp, "DeepLabV3Plus", None),
-            "manet": getattr(smp, "MAnet", None),
-            "linknet": getattr(smp, "Linknet", None),
-            "pan": getattr(smp, "PAN", None),
-            "pspnet": getattr(smp, "PSPNet", None),
-        }
-        model_factory = smp_architectures.get(normalized_architecture)
+        model_factory = _smp_architecture_factories().get(architecture)
         if model_factory is not None:
             return model_factory(
                 encoder_name=encoder_name,
@@ -97,14 +127,27 @@ def create_segmenter(
                 in_channels=in_channels,
                 classes=classes,
             )
-    if normalized_architecture == "unet" and smp is not None:
-        return smp.Unet(
-            encoder_name=encoder_name,
-            encoder_weights=encoder_weights,
-            in_channels=in_channels,
-            classes=classes,
-        )
-    return TinySegmentationNet(in_channels=in_channels, classes=classes)
+    return None
+
+
+def _smp_architecture_factories() -> dict[str, Any]:
+    """Map local architecture aliases to segmentation_models_pytorch factories."""
+    if smp is None:
+        return {}
+    return {
+        "unet": smp.Unet,
+        "unetplusplus": getattr(smp, "UnetPlusPlus", None),
+        "unet++": getattr(smp, "UnetPlusPlus", None),
+        "unet_plus_plus": getattr(smp, "UnetPlusPlus", None),
+        "fpn": getattr(smp, "FPN", None),
+        "deeplabv3": getattr(smp, "DeepLabV3", None),
+        "deeplabv3plus": getattr(smp, "DeepLabV3Plus", None),
+        "deeplabv3+": getattr(smp, "DeepLabV3Plus", None),
+        "manet": getattr(smp, "MAnet", None),
+        "linknet": getattr(smp, "Linknet", None),
+        "pan": getattr(smp, "PAN", None),
+        "pspnet": getattr(smp, "PSPNet", None),
+    }
 
 
 def load_segmenter(

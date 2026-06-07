@@ -35,6 +35,15 @@ def test_cenet_lite_outputs_mask_and_auxiliary_boundary() -> None:
     assert outputs["prototype_features"].shape[0] == 2
 
 
+@pytest.mark.skipif(segmenter.torch is None, reason="torch is not installed")
+def test_unet_segmenter_falls_back_to_tiny_model_when_smp_is_missing(monkeypatch) -> None:
+    monkeypatch.setattr(segmenter, "smp", None)
+
+    model = create_segmenter(architecture="unet", in_channels=3, classes=1)
+
+    assert isinstance(model, segmenter.TinySegmentationNet)
+
+
 @pytest.mark.skipif(segmentation_losses.torch is None, reason="torch is not installed")
 def test_segmentation_loss_combines_boundary_pal_and_prototype_terms() -> None:
     torch = segmentation_losses.torch

@@ -515,6 +515,60 @@ conda activate BUCAD
 python app\main.py
 ```
 
+### 前后端分离开发界面
+
+项目同时提供独立的 FastAPI 后端和 Vue + TypeScript 前端。后端只暴露推理 API，前端通过 `VITE_API_BASE_URL` 调用，不依赖 Gradio 页面。
+
+一键启动：
+
+```powershell
+.\start-dev.bat
+```
+
+也可以直接运行 PowerShell 脚本：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\start-dev.ps1
+```
+
+脚本会分别打开后端 API 和前端开发服务窗口，并自动打开 `http://127.0.0.1:5173`。如果 `8000` 或 `5173` 端口已经在运行，脚本会复用已有服务。
+
+手动启动：
+
+```powershell
+# 终端 1：启动后端 API
+conda activate BUCAD
+& "$env:USERPROFILE\.conda\envs\BUCAD\python.exe" -m backend.server --host 127.0.0.1 --port 8000
+
+# 终端 2：启动前端
+cd frontend
+npm install
+npm run dev -- --host 127.0.0.1 --port 5173
+```
+
+浏览器打开 `http://127.0.0.1:5173`。如需修改 API 地址，复制 `frontend/.env.example` 为 `frontend/.env` 并设置 `VITE_API_BASE_URL`。
+
+病例导入模块默认使用本地 SQLite 数据库 `data/patients.db`。`data/` 已被 Git 忽略，避免真实病例数据进入仓库。开发或测试时可以通过环境变量指定其他数据库路径：
+
+```powershell
+$env:BUCAD_PATIENT_DB_PATH="tmp/dev-patients.db"
+& "$env:USERPROFILE\.conda\envs\BUCAD\python.exe" -m backend.server --host 127.0.0.1 --port 8000
+```
+
+知识库与智能体模块：
+
+- `GET /api/knowledge` 返回内置乳腺医学知识条目，覆盖 BI-RADS、超声征象、病理类型、ER/PR/HER2/Ki-67、内分泌治疗、HER2 靶向治疗、三阴性乳腺癌、免疫治疗、PARP 抑制剂和影像病理一致性。
+- `POST /api/agent/interpret` 会先检索本地知识库，再注入 `backend/agent.md` 的回答规范，默认调用 DeepSeek OpenAI-compatible API。
+- 默认 DeepSeek 地址为 `https://api.deepseek.com`，默认模型为 `deepseek-v4-pro`。可通过环境变量覆盖：
+
+```powershell
+$env:DEEPSEEK_API_KEY="你的 DeepSeek API Key"
+$env:DEEPSEEK_BASE_URL="https://api.deepseek.com"
+$env:DEEPSEEK_MODEL="deepseek-v4-pro"
+```
+
+如果没有配置 `DEEPSEEK_API_KEY` 或远程调用失败，后端会返回本地结构化兜底草稿，并在响应中标记 `fallback_used=true`。智能体输出仅用于辅助分析和科研演示，不能替代医生诊断、病理报告或正式治疗决策。
+
 ### 运行测试程序
 
 ```powershell

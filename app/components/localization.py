@@ -7,6 +7,7 @@ from src.utils.results import AUXILIARY_USE_DISCLAIMER
 
 STATUS_TEXT = {
     "completed": "推理完成",
+    "partial": "推理完成（部分可视化缺失）",
     "quality_blocked": "图像质量不足",
     "invalid_input": "输入无效",
     "classification_unavailable": "分类模型不可用",
@@ -39,6 +40,9 @@ WARNING_TEXT = {
     "Grad-CAM dependency is not installed in the current environment.": "当前环境未安装 Grad-CAM 依赖，无法生成热力图。",
     "Could not resolve a Grad-CAM target layer.": "无法定位 Grad-CAM 目标层。",
     "Grad-CAM returned no explanation map.": "Grad-CAM 未返回有效热力图。",
+    "Segmentation weights are not available.": "分割模型权重不可用，病灶定位图无法生成。",
+    "Uploaded image is larger than 25MB.": "上传图像超过 25MB，请压缩后重试。",
+    "Image is empty.": "图像为空，请重新选择文件。",
     "No image backend is installed. Install opencv-python or Pillow.": "当前缺少图像读取依赖，请安装 opencv-python 或 Pillow。",
     "No image backend is installed for saving.": "当前缺少图像保存依赖，无法导出可视化结果。",
     AUXILIARY_USE_DISCLAIMER: "本系统仅用于辅助分析和原型演示，不能替代医生诊断。",

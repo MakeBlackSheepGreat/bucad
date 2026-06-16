@@ -15,3 +15,6 @@ pywebview
 PyInstaller
 pytest
 python-docx
+fastapi
+uvicorn
+python-multipart

@@ -76,6 +76,7 @@ local_notes/
 AGENTS.md
 .agents/
 .claude/
+.playwright-cli/
 .specify/
 specs/
 
@@ -97,6 +98,8 @@ tmp/pytest-bucad-*/
 # Local environment and editor files
 .env
 .env*
+!.env.example
+!frontend/.env.example
 .venv/
 venv/
 .vscode/
@@ -114,3 +117,9 @@ Thumbs.db
 .DS_Store
 output/
 *.docx
+
+# Frontend dependencies and build cache
+node_modules/
+frontend/node_modules/
+frontend/dist/
+*.tsbuildinfo

@@ -7,9 +7,16 @@ from pathlib import Path
 import pandas as pd
 
 from src.engine.train_cls import (
+    _ModelEma,
     _atomic_torch_save,
+    _build_class_priors,
     _extra_model_kwargs,
     _final_classifier_metrics,
+    _pairwise_auc_regularizer,
+    _classification_loss,
+    _count_sample_weight_hits,
+    _supervised_contrastive_loss,
+    _build_training_loop_config,
     _score_checkpoint_candidate,
     run_classifier_training,
 )
@@ -86,6 +93,8 @@ def test_non_last_checkpoint_metrics_revalidate_selected_state(monkeypatch) -> N
 
 def test_atomic_torch_save_replaces_destination(tmp_path: Path) -> None:
     """Verify atomic torch save replaces destination."""
+    if train_cls.torch is None:
+        return
     destination = tmp_path / "model.pt"
 
     _atomic_torch_save({"value": 1}, destination)
@@ -93,6 +102,258 @@ def test_atomic_torch_save_replaces_destination(tmp_path: Path) -> None:
 
     assert destination.exists()
     assert not (tmp_path / ".model.pt.tmp").exists()
+
+
+def test_pairwise_auc_regularizer_prefers_correct_ranking() -> None:
+    """Verify the pairwise AUC surrogate is smaller for correctly ranked pairs."""
+    if train_cls.torch is None:
+        return
+    torch = train_cls.torch
+    labels = torch.tensor([1, 1, 0, 0], dtype=torch.long)
+    good_logits = torch.tensor(
+        [[0.1, 2.5], [0.2, 2.0], [2.2, 0.2], [1.9, 0.1]],
+        dtype=torch.float32,
+    )
+    bad_logits = torch.tensor(
+        [[2.0, 0.1], [1.8, 0.2], [0.1, 2.0], [0.2, 1.9]],
+        dtype=torch.float32,
+    )
+
+    good_loss = _pairwise_auc_regularizer(
+        good_logits,
+        labels,
+        sample_weights=None,
+        margin=0.0,
+    )
+    bad_loss = _pairwise_auc_regularizer(
+        bad_logits,
+        labels,
+        sample_weights=None,
+        margin=0.0,
+    )
+
+    assert float(good_loss.item()) < float(bad_loss.item())
+
+
+def test_build_training_loop_config_reads_pairwise_auc_settings() -> None:
+    """Verify pairwise AUC settings are normalized into the loop config."""
+    loop_config = _build_training_loop_config(
+        training_cfg={
+            "epochs": 3,
+            "pairwise_auc_weight": 0.2,
+            "pairwise_auc_margin": 0.1,
+        },
+        epochs_override=None,
+        class_weights=None,
+        class_priors=None,
+        sample_weights={},
+    )
+
+    assert loop_config.pairwise_auc_weight == 0.2
+    assert loop_config.pairwise_auc_margin == 0.1
+
+
+def test_build_training_loop_config_reads_supcon_settings() -> None:
+    """Verify supervised contrastive settings are normalized into the loop config."""
+    loop_config = _build_training_loop_config(
+        training_cfg={
+            "epochs": 3,
+            "supcon_weight": 0.1,
+            "supcon_temperature": 0.2,
+        },
+        epochs_override=None,
+        class_weights=None,
+        class_priors=None,
+        sample_weights={},
+    )
+
+    assert loop_config.supcon_weight == 0.1
+    assert loop_config.supcon_temperature == 0.2
+
+
+def test_build_training_loop_config_reads_sam_settings() -> None:
+    """Verify SAM settings are normalized into the loop config."""
+    loop_config = _build_training_loop_config(
+        training_cfg={
+            "epochs": 3,
+            "optimizer": "sam",
+            "sam_rho": 0.05,
+            "sam_adaptive": True,
+        },
+        epochs_override=None,
+        class_weights=None,
+        class_priors=None,
+        sample_weights={},
+    )
+
+    assert loop_config.use_sam is True
+    assert loop_config.sam_rho == 0.05
+    assert loop_config.sam_adaptive is True
+
+
+def test_build_class_priors_returns_empirical_distribution_for_balanced_softmax() -> None:
+    """Verify balanced_softmax reads empirical class priors from the fold manifest."""
+    if train_cls.torch is None:
+        return
+    manifest = pd.DataFrame(
+        [
+            {"pathology_label": "benign"},
+            {"pathology_label": "benign"},
+            {"pathology_label": "benign"},
+            {"pathology_label": "malignant"},
+        ]
+    )
+
+    priors = _build_class_priors(
+        manifest,
+        {"loss": "balanced_softmax"},
+        device="cpu",
+    )
+
+    assert priors is not None
+    assert train_cls.torch.allclose(
+        priors,
+        train_cls.torch.tensor([0.75, 0.25], dtype=train_cls.torch.float32),
+        atol=1e-6,
+    )
+
+
+def test_balanced_softmax_reduces_loss_for_majority_class_logits() -> None:
+    """Verify balanced_softmax applies class-frequency correction through log priors."""
+    if train_cls.torch is None:
+        return
+    torch = train_cls.torch
+    logits = torch.tensor([[0.1, 0.1]], dtype=torch.float32)
+    labels = torch.tensor([1], dtype=torch.long)
+    priors = torch.tensor([0.75, 0.25], dtype=torch.float32)
+
+    ce_loss = _classification_loss(
+        logits,
+        labels,
+        class_weights=None,
+        class_priors=None,
+        sample_weights=None,
+        label_smoothing=0.0,
+        loss_name="cross_entropy",
+        focal_gamma=2.0,
+        balanced_softmax_tau=1.0,
+    )
+    bs_loss = _classification_loss(
+        logits,
+        labels,
+        class_weights=None,
+        class_priors=priors,
+        sample_weights=None,
+        label_smoothing=0.0,
+        loss_name="balanced_softmax",
+        focal_gamma=2.0,
+        balanced_softmax_tau=1.0,
+    )
+
+    assert float(bs_loss.item()) > float(ce_loss.item())
+
+
+def test_balanced_softmax_tau_controls_adjustment_strength() -> None:
+    """Verify smaller tau weakens the logit adjustment effect."""
+    if train_cls.torch is None:
+        return
+    torch = train_cls.torch
+    logits = torch.tensor([[0.1, 0.1]], dtype=torch.float32)
+    labels = torch.tensor([1], dtype=torch.long)
+    priors = torch.tensor([0.75, 0.25], dtype=torch.float32)
+
+    mild_loss = _classification_loss(
+        logits,
+        labels,
+        class_weights=None,
+        class_priors=priors,
+        sample_weights=None,
+        label_smoothing=0.0,
+        loss_name="balanced_softmax",
+        focal_gamma=2.0,
+        balanced_softmax_tau=0.4,
+    )
+    strong_loss = _classification_loss(
+        logits,
+        labels,
+        class_weights=None,
+        class_priors=priors,
+        sample_weights=None,
+        label_smoothing=0.0,
+        loss_name="balanced_softmax",
+        focal_gamma=2.0,
+        balanced_softmax_tau=1.0,
+    )
+
+    assert float(mild_loss.item()) < float(strong_loss.item())
+
+
+def test_count_sample_weight_hits_counts_non_default_training_matches() -> None:
+    """Verify sample weight hit counting only counts train samples with non-default weights."""
+    manifest = pd.DataFrame(
+        [
+            {"sample_id": "a"},
+            {"sample_id": "b"},
+            {"sample_id": "c"},
+        ]
+    )
+
+    hits = _count_sample_weight_hits(
+        manifest,
+        {
+            "a": 1.0,
+            "b": 1.2,
+            "outside": 1.5,
+        },
+    )
+
+    assert hits == 1
+
+
+def test_supervised_contrastive_loss_prefers_separable_embeddings() -> None:
+    """Verify the supervised contrastive term is lower for class-clustered embeddings."""
+    if train_cls.torch is None:
+        return
+    torch = train_cls.torch
+    labels = torch.tensor([0, 0, 1, 1], dtype=torch.long)
+    good_embeddings = torch.tensor(
+        [
+            [1.0, 0.0],
+            [0.9, 0.1],
+            [0.0, 1.0],
+            [0.1, 0.9],
+        ],
+        dtype=torch.float32,
+    )
+    bad_embeddings = torch.tensor(
+        [
+            [1.0, 0.0],
+            [0.0, 1.0],
+            [1.0, 0.0],
+            [0.0, 1.0],
+        ],
+        dtype=torch.float32,
+    )
+
+    good_loss = _supervised_contrastive_loss(good_embeddings, labels, temperature=0.1)
+    bad_loss = _supervised_contrastive_loss(bad_embeddings, labels, temperature=0.1)
+
+    assert float(good_loss.item()) < float(bad_loss.item())
+
+
+def test_model_ema_updates_toward_latest_weights() -> None:
+    """Verify EMA state moves toward the latest model weights."""
+    if train_cls.torch is None:
+        return
+    torch = train_cls.torch
+    model = torch.nn.Linear(2, 2, bias=False)
+    with torch.no_grad():
+        model.weight.fill_(1.0)
+    ema = _ModelEma(model, decay=0.5)
+    with torch.no_grad():
+        model.weight.fill_(3.0)
+    ema.update(model)
+    assert float(ema.state_dict["weight"].mean().item()) == 2.0
 
 
 def test_run_classifier_training_smoke_uses_loop_config_outputs(tmp_path: Path, monkeypatch) -> None:
@@ -149,7 +410,11 @@ def test_run_classifier_training_smoke_uses_loop_config_outputs(tmp_path: Path, 
 
     config_path = tmp_path / "config.yml"
     config_path.write_text("seed: 42\n", encoding="utf-8")
-    monkeypatch.setattr(train_cls, "load_project_config", lambda _path: ({"device": "cpu", "training": {"epochs": 1}, "output": {}}, _Paths()))
+    monkeypatch.setattr(
+        train_cls,
+        "load_project_config",
+        lambda _path: ({"device": "cpu", "training": {"epochs": 1}, "output": {}}, _Paths()),
+    )
     monkeypatch.setattr(train_cls, "load_busbra_manifest", lambda _root: manifest)
     monkeypatch.setattr(train_cls, "_prepare_fold_manifests", lambda **_kwargs: (manifest.iloc[:2], manifest.iloc[2:]))
     monkeypatch.setattr(train_cls, "BUSBRAClassificationDataset", _Dataset)
@@ -160,4 +425,8 @@ def test_run_classifier_training_smoke_uses_loop_config_outputs(tmp_path: Path, 
     assert report["checkpoint_strategy"] == "last"
     assert report["scheduler"] == {}
     assert report["min_specificity"] == 0.0
+    assert report["pairwise_auc_weight"] == 0.0
+    assert report["pairwise_auc_margin"] == 0.0
+    assert report["use_ema"] is False
+    assert report["ema_decay"] is None
     assert len(report["epoch_reports"]) == 1

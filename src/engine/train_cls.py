@@ -130,6 +130,17 @@ def _load_sample_weights(config_path: str | Path | None, *, weight_column: str) 
     return weights
 
 
+def _count_sample_weight_hits(train_manifest: pd.DataFrame, sample_weights: dict[str, float]) -> int:
+    """Count training samples that receive a non-default sample weight."""
+    if not sample_weights:
+        return 0
+    count = 0
+    for sample_id in train_manifest["sample_id"].astype(str):
+        if float(sample_weights.get(sample_id, 1.0)) != 1.0:
+            count += 1
+    return count
+
+
 def _batch_sample_weights(
     sample_ids: list[str],
     sample_weights: dict[str, float],
@@ -149,26 +160,36 @@ def _classification_loss(
     labels,
     *,
     class_weights,
+    class_priors,
     sample_weights,
     label_smoothing: float,
     loss_name: str,
     focal_gamma: float,
+    balanced_softmax_tau: float,
 ):
     """Compute weighted cross-entropy or focal loss with optional per-sample weights."""
+    adjusted_logits = logits
+    if loss_name == "balanced_softmax":
+        if class_priors is None:
+            raise ValueError("balanced_softmax requires class_priors.")
+        adjusted_logits = logits + float(balanced_softmax_tau) * class_priors.clamp_min(1e-12).log().to(
+            device=logits.device,
+            dtype=logits.dtype,
+        )
     if loss_name == "focal":
         per_sample_loss = torch.nn.functional.cross_entropy(
-            logits,
+            adjusted_logits,
             labels,
             weight=class_weights,
             label_smoothing=label_smoothing,
             reduction="none",
         )
-        probabilities = torch.softmax(logits, dim=1)
+        probabilities = torch.softmax(adjusted_logits, dim=1)
         pt = probabilities.gather(1, labels.unsqueeze(1)).squeeze(1).clamp(1e-6, 1.0)
         per_sample_loss = ((1.0 - pt) ** float(focal_gamma)) * per_sample_loss
     else:
         per_sample_loss = torch.nn.functional.cross_entropy(
-            logits,
+            adjusted_logits,
             labels,
             weight=class_weights,
             label_smoothing=label_smoothing,
@@ -179,6 +200,32 @@ def _classification_loss(
         denominator = sample_weights.sum().clamp_min(1e-6)
         return per_sample_loss.sum() / denominator
     return per_sample_loss.mean()
+
+
+def _pairwise_auc_regularizer(
+    logits,
+    labels,
+    *,
+    sample_weights,
+    margin: float,
+):
+    """Compute a weighted pairwise logistic surrogate for AUC ranking."""
+    score_margin = logits[:, 1] - logits[:, 0]
+    positive_mask = labels == 1
+    negative_mask = labels == 0
+    positive_scores = score_margin[positive_mask]
+    negative_scores = score_margin[negative_mask]
+    if positive_scores.numel() == 0 or negative_scores.numel() == 0:
+        return logits.new_zeros(())
+    pairwise_margin = positive_scores.unsqueeze(1) - negative_scores.unsqueeze(0)
+    per_pair_loss = torch.nn.functional.softplus(float(margin) - pairwise_margin)
+    if sample_weights is None:
+        return per_pair_loss.mean()
+    positive_weights = sample_weights[positive_mask]
+    negative_weights = sample_weights[negative_mask]
+    pairwise_weights = positive_weights.unsqueeze(1) * negative_weights.unsqueeze(0)
+    denominator = pairwise_weights.sum().clamp_min(1e-6)
+    return (per_pair_loss * pairwise_weights).sum() / denominator
 
 
 def _rand_bbox(width: int, height: int, lam: float) -> tuple[int, int, int, int]:
@@ -336,6 +383,53 @@ def _prepare_classifier_batch(batch: dict[str, Any], sample_weights: dict[str, f
     return images, labels, batch_weights
 
 
+def _model_logits(model, images, labels=None):
+    """Call model forward, passing labels only for heads that support label-aware logits."""
+    if labels is None:
+        return model(images)
+    try:
+        return model(images, labels=labels)
+    except TypeError:
+        return model(images)
+
+
+def _model_logits_and_embedding(model, images, labels=None):
+    """Return logits and optional training embedding when the model exposes it."""
+    forward_with_embedding = getattr(model, "forward_with_embedding", None)
+    if callable(forward_with_embedding):
+        try:
+            return forward_with_embedding(images, labels=labels)
+        except TypeError:
+            return forward_with_embedding(images)
+    return _model_logits(model, images, labels=labels), None
+
+
+def _supervised_contrastive_loss(embeddings, labels, *, temperature: float) -> Any:
+    """Compute a simple supervised contrastive loss over one batch embedding tensor."""
+    require_dependency("torch", torch)
+    if embeddings is None or labels is None:
+        return None
+    if embeddings.ndim != 2 or embeddings.shape[0] < 2:
+        return embeddings.new_zeros(()) if embeddings is not None else None
+    normalized = torch.nn.functional.normalize(embeddings, dim=1)
+    logits = torch.matmul(normalized, normalized.T) / float(max(temperature, 1e-6))
+    mask = torch.eye(logits.shape[0], device=logits.device, dtype=torch.bool)
+    exp_logits = torch.exp(logits) * (~mask).to(dtype=logits.dtype)
+    positive_mask = labels.view(-1, 1).eq(labels.view(1, -1)) & (~mask)
+    if not positive_mask.any():
+        return embeddings.new_zeros(())
+    denom = exp_logits.sum(dim=1, keepdim=True).clamp_min(1e-12)
+    log_prob = logits - torch.log(denom)
+    log_prob = torch.where(mask, torch.zeros_like(log_prob), log_prob)
+    positive_counts = positive_mask.sum(dim=1)
+    valid = positive_counts > 0
+    if not valid.any():
+        return embeddings.new_zeros(())
+    mean_log_prob_pos = (log_prob * positive_mask).sum(dim=1) / positive_counts.clamp_min(1)
+    loss = -mean_log_prob_pos[valid].mean()
+    return loss
+
+
 def _mixed_classification_loss(
     logits,
     labels_a,
@@ -345,39 +439,58 @@ def _mixed_classification_loss(
     weights_b,
     *,
     class_weights,
+    class_priors,
     label_smoothing: float,
     loss_name: str,
     focal_gamma: float,
+    balanced_softmax_tau: float,
+    pairwise_auc_weight: float,
+    pairwise_auc_margin: float,
 ):
     """Blend normal and mixed-label losses for MixUp/CutMix batches."""
     if labels_b is None:
-        return _classification_loss(
+        classification_loss = _classification_loss(
             logits,
             labels_a,
             class_weights=class_weights,
+            class_priors=class_priors,
             sample_weights=weights_a,
             label_smoothing=label_smoothing,
             loss_name=loss_name,
             focal_gamma=focal_gamma,
+            balanced_softmax_tau=balanced_softmax_tau,
         )
+        if pairwise_auc_weight <= 0.0:
+            return classification_loss
+        pairwise_loss = _pairwise_auc_regularizer(
+            logits,
+            labels_a,
+            sample_weights=weights_a,
+            margin=pairwise_auc_margin,
+        )
+        return classification_loss + float(pairwise_auc_weight) * pairwise_loss
 
     loss_a = _classification_loss(
         logits,
         labels_a,
         class_weights=class_weights,
+        class_priors=class_priors,
         sample_weights=weights_a,
         label_smoothing=label_smoothing,
         loss_name=loss_name,
         focal_gamma=focal_gamma,
+        balanced_softmax_tau=balanced_softmax_tau,
     )
     loss_b = _classification_loss(
         logits,
         labels_b,
         class_weights=class_weights,
+        class_priors=class_priors,
         sample_weights=weights_b,
         label_smoothing=label_smoothing,
         loss_name=loss_name,
         focal_gamma=focal_gamma,
+        balanced_softmax_tau=balanced_softmax_tau,
     )
     return float(mix_lambda) * loss_a + (1.0 - float(mix_lambda)) * loss_b
 
@@ -386,16 +499,24 @@ def _train_classifier_epoch(
     model,
     train_loader,
     optimizer,
+    model_ema,
     *,
     device: str,
     class_weights,
+    class_priors,
     sample_weights: dict[str, float],
     label_smoothing: float,
     loss_name: str,
     focal_gamma: float,
+    balanced_softmax_tau: float,
     mixup_alpha: float,
     cutmix_alpha: float,
     mix_probability: float,
+    pairwise_auc_weight: float,
+    pairwise_auc_margin: float,
+    supcon_weight: float,
+    supcon_temperature: float,
+    use_sam: bool,
 ) -> float:
     """Run one classifier epoch with optional sample weights and mix augmentations."""
     model.train()
@@ -422,7 +543,7 @@ def _train_classifier_epoch(
             mix_probability=mix_probability,
         )
         optimizer.zero_grad()
-        logits = model(images)
+        logits, embeddings = _model_logits_and_embedding(model, images, labels_a)
         loss = _mixed_classification_loss(
             logits,
             labels_a,
@@ -431,12 +552,65 @@ def _train_classifier_epoch(
             weights_a,
             weights_b,
             class_weights=class_weights,
+            class_priors=class_priors,
             label_smoothing=label_smoothing,
             loss_name=loss_name,
             focal_gamma=focal_gamma,
+            balanced_softmax_tau=balanced_softmax_tau,
+            pairwise_auc_weight=pairwise_auc_weight,
+            pairwise_auc_margin=pairwise_auc_margin,
         )
+        if (
+            float(supcon_weight) > 0.0
+            and labels_b is None
+            and embeddings is not None
+        ):
+            supcon_loss = _supervised_contrastive_loss(
+                embeddings,
+                labels_a,
+                temperature=float(supcon_temperature),
+            )
+            if supcon_loss is not None:
+                loss = loss + float(supcon_weight) * supcon_loss
         loss.backward()
-        optimizer.step()
+        if bool(use_sam):
+            optimizer.first_step()
+            optimizer.zero_grad()
+            logits_second, embeddings_second = _model_logits_and_embedding(model, images, labels_a)
+            second_loss = _mixed_classification_loss(
+                logits_second,
+                labels_a,
+                labels_b,
+                mix_lambda,
+                weights_a,
+                weights_b,
+                class_weights=class_weights,
+                class_priors=class_priors,
+                label_smoothing=label_smoothing,
+                loss_name=loss_name,
+                focal_gamma=focal_gamma,
+                balanced_softmax_tau=balanced_softmax_tau,
+                pairwise_auc_weight=pairwise_auc_weight,
+                pairwise_auc_margin=pairwise_auc_margin,
+            )
+            if (
+                float(supcon_weight) > 0.0
+                and labels_b is None
+                and embeddings_second is not None
+            ):
+                supcon_loss_second = _supervised_contrastive_loss(
+                    embeddings_second,
+                    labels_a,
+                    temperature=float(supcon_temperature),
+                )
+                if supcon_loss_second is not None:
+                    second_loss = second_loss + float(supcon_weight) * supcon_loss_second
+            second_loss.backward()
+            optimizer.second_step()
+        else:
+            optimizer.step()
+        if model_ema is not None:
+            model_ema.update(model)
         losses.append(float(loss.item()))
     return float(np.mean(losses))
 
@@ -483,6 +657,26 @@ def _snapshot_state_dict(model) -> dict[str, Any]:
         key: value.detach().cpu().clone()
         for key, value in model.state_dict().items()
     }
+
+
+class _ModelEma:
+    """Maintain an exponential moving average of model parameters."""
+
+    def __init__(self, model, *, decay: float) -> None:
+        self.decay = float(decay)
+        self.state_dict = _snapshot_state_dict(model)
+
+    def update(self, model) -> None:
+        """Update EMA weights from the latest model state."""
+        current_state = model.state_dict()
+        decay = float(self.decay)
+        one_minus_decay = 1.0 - decay
+        for key, ema_value in self.state_dict.items():
+            model_value = current_state[key].detach().cpu()
+            if not torch.is_floating_point(model_value):
+                self.state_dict[key] = model_value.clone()
+                continue
+            self.state_dict[key] = ema_value.mul(decay).add(model_value, alpha=one_minus_decay)
 
 
 def _atomic_torch_save(payload: dict[str, Any], destination: Path) -> None:
@@ -637,6 +831,18 @@ def _build_class_weights(train_manifest: pd.DataFrame, training_cfg: dict[str, A
     return class_weights
 
 
+def _build_class_priors(train_manifest: pd.DataFrame, training_cfg: dict[str, Any], *, device: str):
+    """Build empirical class priors for loss functions that correct class-frequency bias."""
+    if str(training_cfg.get("loss", "cross_entropy")).lower() != "balanced_softmax":
+        return None
+    labels = train_manifest["pathology_label"].astype(str).str.lower()
+    benign_count = float((labels == "benign").sum())
+    malignant_count = float((labels == "malignant").sum())
+    counts = torch.tensor([benign_count, malignant_count], dtype=torch.float32)
+    priors = counts / counts.sum().clamp_min(1e-12)
+    return priors.to(device=device)
+
+
 def _write_classifier_training_outputs(
     *,
     config: dict[str, Any],
@@ -655,11 +861,22 @@ def _write_classifier_training_outputs(
     label_smoothing: float,
     loss_name: str,
     focal_gamma: float,
+    balanced_softmax_tau: float,
     mixup_alpha: float,
     cutmix_alpha: float,
     mix_probability: float,
+    pairwise_auc_weight: float,
+    pairwise_auc_margin: float,
+    supcon_weight: float,
+    supcon_temperature: float,
+    use_sam: bool,
+    sam_rho: float,
+    sam_adaptive: bool,
+    use_ema: bool,
+    ema_decay: float,
     sample_weight_path: Path | None,
     sample_weights: dict[str, float],
+    sample_weight_hit_count: int,
     min_specificity: float,
     epoch_reports: list[dict[str, Any]],
     train_manifest: pd.DataFrame,
@@ -686,6 +903,9 @@ def _write_classifier_training_outputs(
         fold=fold,
         device=device,
         checkpoint_path=checkpoint_path,
+        model_config=copy.deepcopy(config.get("model", {})),
+        data_config=copy.deepcopy(config.get("data", {})),
+        experiment=copy.deepcopy(config.get("experiment", {})),
         metrics=metrics,
         best_epoch=best_epoch,
         best_metrics=best_metrics,
@@ -696,11 +916,22 @@ def _write_classifier_training_outputs(
         label_smoothing=label_smoothing,
         loss_name=loss_name,
         focal_gamma=focal_gamma,
+        balanced_softmax_tau=balanced_softmax_tau,
         mixup_alpha=mixup_alpha,
         cutmix_alpha=cutmix_alpha,
         mix_probability=mix_probability,
+        pairwise_auc_weight=pairwise_auc_weight,
+        pairwise_auc_margin=pairwise_auc_margin,
+        supcon_weight=supcon_weight,
+        supcon_temperature=supcon_temperature,
+        use_sam=use_sam,
+        sam_rho=sam_rho,
+        sam_adaptive=sam_adaptive,
+        use_ema=use_ema,
+        ema_decay=ema_decay,
         sample_weight_path=sample_weight_path,
         sample_weights=sample_weights,
+        sample_weight_hit_count=sample_weight_hit_count,
         min_specificity=min_specificity,
         epoch_reports=epoch_reports,
         train_manifest=train_manifest,
@@ -735,6 +966,9 @@ def _classifier_training_report(
     fold: int,
     device: str,
     checkpoint_path: Path,
+    model_config: dict[str, Any],
+    data_config: dict[str, Any],
+    experiment: dict[str, Any],
     metrics: dict[str, Any],
     best_epoch: int,
     best_metrics: dict[str, Any] | None,
@@ -745,11 +979,22 @@ def _classifier_training_report(
     label_smoothing: float,
     loss_name: str,
     focal_gamma: float,
+    balanced_softmax_tau: float,
     mixup_alpha: float,
     cutmix_alpha: float,
     mix_probability: float,
+    pairwise_auc_weight: float,
+    pairwise_auc_margin: float,
+    supcon_weight: float,
+    supcon_temperature: float,
+    use_sam: bool,
+    sam_rho: float,
+    sam_adaptive: bool,
+    use_ema: bool,
+    ema_decay: float,
     sample_weight_path: Path | None,
     sample_weights: dict[str, float],
+    sample_weight_hit_count: int,
     min_specificity: float,
     epoch_reports: list[dict[str, Any]],
     train_manifest: pd.DataFrame,
@@ -760,6 +1005,9 @@ def _classifier_training_report(
         "fold": fold,
         "device": device,
         "checkpoint_path": str(checkpoint_path),
+        "model_config": model_config,
+        "data_config": data_config,
+        "experiment": experiment,
         "metrics": metrics,
         "best_epoch": best_epoch,
         "best_metrics": best_metrics,
@@ -770,11 +1018,22 @@ def _classifier_training_report(
         "label_smoothing": label_smoothing,
         "loss": loss_name,
         "focal_gamma": focal_gamma if loss_name == "focal" else None,
+        "balanced_softmax_tau": balanced_softmax_tau if loss_name == "balanced_softmax" else None,
         "mixup_alpha": mixup_alpha,
         "cutmix_alpha": cutmix_alpha,
         "mix_probability": mix_probability,
+        "pairwise_auc_weight": pairwise_auc_weight,
+        "pairwise_auc_margin": pairwise_auc_margin,
+        "supcon_weight": supcon_weight,
+        "supcon_temperature": supcon_temperature if supcon_weight > 0.0 else None,
+        "optimizer": "sam" if use_sam else "adamw",
+        "sam_rho": sam_rho if use_sam else None,
+        "sam_adaptive": sam_adaptive if use_sam else None,
+        "use_ema": use_ema,
+        "ema_decay": ema_decay if use_ema else None,
         "sample_weight_path": str(sample_weight_path) if sample_weight_path is not None else None,
         "sample_weight_count": len(sample_weights),
+        "sample_weight_hit_count": int(sample_weight_hit_count),
         "min_specificity": min_specificity,
         "epoch_reports": epoch_reports,
         "train_size": int(len(train_manifest)),
@@ -793,12 +1052,23 @@ class _TrainingLoopConfig:
     sensitivity_weight: float
     min_specificity: float
     class_weights: Any
+    class_priors: Any
     label_smoothing: float
     loss_name: str
     focal_gamma: float
+    balanced_softmax_tau: float
     mixup_alpha: float
     cutmix_alpha: float
     mix_probability: float
+    pairwise_auc_weight: float
+    pairwise_auc_margin: float
+    supcon_weight: float
+    supcon_temperature: float
+    use_sam: bool
+    sam_rho: float
+    sam_adaptive: bool
+    use_ema: bool
+    ema_decay: float
     sample_weights: dict[str, float]
 
 
@@ -810,6 +1080,7 @@ class _TrainingLoopResult:
     best_epoch: int
     best_metrics: dict[str, Any] | None
     epoch_reports: list[dict[str, Any]]
+    best_source: str
 
 
 @dataclasses.dataclass(slots=True)
@@ -825,17 +1096,30 @@ class _PreparedTrainingRun:
     class_weights: Any
     sample_weight_path: Path | None
     sample_weights: dict[str, float]
+    sample_weight_hit_count: int
     loop_config: _TrainingLoopConfig
     base_learning_rate: float
     optimizer: Any
+    model_ema: Any
 
 
 def _build_classifier_optimizer(model, training_cfg: dict[str, Any], *, learning_rate: float):
     """Build the AdamW optimizer used by classifier training."""
+    optimizer_name = str(training_cfg.get("optimizer", "adamw")).lower()
+    weight_decay = float(training_cfg.get("weight_decay", 1e-4))
+    if optimizer_name == "sam":
+        return _SAMOptimizer(
+            model.parameters(),
+            optim.AdamW,
+            rho=float(training_cfg.get("sam_rho", 0.05)),
+            adaptive=bool(training_cfg.get("sam_adaptive", False)),
+            lr=learning_rate,
+            weight_decay=weight_decay,
+        )
     return optim.AdamW(
         model.parameters(),
         lr=learning_rate,
-        weight_decay=float(training_cfg.get("weight_decay", 1e-4)),
+        weight_decay=weight_decay,
     )
 
 
@@ -844,6 +1128,7 @@ def _build_training_loop_config(
     training_cfg: dict[str, Any],
     epochs_override: int | None,
     class_weights,
+    class_priors,
     sample_weights: dict[str, float],
 ) -> _TrainingLoopConfig:
     """Normalize training config values needed inside the epoch loop."""
@@ -855,12 +1140,23 @@ def _build_training_loop_config(
         sensitivity_weight=float(training_cfg.get("sensitivity_weight", 0.0)),
         min_specificity=float(training_cfg.get("min_specificity", 0.0)),
         class_weights=class_weights,
+        class_priors=class_priors,
         label_smoothing=float(training_cfg.get("label_smoothing", 0.0)),
         loss_name=str(training_cfg.get("loss", "cross_entropy")).lower(),
         focal_gamma=float(training_cfg.get("focal_gamma", 2.0)),
+        balanced_softmax_tau=float(training_cfg.get("balanced_softmax_tau", 1.0)),
         mixup_alpha=float(training_cfg.get("mixup_alpha", 0.0)),
         cutmix_alpha=float(training_cfg.get("cutmix_alpha", 0.0)),
         mix_probability=float(training_cfg.get("mix_probability", 0.0)),
+        pairwise_auc_weight=float(training_cfg.get("pairwise_auc_weight", 0.0)),
+        pairwise_auc_margin=float(training_cfg.get("pairwise_auc_margin", 0.0)),
+        supcon_weight=float(training_cfg.get("supcon_weight", 0.0)),
+        supcon_temperature=float(training_cfg.get("supcon_temperature", 0.07)),
+        use_sam=str(training_cfg.get("optimizer", "adamw")).lower() == "sam",
+        sam_rho=float(training_cfg.get("sam_rho", 0.05)),
+        sam_adaptive=bool(training_cfg.get("sam_adaptive", False)),
+        use_ema=bool(training_cfg.get("use_ema", False)),
+        ema_decay=float(training_cfg.get("ema_decay", 0.9998)),
         sample_weights=sample_weights,
     )
 
@@ -910,17 +1206,25 @@ def _prepare_classifier_training_run(
         learning_rate=base_learning_rate,
     )
     class_weights = _build_class_weights(train_manifest, training_cfg, device=device)
+    class_priors = _build_class_priors(train_manifest, training_cfg, device=device)
     sample_weight_path = _resolve_sample_weight_path(paths, training_cfg)
     sample_weights = _load_sample_weights(
         sample_weight_path,
         weight_column=str(training_cfg.get("sample_weight_column", "sample_weight")),
     )
+    sample_weight_hit_count = _count_sample_weight_hits(train_manifest, sample_weights)
+    if sample_weight_path is not None and sample_weights and sample_weight_hit_count <= 0:
+        raise ValueError(
+            f"Sample weight file {sample_weight_path} does not match any training samples for fold {fold}."
+        )
     loop_config = _build_training_loop_config(
         training_cfg=training_cfg,
         epochs_override=epochs_override,
         class_weights=class_weights,
+        class_priors=class_priors,
         sample_weights=sample_weights,
     )
+    model_ema = _ModelEma(model, decay=loop_config.ema_decay) if loop_config.use_ema else None
     return _PreparedTrainingRun(
         model=model,
         train_loader=train_loader,
@@ -931,9 +1235,11 @@ def _prepare_classifier_training_run(
         class_weights=class_weights,
         sample_weight_path=sample_weight_path,
         sample_weights=sample_weights,
+        sample_weight_hit_count=sample_weight_hit_count,
         loop_config=loop_config,
         base_learning_rate=base_learning_rate,
         optimizer=optimizer,
+        model_ema=model_ema,
     )
 
 
@@ -947,6 +1253,7 @@ def _run_training_loop(
     fold: int,
     loop_config: _TrainingLoopConfig,
     base_learning_rate: float,
+    model_ema,
     logger,
 ) -> _TrainingLoopResult:
     """Train epochs and return the selected checkpoint candidate plus reports."""
@@ -956,6 +1263,7 @@ def _run_training_loop(
     best_epoch = 0
     best_score = float("-inf")
     epoch_reports: list[dict[str, Any]] = []
+    best_source = "model"
 
     for epoch in range(cfg.epochs):
         current_lr = _lr_for_epoch(
@@ -969,15 +1277,23 @@ def _run_training_loop(
             model,
             train_loader,
             optimizer,
+            model_ema,
             device=device,
             class_weights=cfg.class_weights,
+            class_priors=cfg.class_priors,
             sample_weights=cfg.sample_weights,
             label_smoothing=cfg.label_smoothing,
             loss_name=cfg.loss_name,
             focal_gamma=cfg.focal_gamma,
+            balanced_softmax_tau=cfg.balanced_softmax_tau,
             mixup_alpha=cfg.mixup_alpha,
             cutmix_alpha=cfg.cutmix_alpha,
             mix_probability=cfg.mix_probability,
+            pairwise_auc_weight=cfg.pairwise_auc_weight,
+            pairwise_auc_margin=cfg.pairwise_auc_margin,
+            supcon_weight=cfg.supcon_weight,
+            supcon_temperature=cfg.supcon_temperature,
+            use_sam=cfg.use_sam,
         )
         val_y_true, val_malignant_probabilities = _collect_validation_probabilities(
             model, val_loader, device,
@@ -998,6 +1314,36 @@ def _run_training_loop(
             best_epoch = epoch + 1
             best_metrics = score_metrics
             best_state_dict = _snapshot_state_dict(model)
+            best_source = "model"
+        ema_epoch_metrics = None
+        ema_score_metrics = None
+        ema_score = None
+        if model_ema is not None:
+            original_state = _snapshot_state_dict(model)
+            model.load_state_dict(model_ema.state_dict)
+            ema_y_true, ema_malignant_probabilities = _collect_validation_probabilities(
+                model, val_loader, device,
+            )
+            ema_epoch_metrics = classification_metrics(ema_y_true, ema_malignant_probabilities)
+            ema_score_metrics, ema_score = _score_checkpoint_candidate(
+                epoch_metrics=ema_epoch_metrics,
+                y_true=ema_y_true,
+                malignant_probabilities=ema_malignant_probabilities,
+                checkpoint_strategy=cfg.checkpoint_strategy,
+                selection_threshold=cfg.selection_threshold,
+                sensitivity_weight=cfg.sensitivity_weight,
+                min_specificity=cfg.min_specificity,
+            )
+            model.load_state_dict(original_state)
+            if float(ema_score) > best_score:
+                best_score = float(ema_score)
+                best_epoch = epoch + 1
+                best_metrics = ema_score_metrics
+                best_state_dict = {
+                    key: value.clone()
+                    for key, value in model_ema.state_dict.items()
+                }
+                best_source = "ema"
         epoch_reports.append({
             "epoch": epoch + 1,
             "learning_rate": current_lr,
@@ -1005,21 +1351,31 @@ def _run_training_loop(
             "metrics": epoch_metrics,
             "score_metrics": score_metrics,
             "selection_score": score,
+            "ema_metrics": ema_epoch_metrics,
+            "ema_score_metrics": ema_score_metrics,
+            "ema_selection_score": ema_score,
         })
         logger.info(
-            "fold=%s epoch=%s loss=%.4f auc=%.4f sens=%.4f score=%.4f",
+            "fold=%s epoch=%s loss=%.4f auc=%.4f sens=%.4f score=%.4f%s",
             fold,
             epoch + 1,
             mean_loss,
             float(epoch_metrics.get("auc") or 0.0),
             float(score_metrics.get("sensitivity", 0.0)),
             score,
+            (
+                f" ema_auc={float((ema_epoch_metrics or {}).get('auc') or 0.0):.4f}"
+                f" ema_score={float(ema_score or 0.0):.4f}"
+                if model_ema is not None
+                else ""
+            ),
         )
     return _TrainingLoopResult(
         best_state_dict=best_state_dict,
         best_epoch=best_epoch,
         best_metrics=best_metrics,
         epoch_reports=epoch_reports,
+        best_source=best_source,
     )
 
 
@@ -1074,11 +1430,22 @@ def _finish_classifier_training_run(
         label_smoothing=prepared.loop_config.label_smoothing,
         loss_name=prepared.loop_config.loss_name,
         focal_gamma=prepared.loop_config.focal_gamma,
+        balanced_softmax_tau=prepared.loop_config.balanced_softmax_tau,
         mixup_alpha=prepared.loop_config.mixup_alpha,
         cutmix_alpha=prepared.loop_config.cutmix_alpha,
         mix_probability=prepared.loop_config.mix_probability,
+        pairwise_auc_weight=prepared.loop_config.pairwise_auc_weight,
+        pairwise_auc_margin=prepared.loop_config.pairwise_auc_margin,
+        supcon_weight=prepared.loop_config.supcon_weight,
+        supcon_temperature=prepared.loop_config.supcon_temperature,
+        use_sam=prepared.loop_config.use_sam,
+        sam_rho=prepared.loop_config.sam_rho,
+        sam_adaptive=prepared.loop_config.sam_adaptive,
+        use_ema=prepared.loop_config.use_ema,
+        ema_decay=prepared.loop_config.ema_decay,
         sample_weight_path=prepared.sample_weight_path,
         sample_weights=prepared.sample_weights,
+        sample_weight_hit_count=prepared.sample_weight_hit_count,
         min_specificity=prepared.loop_config.min_specificity,
         epoch_reports=loop_result.epoch_reports,
         train_manifest=prepared.train_manifest,
@@ -1120,6 +1487,7 @@ def run_classifier_training(
         fold=fold,
         loop_config=prepared.loop_config,
         base_learning_rate=prepared.base_learning_rate,
+        model_ema=prepared.model_ema,
         logger=logger,
     )
     return _finish_classifier_training_run(
@@ -1131,3 +1499,60 @@ def run_classifier_training(
         prepared=prepared,
         loop_result=loop_result,
     )
+class _SAMOptimizer:
+    """Minimal SAM wrapper around a base optimizer for classification experiments."""
+
+    def __init__(self, params, base_optimizer_cls, *, rho: float, adaptive: bool = False, **kwargs) -> None:
+        self.param_groups = []
+        self.base_optimizer = base_optimizer_cls(params, **kwargs)
+        self.param_groups = self.base_optimizer.param_groups
+        self.rho = float(rho)
+        self.adaptive = bool(adaptive)
+        self._cached_perturbations: list[tuple[Any, Any]] = []
+
+    def zero_grad(self) -> None:
+        """Delegate gradient clearing to the wrapped optimizer."""
+        self.base_optimizer.zero_grad()
+
+    def first_step(self) -> None:
+        """Perturb parameters toward the local sharpness ascent direction."""
+        require_dependency("torch", torch)
+        grad_norm = self._grad_norm()
+        scale = self.rho / (float(grad_norm.item()) + 1e-12)
+        self._cached_perturbations = []
+        with torch.no_grad():
+            for group in self.param_groups:
+                for param in group["params"]:
+                    if param.grad is None:
+                        continue
+                    if self.adaptive:
+                        e_w = (param.pow(2) * param.grad) * scale
+                    else:
+                        e_w = param.grad * scale
+                    param.add_(e_w)
+                    self._cached_perturbations.append((param, e_w))
+
+    def second_step(self) -> None:
+        """Restore parameters and apply the wrapped optimizer update."""
+        with torch.no_grad():
+            for param, e_w in self._cached_perturbations:
+                param.sub_(e_w)
+        self.base_optimizer.step()
+        self._cached_perturbations = []
+
+    def _grad_norm(self):
+        """Return the global L2 norm over all parameter gradients."""
+        require_dependency("torch", torch)
+        shared_device = self.param_groups[0]["params"][0].device
+        norms = []
+        for group in self.param_groups:
+            for param in group["params"]:
+                if param.grad is None:
+                    continue
+                grad = param.grad
+                if self.adaptive:
+                    grad = grad * param.abs()
+                norms.append(torch.norm(grad, p=2).to(shared_device))
+        if not norms:
+            return torch.tensor(0.0, device=shared_device)
+        return torch.norm(torch.stack(norms), p=2)

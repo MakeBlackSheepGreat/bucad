@@ -44,16 +44,29 @@ class ClassifierEnsemble:
     def resolved_classifier_member_configs(self) -> list[dict[str, Any]]:
         """Return the configured ensemble member dicts, falling back to single-checkpoint mode."""
         members = self.runtime_config.classifier_member_dicts()
-        if members:
-            return members
-        return [
-            {
-                "model": str(self.runtime_config.get("classifier_model", "resnet18")),
-                "checkpoint": checkpoint,
-                "weight": 1.0,
-            }
-            for checkpoint in self.resolved_classifier_checkpoints()
-        ]
+        if not members:
+            members = [
+                {
+                    "model": str(self.runtime_config.get("classifier_model", "resnet18")),
+                    "checkpoint": checkpoint,
+                    "weight": 1.0,
+                }
+                for checkpoint in self.resolved_classifier_checkpoints()
+            ]
+        top_level_model_kwargs = self.runtime_config.get("classifier_model_kwargs", None)
+        resolved_members = []
+        for member in members:
+            resolved_member = dict(member)
+            model_kwargs: dict[str, Any] = {}
+            if isinstance(top_level_model_kwargs, dict):
+                model_kwargs.update(top_level_model_kwargs)
+            member_model_kwargs = resolved_member.get("model_kwargs")
+            if isinstance(member_model_kwargs, dict):
+                model_kwargs.update(member_model_kwargs)
+            if model_kwargs:
+                resolved_member["model_kwargs"] = model_kwargs
+            resolved_members.append(resolved_member)
+        return resolved_members
 
     def resolved_classifier_checkpoints(self) -> list[str]:
         """Return the resolved checkpoint path list from config or project defaults."""
@@ -128,7 +141,7 @@ class ClassifierEnsemble:
 
     def _model_config_for_member(self, member: dict[str, Any]) -> dict[str, Any]:
         """Build the model constructor dict for a single ensemble member."""
-        return {
+        model_config = {
             "name": member["model"],
             "pretrained": bool(
                 self.member_config_value(
@@ -141,6 +154,16 @@ class ClassifierEnsemble:
             "in_chans": 3,
             "num_classes": 2,
         }
+        top_level_model_kwargs = self.runtime_config.get("classifier_model_kwargs", None)
+        model_kwargs: dict[str, Any] = {}
+        if isinstance(top_level_model_kwargs, dict):
+            model_kwargs.update(top_level_model_kwargs)
+        member_model_kwargs = member.get("model_kwargs")
+        if isinstance(member_model_kwargs, dict):
+            model_kwargs.update(member_model_kwargs)
+        if model_kwargs:
+            model_config["model_kwargs"] = model_kwargs
+        return model_config
 
     def _ensure_classifier_members_loaded(self, member_configs: list[dict[str, Any]]) -> None:
         """Lazy-load all member checkpoints once, caching models and metadata."""

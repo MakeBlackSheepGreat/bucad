@@ -1,0 +1,51 @@
+{
+  "date": "2026-06-19",
+  "experiment_family": "sonoglore_oof_fn_reweight_followup",
+  "reference": {
+    "name": "sonoglore_convnext_tiny_grn_eca_asymproj_posw17",
+    "fold1_internal_auc": 0.9173848247262361,
+    "fold1_busi_auc": 0.9046256946714613,
+    "oof_auc": 0.8944373996330923,
+    "notes": "current strongest external single-model SonoGloReNet reference"
+  },
+  "candidates": [
+    {
+      "name": "posw17_fnonly_mild",
+      "sample_weight_path": "artifacts/reports/generated/sonoglore_posw17_oof_sample_weights_fnonly_mild.csv",
+      "sample_weight_count": 1875,
+      "sample_weight_hit_count_fold1_train": 109,
+      "weighted_count_total": 133,
+      "fold1_internal_auc": 0.9082809563921467,
+      "fold1_internal_sensitivity": 0.7377049180327869,
+      "fold1_internal_specificity": 0.8814229249011858,
+      "fold1_busi_auc": 0.8989157676800696,
+      "fold1_busi_sensitivity": 0.7333333333333333,
+      "fold1_busi_specificity": 0.88558352402746,
+      "delta_internal_auc_vs_ref": -0.0091038683340894,
+      "delta_busi_auc_vs_ref": -0.0057099269913917,
+      "decision": "reject"
+    },
+    {
+      "name": "posw17_fnextreme",
+      "sample_weight_path": "artifacts/reports/generated/sonoglore_posw17_oof_sample_weights_fnextreme.csv",
+      "sample_weight_count": 1875,
+      "sample_weight_hit_count_fold1_train": 84,
+      "weighted_count_total": 100,
+      "fold1_internal_auc": 0.9058510982958595,
+      "fold1_internal_sensitivity": 0.7950819672131147,
+      "fold1_internal_specificity": 0.8537549407114624,
+      "fold1_busi_auc": 0.8882151029748283,
+      "fold1_busi_sensitivity": 0.7523809523809524,
+      "fold1_busi_specificity": 0.88558352402746,
+      "delta_internal_auc_vs_ref": -0.0115337264303766,
+      "delta_busi_auc_vs_ref": -0.016410591696633,
+      "decision": "reject"
+    }
+  ],
+  "diagnosis": {
+    "initial_bug_found": "Earlier fold1-only weight CSV covered validation samples only, so fold1 training had zero overlap with weighted samples.",
+    "fix": "Added OOF-wide weight builder and train-side sample_weight_hit_count guard; training now fails if configured sample weights hit zero train samples.",
+    "interpretation": "OOF malignant-FN reweighting worsened internal ranking and did not preserve external BUSI AUC. The main issue is still benign false-positive inflation and calibration/generalization, not simple malignant hard-case underweighting."
+  },
+  "next_recommendation": "Stop this FN-only weighting line. Prioritize calibration / threshold-shape / benign-FP suppression directions."
+}

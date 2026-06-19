@@ -1,0 +1,2275 @@
+{
+  "method": "SonoGloReNet ablation matrix",
+  "date": "2026-06-19",
+  "seed": 42,
+  "fold": 1,
+  "dry_run": false,
+  "data_boundary": {
+    "training": "BUSBRA only",
+    "internal_validation": "BUSBRA fold validation only",
+    "external_evaluation": "BUSI only",
+    "busi_used_for_training": false
+  },
+  "paths": {
+    "base_config": "configs\\classifier\\sonoglore_convnext_tiny.yml",
+    "base_inference_config": "configs\\inference\\sonoglore_convnext_tiny_fold1.yml",
+    "baseline_inference_config": "configs\\inference\\convnext_tiny_timm_recipe_fold1.yml",
+    "baseline_5fold_report": "artifacts\\reports\\busi_convnext_tiny_timm_recipe_5fold.json"
+  },
+  "references": [
+    {
+      "candidate_id": "B0",
+      "candidate_name": "convnext_tiny_timm_recipe_fold1",
+      "role": "baseline_reference",
+      "model_name": "convnext_tiny",
+      "variant_name": "baseline_fold1",
+      "train_report": "C:\\Users\\876762330\\Desktop\\projects\\Agent\\artifacts\\reports\\train_cls_convnext_tiny_timm_recipe_fold1.json",
+      "busi_report": "C:\\Users\\876762330\\Desktop\\projects\\Agent\\artifacts\\reports\\busi_convnext_tiny_timm_recipe_fold1.json",
+      "config_path": "configs/classifier/convnext_tiny_timm_recipe.yml",
+      "inference_config": "configs/inference/convnext_tiny_timm_recipe_fold1.yml",
+      "train_source": "reused",
+      "busi_source": "reused",
+      "eligible_for_promotion": false,
+      "checkpoint_path": "C:\\Users\\876762330\\Desktop\\Agent\\artifacts\\checkpoints\\convnext_tiny_timm_recipe_fold1.pt",
+      "train_metrics": {
+        "auc": 0.9259379252251668,
+        "threshold": 0.5,
+        "sensitivity": 0.7213114754098361,
+        "specificity": 0.932806324110672,
+        "accuracy": 0.864,
+        "confusion": {
+          "tn": 236,
+          "fp": 17,
+          "fn": 34,
+          "tp": 88
+        },
+        "balanced_accuracy": 0.827058899760254,
+        "f1_score": 0.0,
+        "precision": 0.0
+      },
+      "busi_metrics": {
+        "auc": 0.8925847226762558,
+        "threshold": 0.5,
+        "sensitivity": 0.7761904761904762,
+        "recall": 0.7761904761904762,
+        "precision": 0.740909090909091,
+        "specificity": 0.8695652173913043,
+        "accuracy": 0.839258114374034,
+        "f1_score": 0.7581395348837209,
+        "confusion": {
+          "tn": 380,
+          "fp": 57,
+          "fn": 47,
+          "tp": 163
+        },
+        "balanced_accuracy": 0.8228778467908903
+      }
+    },
+    {
+      "candidate_id": "R0",
+      "candidate_name": "sonoglore_convnext_tiny_fold1",
+      "role": "reference_sonoglore",
+      "model_name": "sonoglore_convnext_tiny",
+      "variant_name": "reference_fold1",
+      "train_report": "C:\\Users\\876762330\\Desktop\\projects\\Agent\\artifacts\\reports\\train_cls_sonoglore_convnext_tiny_fold1.json",
+      "busi_report": "C:\\Users\\876762330\\Desktop\\projects\\Agent\\artifacts\\reports\\busi_sonoglore_convnext_tiny_fold1.json",
+      "config_path": "configs/classifier/sonoglore_convnext_tiny.yml",
+      "inference_config": "configs/inference/sonoglore_convnext_tiny_fold1.yml",
+      "train_source": "reused",
+      "busi_source": "reused",
+      "eligible_for_promotion": false,
+      "checkpoint_path": "C:\\Users\\876762330\\Desktop\\projects\\Agent\\artifacts\\checkpoints\\sonoglore_convnext_tiny_fold1.pt",
+      "train_metrics": {
+        "auc": 0.9095768807101666,
+        "threshold": 0.5,
+        "sensitivity": 0.7295081967213115,
+        "recall": 0.7295081967213115,
+        "precision": 0.7807017543859649,
+        "specificity": 0.9011857707509882,
+        "accuracy": 0.8453333333333334,
+        "f1_score": 0.7542372881355933,
+        "confusion": {
+          "tn": 228,
+          "fp": 25,
+          "fn": 33,
+          "tp": 89
+        },
+        "balanced_accuracy": 0.8153469837361498
+      },
+      "busi_metrics": {
+        "auc": 0.8781682467037157,
+        "threshold": 0.5,
+        "sensitivity": 0.8047619047619048,
+        "recall": 0.8047619047619048,
+        "precision": 0.6550387596899225,
+        "specificity": 0.7963386727688787,
+        "accuracy": 0.7990726429675425,
+        "f1_score": 0.7222222222222223,
+        "confusion": {
+          "tn": 348,
+          "fp": 89,
+          "fn": 41,
+          "tp": 169
+        },
+        "balanced_accuracy": 0.8005502887653917
+      }
+    },
+    {
+      "candidate_id": "R1",
+      "candidate_name": "sonoglore_convnext_tiny_relu_fold1",
+      "role": "appendix_failed_relu",
+      "model_name": "sonoglore_convnext_tiny",
+      "variant_name": "relu_reference_fold1",
+      "train_report": "C:\\Users\\876762330\\Desktop\\projects\\Agent\\artifacts\\reports\\train_cls_sonoglore_convnext_tiny_relu_fold1.json",
+      "busi_report": "C:\\Users\\876762330\\Desktop\\projects\\Agent\\artifacts\\reports\\busi_sonoglore_convnext_tiny_relu_fold1.json",
+      "config_path": "configs/classifier/sonoglore_convnext_tiny_relu.yml",
+      "inference_config": "configs/inference/sonoglore_convnext_tiny_relu_fold1.yml",
+      "train_source": "reused",
+      "busi_source": "reused",
+      "eligible_for_promotion": false,
+      "checkpoint_path": "C:\\Users\\876762330\\Desktop\\projects\\Agent\\artifacts\\checkpoints\\sonoglore_convnext_tiny_relu_fold1.pt",
+      "train_metrics": {
+        "auc": 0.9067906434264239,
+        "threshold": 0.5,
+        "sensitivity": 0.8360655737704918,
+        "recall": 0.8360655737704918,
+        "precision": 0.6938775510204082,
+        "specificity": 0.8221343873517787,
+        "accuracy": 0.8266666666666667,
+        "f1_score": 0.7583643122676579,
+        "confusion": {
+          "tn": 208,
+          "fp": 45,
+          "fn": 20,
+          "tp": 102
+        },
+        "balanced_accuracy": 0.8290999805611352
+      },
+      "busi_metrics": {
+        "auc": 0.5710635283861828,
+        "threshold": 0.5,
+        "sensitivity": 0.06666666666666667,
+        "recall": 0.06666666666666667,
+        "precision": 0.5,
+        "specificity": 0.9679633867276888,
+        "accuracy": 0.6754250386398764,
+        "f1_score": 0.11764705882352941,
+        "confusion": {
+          "tn": 423,
+          "fp": 14,
+          "fn": 196,
+          "tp": 14
+        },
+        "balanced_accuracy": 0.5173150266971778
+      }
+    }
+  ],
+  "stage1_structure_rows": [
+    {
+      "candidate_group": "structure",
+      "candidate_id": "S1",
+      "candidate_name": "ms_noattn",
+      "fold": 1,
+      "config_path": "C:\\Users\\876762~1\\AppData\\Local\\Temp\\sonoglore_ablation_matrix\\ms_noattn_fold1.yml",
+      "inference_config": "C:\\Users\\876762~1\\AppData\\Local\\Temp\\sonoglore_ablation_matrix\\ms_noattn_fold1_inference.yml",
+      "checkpoint_path": "C:\\Users\\876762330\\Desktop\\projects\\Agent\\artifacts\\checkpoints\\ms_noattn_fold1.pt",
+      "train_report": "C:\\Users\\876762330\\Desktop\\projects\\Agent\\artifacts\\reports\\train_cls_ms_noattn_fold1.json",
+      "busi_report": "C:\\Users\\876762330\\Desktop\\projects\\Agent\\artifacts\\reports\\generated\\busi_ms_noattn_fold1.json",
+      "train_source": "reused",
+      "busi_source": "reused",
+      "eligible_for_promotion": true,
+      "model_config": {
+        "name": "sonoglore_convnext_tiny",
+        "pretrained": true,
+        "in_chans": 3,
+        "num_classes": 2,
+        "proj_dim": 256,
+        "attn_heads": 4,
+        "attn_mlp_ratio": 2.0,
+        "head_hidden_dim": 256,
+        "attn_dropout": 0.1,
+        "head_dropout": 0.2,
+        "active_stage_indices": [
+          2,
+          3,
+          4
+        ],
+        "use_stage4_attention": false
+      },
+      "model_overrides": {
+        "active_stage_indices": [
+          2,
+          3,
+          4
+        ],
+        "use_stage4_attention": false
+      },
+      "training_overrides": {},
+      "data_overrides": {},
+      "train_metrics": {
+        "auc": 0.9106136201645824,
+        "threshold": 0.5,
+        "sensitivity": 0.7868852459016393,
+        "recall": 0.7868852459016393,
+        "precision": 0.7933884297520661,
+        "specificity": 0.9011857707509882,
+        "accuracy": 0.864,
+        "f1_score": 0.7901234567901234,
+        "confusion": {
+          "tn": 228,
+          "fp": 25,
+          "fn": 26,
+          "tp": 96
+        },
+        "balanced_accuracy": 0.8440355083263138
+      },
+      "busi_metrics": {
+        "auc": 0.8809142421270567,
+        "threshold": 0.5,
+        "sensitivity": 0.7952380952380952,
+        "recall": 0.7952380952380952,
+        "precision": 0.7046413502109705,
+        "specificity": 0.8398169336384439,
+        "accuracy": 0.8253477588871716,
+        "f1_score": 0.7472035794183446,
+        "confusion": {
+          "tn": 367,
+          "fp": 70,
+          "fn": 43,
+          "tp": 167
+        },
+        "balanced_accuracy": 0.8175275144382695
+      }
+    },
+    {
+      "candidate_group": "structure",
+      "candidate_id": "S2",
+      "candidate_name": "stage4_only",
+      "fold": 1,
+      "config_path": "C:\\Users\\876762~1\\AppData\\Local\\Temp\\sonoglore_ablation_matrix\\stage4_only_fold1.yml",
+      "inference_config": "C:\\Users\\876762~1\\AppData\\Local\\Temp\\sonoglore_ablation_matrix\\stage4_only_fold1_inference.yml",
+      "checkpoint_path": "C:\\Users\\876762330\\Desktop\\projects\\Agent\\artifacts\\checkpoints\\stage4_only_fold1.pt",
+      "train_report": "C:\\Users\\876762330\\Desktop\\projects\\Agent\\artifacts\\reports\\train_cls_stage4_only_fold1.json",
+      "busi_report": "C:\\Users\\876762330\\Desktop\\projects\\Agent\\artifacts\\reports\\generated\\busi_stage4_only_fold1.json",
+      "train_source": "reused",
+      "busi_source": "reused",
+      "eligible_for_promotion": true,
+      "model_config": {
+        "name": "sonoglore_convnext_tiny",
+        "pretrained": true,
+        "in_chans": 3,
+        "num_classes": 2,
+        "proj_dim": 256,
+        "attn_heads": 4,
+        "attn_mlp_ratio": 2.0,
+        "head_hidden_dim": 256,
+        "attn_dropout": 0.1,
+        "head_dropout": 0.2,
+        "active_stage_indices": [
+          4
+        ],
+        "use_stage4_attention": false
+      },
+      "model_overrides": {
+        "active_stage_indices": [
+          4
+        ],
+        "use_stage4_attention": false
+      },
+      "training_overrides": {},
+      "data_overrides": {},
+      "train_metrics": {
+        "auc": 0.9080865677444436,
+        "threshold": 0.5,
+        "sensitivity": 0.7622950819672131,
+        "recall": 0.7622950819672131,
+        "precision": 0.7560975609756098,
+        "specificity": 0.8814229249011858,
+        "accuracy": 0.8426666666666667,
+        "f1_score": 0.7591836734693876,
+        "confusion": {
+          "tn": 223,
+          "fp": 30,
+          "fn": 29,
+          "tp": 93
+        },
+        "balanced_accuracy": 0.8218590034341995
+      },
+      "busi_metrics": {
+        "auc": 0.8827231121281465,
+        "threshold": 0.5,
+        "sensitivity": 0.7952380952380952,
+        "recall": 0.7952380952380952,
+        "precision": 0.6872427983539094,
+        "specificity": 0.8260869565217391,
+        "accuracy": 0.8160741885625966,
+        "f1_score": 0.7373068432671082,
+        "confusion": {
+          "tn": 361,
+          "fp": 76,
+          "fn": 43,
+          "tp": 167
+        },
+        "balanced_accuracy": 0.8106625258799172
+      }
+    },
+    {
+      "candidate_group": "structure",
+      "candidate_id": "S3",
+      "candidate_name": "stage34_noattn",
+      "fold": 1,
+      "config_path": "C:\\Users\\876762~1\\AppData\\Local\\Temp\\sonoglore_ablation_matrix\\stage34_noattn_fold1.yml",
+      "inference_config": "C:\\Users\\876762~1\\AppData\\Local\\Temp\\sonoglore_ablation_matrix\\stage34_noattn_fold1_inference.yml",
+      "checkpoint_path": "C:\\Users\\876762330\\Desktop\\projects\\Agent\\artifacts\\checkpoints\\stage34_noattn_fold1.pt",
+      "train_report": "C:\\Users\\876762330\\Desktop\\projects\\Agent\\artifacts\\reports\\train_cls_stage34_noattn_fold1.json",
+      "busi_report": "C:\\Users\\876762330\\Desktop\\projects\\Agent\\artifacts\\reports\\generated\\busi_stage34_noattn_fold1.json",
+      "train_source": "reused",
+      "busi_source": "reused",
+      "eligible_for_promotion": true,
+      "model_config": {
+        "name": "sonoglore_convnext_tiny",
+        "pretrained": true,
+        "in_chans": 3,
+        "num_classes": 2,
+        "proj_dim": 256,
+        "attn_heads": 4,
+        "attn_mlp_ratio": 2.0,
+        "head_hidden_dim": 256,
+        "attn_dropout": 0.1,
+        "head_dropout": 0.2,
+        "active_stage_indices": [
+          3,
+          4
+        ],
+        "use_stage4_attention": false
+      },
+      "model_overrides": {
+        "active_stage_indices": [
+          3,
+          4
+        ],
+        "use_stage4_attention": false
+      },
+      "training_overrides": {},
+      "data_overrides": {},
+      "train_metrics": {
+        "auc": 0.910192444761226,
+        "threshold": 0.5,
+        "sensitivity": 0.8442622950819673,
+        "recall": 0.8442622950819673,
+        "precision": 0.7103448275862069,
+        "specificity": 0.83399209486166,
+        "accuracy": 0.8373333333333334,
+        "f1_score": 0.7715355805243446,
+        "confusion": {
+          "tn": 211,
+          "fp": 42,
+          "fn": 19,
+          "tp": 103
+        },
+        "balanced_accuracy": 0.8391271949718137
+      },
+      "busi_metrics": {
+        "auc": 0.8754385964912279,
+        "threshold": 0.5,
+        "sensitivity": 0.7761904761904762,
+        "recall": 0.7761904761904762,
+        "precision": 0.649402390438247,
+        "specificity": 0.7986270022883295,
+        "accuracy": 0.7913446676970634,
+        "f1_score": 0.7071583514099783,
+        "confusion": {
+          "tn": 349,
+          "fp": 88,
+          "fn": 47,
+          "tp": 163
+        },
+        "balanced_accuracy": 0.7874087392394029
+      }
+    }
+  ],
+  "stage1_structure_ranking": [
+    {
+      "candidate_group": "structure",
+      "candidate_id": "S1",
+      "candidate_name": "ms_noattn",
+      "fold": 1,
+      "config_path": "C:\\Users\\876762~1\\AppData\\Local\\Temp\\sonoglore_ablation_matrix\\ms_noattn_fold1.yml",
+      "inference_config": "C:\\Users\\876762~1\\AppData\\Local\\Temp\\sonoglore_ablation_matrix\\ms_noattn_fold1_inference.yml",
+      "checkpoint_path": "C:\\Users\\876762330\\Desktop\\projects\\Agent\\artifacts\\checkpoints\\ms_noattn_fold1.pt",
+      "train_report": "C:\\Users\\876762330\\Desktop\\projects\\Agent\\artifacts\\reports\\train_cls_ms_noattn_fold1.json",
+      "busi_report": "C:\\Users\\876762330\\Desktop\\projects\\Agent\\artifacts\\reports\\generated\\busi_ms_noattn_fold1.json",
+      "train_source": "reused",
+      "busi_source": "reused",
+      "eligible_for_promotion": true,
+      "model_config": {
+        "name": "sonoglore_convnext_tiny",
+        "pretrained": true,
+        "in_chans": 3,
+        "num_classes": 2,
+        "proj_dim": 256,
+        "attn_heads": 4,
+        "attn_mlp_ratio": 2.0,
+        "head_hidden_dim": 256,
+        "attn_dropout": 0.1,
+        "head_dropout": 0.2,
+        "active_stage_indices": [
+          2,
+          3,
+          4
+        ],
+        "use_stage4_attention": false
+      },
+      "model_overrides": {
+        "active_stage_indices": [
+          2,
+          3,
+          4
+        ],
+        "use_stage4_attention": false
+      },
+      "training_overrides": {},
+      "data_overrides": {},
+      "train_metrics": {
+        "auc": 0.9106136201645824,
+        "threshold": 0.5,
+        "sensitivity": 0.7868852459016393,
+        "recall": 0.7868852459016393,
+        "precision": 0.7933884297520661,
+        "specificity": 0.9011857707509882,
+        "accuracy": 0.864,
+        "f1_score": 0.7901234567901234,
+        "confusion": {
+          "tn": 228,
+          "fp": 25,
+          "fn": 26,
+          "tp": 96
+        },
+        "balanced_accuracy": 0.8440355083263138
+      },
+      "busi_metrics": {
+        "auc": 0.8809142421270567,
+        "threshold": 0.5,
+        "sensitivity": 0.7952380952380952,
+        "recall": 0.7952380952380952,
+        "precision": 0.7046413502109705,
+        "specificity": 0.8398169336384439,
+        "accuracy": 0.8253477588871716,
+        "f1_score": 0.7472035794183446,
+        "confusion": {
+          "tn": 367,
+          "fp": 70,
+          "fn": 43,
+          "tp": 167
+        },
+        "balanced_accuracy": 0.8175275144382695
+      }
+    },
+    {
+      "candidate_group": "structure",
+      "candidate_id": "S2",
+      "candidate_name": "stage4_only",
+      "fold": 1,
+      "config_path": "C:\\Users\\876762~1\\AppData\\Local\\Temp\\sonoglore_ablation_matrix\\stage4_only_fold1.yml",
+      "inference_config": "C:\\Users\\876762~1\\AppData\\Local\\Temp\\sonoglore_ablation_matrix\\stage4_only_fold1_inference.yml",
+      "checkpoint_path": "C:\\Users\\876762330\\Desktop\\projects\\Agent\\artifacts\\checkpoints\\stage4_only_fold1.pt",
+      "train_report": "C:\\Users\\876762330\\Desktop\\projects\\Agent\\artifacts\\reports\\train_cls_stage4_only_fold1.json",
+      "busi_report": "C:\\Users\\876762330\\Desktop\\projects\\Agent\\artifacts\\reports\\generated\\busi_stage4_only_fold1.json",
+      "train_source": "reused",
+      "busi_source": "reused",
+      "eligible_for_promotion": true,
+      "model_config": {
+        "name": "sonoglore_convnext_tiny",
+        "pretrained": true,
+        "in_chans": 3,
+        "num_classes": 2,
+        "proj_dim": 256,
+        "attn_heads": 4,
+        "attn_mlp_ratio": 2.0,
+        "head_hidden_dim": 256,
+        "attn_dropout": 0.1,
+        "head_dropout": 0.2,
+        "active_stage_indices": [
+          4
+        ],
+        "use_stage4_attention": false
+      },
+      "model_overrides": {
+        "active_stage_indices": [
+          4
+        ],
+        "use_stage4_attention": false
+      },
+      "training_overrides": {},
+      "data_overrides": {},
+      "train_metrics": {
+        "auc": 0.9080865677444436,
+        "threshold": 0.5,
+        "sensitivity": 0.7622950819672131,
+        "recall": 0.7622950819672131,
+        "precision": 0.7560975609756098,
+        "specificity": 0.8814229249011858,
+        "accuracy": 0.8426666666666667,
+        "f1_score": 0.7591836734693876,
+        "confusion": {
+          "tn": 223,
+          "fp": 30,
+          "fn": 29,
+          "tp": 93
+        },
+        "balanced_accuracy": 0.8218590034341995
+      },
+      "busi_metrics": {
+        "auc": 0.8827231121281465,
+        "threshold": 0.5,
+        "sensitivity": 0.7952380952380952,
+        "recall": 0.7952380952380952,
+        "precision": 0.6872427983539094,
+        "specificity": 0.8260869565217391,
+        "accuracy": 0.8160741885625966,
+        "f1_score": 0.7373068432671082,
+        "confusion": {
+          "tn": 361,
+          "fp": 76,
+          "fn": 43,
+          "tp": 167
+        },
+        "balanced_accuracy": 0.8106625258799172
+      }
+    },
+    {
+      "candidate_group": "structure",
+      "candidate_id": "S3",
+      "candidate_name": "stage34_noattn",
+      "fold": 1,
+      "config_path": "C:\\Users\\876762~1\\AppData\\Local\\Temp\\sonoglore_ablation_matrix\\stage34_noattn_fold1.yml",
+      "inference_config": "C:\\Users\\876762~1\\AppData\\Local\\Temp\\sonoglore_ablation_matrix\\stage34_noattn_fold1_inference.yml",
+      "checkpoint_path": "C:\\Users\\876762330\\Desktop\\projects\\Agent\\artifacts\\checkpoints\\stage34_noattn_fold1.pt",
+      "train_report": "C:\\Users\\876762330\\Desktop\\projects\\Agent\\artifacts\\reports\\train_cls_stage34_noattn_fold1.json",
+      "busi_report": "C:\\Users\\876762330\\Desktop\\projects\\Agent\\artifacts\\reports\\generated\\busi_stage34_noattn_fold1.json",
+      "train_source": "reused",
+      "busi_source": "reused",
+      "eligible_for_promotion": true,
+      "model_config": {
+        "name": "sonoglore_convnext_tiny",
+        "pretrained": true,
+        "in_chans": 3,
+        "num_classes": 2,
+        "proj_dim": 256,
+        "attn_heads": 4,
+        "attn_mlp_ratio": 2.0,
+        "head_hidden_dim": 256,
+        "attn_dropout": 0.1,
+        "head_dropout": 0.2,
+        "active_stage_indices": [
+          3,
+          4
+        ],
+        "use_stage4_attention": false
+      },
+      "model_overrides": {
+        "active_stage_indices": [
+          3,
+          4
+        ],
+        "use_stage4_attention": false
+      },
+      "training_overrides": {},
+      "data_overrides": {},
+      "train_metrics": {
+        "auc": 0.910192444761226,
+        "threshold": 0.5,
+        "sensitivity": 0.8442622950819673,
+        "recall": 0.8442622950819673,
+        "precision": 0.7103448275862069,
+        "specificity": 0.83399209486166,
+        "accuracy": 0.8373333333333334,
+        "f1_score": 0.7715355805243446,
+        "confusion": {
+          "tn": 211,
+          "fp": 42,
+          "fn": 19,
+          "tp": 103
+        },
+        "balanced_accuracy": 0.8391271949718137
+      },
+      "busi_metrics": {
+        "auc": 0.8754385964912279,
+        "threshold": 0.5,
+        "sensitivity": 0.7761904761904762,
+        "recall": 0.7761904761904762,
+        "precision": 0.649402390438247,
+        "specificity": 0.7986270022883295,
+        "accuracy": 0.7913446676970634,
+        "f1_score": 0.7071583514099783,
+        "confusion": {
+          "tn": 349,
+          "fp": 88,
+          "fn": 47,
+          "tp": 163
+        },
+        "balanced_accuracy": 0.7874087392394029
+      }
+    }
+  ],
+  "stage1_structure_champion": {
+    "candidate_group": "structure",
+    "candidate_id": "S1",
+    "candidate_name": "ms_noattn",
+    "fold": 1,
+    "config_path": "C:\\Users\\876762~1\\AppData\\Local\\Temp\\sonoglore_ablation_matrix\\ms_noattn_fold1.yml",
+    "inference_config": "C:\\Users\\876762~1\\AppData\\Local\\Temp\\sonoglore_ablation_matrix\\ms_noattn_fold1_inference.yml",
+    "checkpoint_path": "C:\\Users\\876762330\\Desktop\\projects\\Agent\\artifacts\\checkpoints\\ms_noattn_fold1.pt",
+    "train_report": "C:\\Users\\876762330\\Desktop\\projects\\Agent\\artifacts\\reports\\train_cls_ms_noattn_fold1.json",
+    "busi_report": "C:\\Users\\876762330\\Desktop\\projects\\Agent\\artifacts\\reports\\generated\\busi_ms_noattn_fold1.json",
+    "train_source": "reused",
+    "busi_source": "reused",
+    "eligible_for_promotion": true,
+    "model_config": {
+      "name": "sonoglore_convnext_tiny",
+      "pretrained": true,
+      "in_chans": 3,
+      "num_classes": 2,
+      "proj_dim": 256,
+      "attn_heads": 4,
+      "attn_mlp_ratio": 2.0,
+      "head_hidden_dim": 256,
+      "attn_dropout": 0.1,
+      "head_dropout": 0.2,
+      "active_stage_indices": [
+        2,
+        3,
+        4
+      ],
+      "use_stage4_attention": false
+    },
+    "model_overrides": {
+      "active_stage_indices": [
+        2,
+        3,
+        4
+      ],
+      "use_stage4_attention": false
+    },
+    "training_overrides": {},
+    "data_overrides": {},
+    "train_metrics": {
+      "auc": 0.9106136201645824,
+      "threshold": 0.5,
+      "sensitivity": 0.7868852459016393,
+      "recall": 0.7868852459016393,
+      "precision": 0.7933884297520661,
+      "specificity": 0.9011857707509882,
+      "accuracy": 0.864,
+      "f1_score": 0.7901234567901234,
+      "confusion": {
+        "tn": 228,
+        "fp": 25,
+        "fn": 26,
+        "tp": 96
+      },
+      "balanced_accuracy": 0.8440355083263138
+    },
+    "busi_metrics": {
+      "auc": 0.8809142421270567,
+      "threshold": 0.5,
+      "sensitivity": 0.7952380952380952,
+      "recall": 0.7952380952380952,
+      "precision": 0.7046413502109705,
+      "specificity": 0.8398169336384439,
+      "accuracy": 0.8253477588871716,
+      "f1_score": 0.7472035794183446,
+      "confusion": {
+        "tn": 367,
+        "fp": 70,
+        "fn": 43,
+        "tp": 167
+      },
+      "balanced_accuracy": 0.8175275144382695
+    }
+  },
+  "stage2_regularization_rows": [
+    {
+      "candidate_group": "regularization",
+      "candidate_id": "S1_T0",
+      "candidate_name": "ms_noattn__base",
+      "fold": 1,
+      "config_path": "C:\\Users\\876762~1\\AppData\\Local\\Temp\\sonoglore_ablation_matrix\\ms_noattn__base_fold1.yml",
+      "inference_config": "C:\\Users\\876762~1\\AppData\\Local\\Temp\\sonoglore_ablation_matrix\\ms_noattn__base_fold1_inference.yml",
+      "checkpoint_path": "C:\\Users\\876762330\\Desktop\\projects\\Agent\\artifacts\\checkpoints\\ms_noattn__base_fold1.pt",
+      "train_report": "C:\\Users\\876762330\\Desktop\\projects\\Agent\\artifacts\\reports\\train_cls_ms_noattn__base_fold1.json",
+      "busi_report": "C:\\Users\\876762330\\Desktop\\projects\\Agent\\artifacts\\reports\\generated\\busi_ms_noattn__base_fold1.json",
+      "train_source": "reused",
+      "busi_source": "reused",
+      "eligible_for_promotion": true,
+      "model_config": {
+        "name": "sonoglore_convnext_tiny",
+        "pretrained": true,
+        "in_chans": 3,
+        "num_classes": 2,
+        "proj_dim": 256,
+        "attn_heads": 4,
+        "attn_mlp_ratio": 2.0,
+        "head_hidden_dim": 256,
+        "attn_dropout": 0.1,
+        "head_dropout": 0.2,
+        "active_stage_indices": [
+          2,
+          3,
+          4
+        ],
+        "use_stage4_attention": false
+      },
+      "model_overrides": {
+        "active_stage_indices": [
+          2,
+          3,
+          4
+        ],
+        "use_stage4_attention": false
+      },
+      "training_overrides": {
+        "learning_rate": 3e-05,
+        "weight_decay": 0.05,
+        "scheduler": {
+          "name": "warmup_cosine",
+          "warmup_epochs": 3,
+          "min_lr": 1e-06
+        }
+      },
+      "data_overrides": {
+        "augmentation": {
+          "horizontal_flip": true,
+          "flip_probability": 0.5
+        }
+      },
+      "train_metrics": {
+        "auc": 0.9106136201645824,
+        "threshold": 0.5,
+        "sensitivity": 0.7868852459016393,
+        "recall": 0.7868852459016393,
+        "precision": 0.7933884297520661,
+        "specificity": 0.9011857707509882,
+        "accuracy": 0.864,
+        "f1_score": 0.7901234567901234,
+        "confusion": {
+          "tn": 228,
+          "fp": 25,
+          "fn": 26,
+          "tp": 96
+        },
+        "balanced_accuracy": 0.8440355083263138
+      },
+      "busi_metrics": {
+        "auc": 0.8809142421270567,
+        "threshold": 0.5,
+        "sensitivity": 0.7952380952380952,
+        "recall": 0.7952380952380952,
+        "precision": 0.7046413502109705,
+        "specificity": 0.8398169336384439,
+        "accuracy": 0.8253477588871716,
+        "f1_score": 0.7472035794183446,
+        "confusion": {
+          "tn": 367,
+          "fp": 70,
+          "fn": 43,
+          "tp": 167
+        },
+        "balanced_accuracy": 0.8175275144382695
+      }
+    },
+    {
+      "candidate_group": "regularization",
+      "candidate_id": "S1_T1",
+      "candidate_name": "ms_noattn__regularized",
+      "fold": 1,
+      "config_path": "C:\\Users\\876762~1\\AppData\\Local\\Temp\\sonoglore_ablation_matrix\\ms_noattn__regularized_fold1.yml",
+      "inference_config": "C:\\Users\\876762~1\\AppData\\Local\\Temp\\sonoglore_ablation_matrix\\ms_noattn__regularized_fold1_inference.yml",
+      "checkpoint_path": "C:\\Users\\876762330\\Desktop\\projects\\Agent\\artifacts\\checkpoints\\ms_noattn__regularized_fold1.pt",
+      "train_report": "C:\\Users\\876762330\\Desktop\\projects\\Agent\\artifacts\\reports\\train_cls_ms_noattn__regularized_fold1.json",
+      "busi_report": "C:\\Users\\876762330\\Desktop\\projects\\Agent\\artifacts\\reports\\generated\\busi_ms_noattn__regularized_fold1.json",
+      "train_source": "reused",
+      "busi_source": "reused",
+      "eligible_for_promotion": true,
+      "model_config": {
+        "name": "sonoglore_convnext_tiny",
+        "pretrained": true,
+        "in_chans": 3,
+        "num_classes": 2,
+        "proj_dim": 256,
+        "attn_heads": 4,
+        "attn_mlp_ratio": 2.0,
+        "head_hidden_dim": 256,
+        "attn_dropout": 0.1,
+        "head_dropout": 0.2,
+        "active_stage_indices": [
+          2,
+          3,
+          4
+        ],
+        "use_stage4_attention": false,
+        "drop_path_rate": 0.1
+      },
+      "model_overrides": {
+        "active_stage_indices": [
+          2,
+          3,
+          4
+        ],
+        "use_stage4_attention": false,
+        "drop_path_rate": 0.1
+      },
+      "training_overrides": {
+        "learning_rate": 3e-05,
+        "weight_decay": 0.08,
+        "label_smoothing": 0.03,
+        "scheduler": {
+          "name": "warmup_cosine",
+          "warmup_epochs": 4,
+          "min_lr": 1e-06
+        }
+      },
+      "data_overrides": {
+        "augmentation": {
+          "horizontal_flip": true,
+          "flip_probability": 0.5,
+          "rotation_degrees": 6,
+          "brightness": 0.04,
+          "contrast": 0.08,
+          "scale_min": 0.95,
+          "scale_max": 1.05
+        }
+      },
+      "train_metrics": {
+        "auc": 0.9151169571697012,
+        "threshold": 0.5,
+        "sensitivity": 0.7540983606557377,
+        "recall": 0.7540983606557377,
+        "precision": 0.8,
+        "specificity": 0.9090909090909091,
+        "accuracy": 0.8586666666666667,
+        "f1_score": 0.7763713080168777,
+        "confusion": {
+          "tn": 230,
+          "fp": 23,
+          "fn": 30,
+          "tp": 92
+        },
+        "balanced_accuracy": 0.8315946348733234
+      },
+      "busi_metrics": {
+        "auc": 0.8709327666993569,
+        "threshold": 0.5,
+        "sensitivity": 0.7238095238095238,
+        "recall": 0.7238095238095238,
+        "precision": 0.6940639269406392,
+        "specificity": 0.8466819221967964,
+        "accuracy": 0.8068006182380216,
+        "f1_score": 0.7086247086247085,
+        "confusion": {
+          "tn": 370,
+          "fp": 67,
+          "fn": 58,
+          "tp": 152
+        },
+        "balanced_accuracy": 0.7852457230031601
+      }
+    },
+    {
+      "candidate_group": "regularization",
+      "candidate_id": "S1_T2",
+      "candidate_name": "ms_noattn__cutmix",
+      "fold": 1,
+      "config_path": "C:\\Users\\876762~1\\AppData\\Local\\Temp\\sonoglore_ablation_matrix\\ms_noattn__cutmix_fold1.yml",
+      "inference_config": "C:\\Users\\876762~1\\AppData\\Local\\Temp\\sonoglore_ablation_matrix\\ms_noattn__cutmix_fold1_inference.yml",
+      "checkpoint_path": "C:\\Users\\876762330\\Desktop\\projects\\Agent\\artifacts\\checkpoints\\ms_noattn__cutmix_fold1.pt",
+      "train_report": "C:\\Users\\876762330\\Desktop\\projects\\Agent\\artifacts\\reports\\train_cls_ms_noattn__cutmix_fold1.json",
+      "busi_report": "C:\\Users\\876762330\\Desktop\\projects\\Agent\\artifacts\\reports\\generated\\busi_ms_noattn__cutmix_fold1.json",
+      "train_source": "reused",
+      "busi_source": "reused",
+      "eligible_for_promotion": true,
+      "model_config": {
+        "name": "sonoglore_convnext_tiny",
+        "pretrained": true,
+        "in_chans": 3,
+        "num_classes": 2,
+        "proj_dim": 256,
+        "attn_heads": 4,
+        "attn_mlp_ratio": 2.0,
+        "head_hidden_dim": 256,
+        "attn_dropout": 0.1,
+        "head_dropout": 0.2,
+        "active_stage_indices": [
+          2,
+          3,
+          4
+        ],
+        "use_stage4_attention": false
+      },
+      "model_overrides": {
+        "active_stage_indices": [
+          2,
+          3,
+          4
+        ],
+        "use_stage4_attention": false
+      },
+      "training_overrides": {
+        "learning_rate": 3e-05,
+        "weight_decay": 0.05,
+        "label_smoothing": 0.02,
+        "cutmix_alpha": 0.6,
+        "mix_probability": 0.5,
+        "scheduler": {
+          "name": "warmup_cosine",
+          "warmup_epochs": 3,
+          "min_lr": 1e-06
+        }
+      },
+      "data_overrides": {},
+      "train_metrics": {
+        "auc": 0.9118771463746518,
+        "threshold": 0.5,
+        "sensitivity": 0.9672131147540983,
+        "recall": 0.9672131147540983,
+        "precision": 0.5462962962962963,
+        "specificity": 0.6126482213438735,
+        "accuracy": 0.728,
+        "f1_score": 0.6982248520710059,
+        "confusion": {
+          "tn": 155,
+          "fp": 98,
+          "fn": 4,
+          "tp": 118
+        },
+        "balanced_accuracy": 0.7899306680489859
+      },
+      "busi_metrics": {
+        "auc": 0.9017707311757654,
+        "threshold": 0.5,
+        "sensitivity": 0.9428571428571428,
+        "recall": 0.9428571428571428,
+        "precision": 0.5038167938931297,
+        "specificity": 0.5537757437070938,
+        "accuracy": 0.6800618238021638,
+        "f1_score": 0.6567164179104478,
+        "confusion": {
+          "tn": 242,
+          "fp": 195,
+          "fn": 12,
+          "tp": 198
+        },
+        "balanced_accuracy": 0.7483164432821183
+      }
+    },
+    {
+      "candidate_group": "regularization",
+      "candidate_id": "S1_T3",
+      "candidate_name": "ms_noattn__regularized_cutmix",
+      "fold": 1,
+      "config_path": "C:\\Users\\876762~1\\AppData\\Local\\Temp\\sonoglore_ablation_matrix\\ms_noattn__regularized_cutmix_fold1.yml",
+      "inference_config": "C:\\Users\\876762~1\\AppData\\Local\\Temp\\sonoglore_ablation_matrix\\ms_noattn__regularized_cutmix_fold1_inference.yml",
+      "checkpoint_path": "C:\\Users\\876762330\\Desktop\\projects\\Agent\\artifacts\\checkpoints\\ms_noattn__regularized_cutmix_fold1.pt",
+      "train_report": "C:\\Users\\876762330\\Desktop\\projects\\Agent\\artifacts\\reports\\train_cls_ms_noattn__regularized_cutmix_fold1.json",
+      "busi_report": "C:\\Users\\876762330\\Desktop\\projects\\Agent\\artifacts\\reports\\generated\\busi_ms_noattn__regularized_cutmix_fold1.json",
+      "train_source": "reused",
+      "busi_source": "reused",
+      "eligible_for_promotion": true,
+      "model_config": {
+        "name": "sonoglore_convnext_tiny",
+        "pretrained": true,
+        "in_chans": 3,
+        "num_classes": 2,
+        "proj_dim": 256,
+        "attn_heads": 4,
+        "attn_mlp_ratio": 2.0,
+        "head_hidden_dim": 256,
+        "attn_dropout": 0.1,
+        "head_dropout": 0.2,
+        "active_stage_indices": [
+          2,
+          3,
+          4
+        ],
+        "use_stage4_attention": false,
+        "drop_path_rate": 0.1
+      },
+      "model_overrides": {
+        "active_stage_indices": [
+          2,
+          3,
+          4
+        ],
+        "use_stage4_attention": false,
+        "drop_path_rate": 0.1
+      },
+      "training_overrides": {
+        "learning_rate": 3e-05,
+        "weight_decay": 0.08,
+        "label_smoothing": 0.03,
+        "cutmix_alpha": 0.6,
+        "mix_probability": 0.5,
+        "scheduler": {
+          "name": "warmup_cosine",
+          "warmup_epochs": 4,
+          "min_lr": 1e-06
+        }
+      },
+      "data_overrides": {
+        "augmentation": {
+          "horizontal_flip": true,
+          "flip_probability": 0.5,
+          "rotation_degrees": 6,
+          "brightness": 0.04,
+          "contrast": 0.08,
+          "scale_min": 0.95,
+          "scale_max": 1.05
+        }
+      },
+      "train_metrics": {
+        "auc": 0.9181299812090975,
+        "threshold": 0.5,
+        "sensitivity": 0.7786885245901639,
+        "recall": 0.7786885245901639,
+        "precision": 0.7307692307692307,
+        "specificity": 0.8616600790513834,
+        "accuracy": 0.8346666666666667,
+        "f1_score": 0.753968253968254,
+        "confusion": {
+          "tn": 218,
+          "fp": 35,
+          "fn": 27,
+          "tp": 95
+        },
+        "balanced_accuracy": 0.8201743018207737
+      },
+      "busi_metrics": {
+        "auc": 0.8853492426718972,
+        "threshold": 0.5,
+        "sensitivity": 0.7904761904761904,
+        "recall": 0.7904761904761904,
+        "precision": 0.694560669456067,
+        "specificity": 0.8329519450800915,
+        "accuracy": 0.8191653786707882,
+        "f1_score": 0.7394209354120267,
+        "confusion": {
+          "tn": 364,
+          "fp": 73,
+          "fn": 44,
+          "tp": 166
+        },
+        "balanced_accuracy": 0.8117140677781409
+      }
+    }
+  ],
+  "stage2_regularization_ranking": [
+    {
+      "candidate_group": "regularization",
+      "candidate_id": "S1_T0",
+      "candidate_name": "ms_noattn__base",
+      "fold": 1,
+      "config_path": "C:\\Users\\876762~1\\AppData\\Local\\Temp\\sonoglore_ablation_matrix\\ms_noattn__base_fold1.yml",
+      "inference_config": "C:\\Users\\876762~1\\AppData\\Local\\Temp\\sonoglore_ablation_matrix\\ms_noattn__base_fold1_inference.yml",
+      "checkpoint_path": "C:\\Users\\876762330\\Desktop\\projects\\Agent\\artifacts\\checkpoints\\ms_noattn__base_fold1.pt",
+      "train_report": "C:\\Users\\876762330\\Desktop\\projects\\Agent\\artifacts\\reports\\train_cls_ms_noattn__base_fold1.json",
+      "busi_report": "C:\\Users\\876762330\\Desktop\\projects\\Agent\\artifacts\\reports\\generated\\busi_ms_noattn__base_fold1.json",
+      "train_source": "reused",
+      "busi_source": "reused",
+      "eligible_for_promotion": true,
+      "model_config": {
+        "name": "sonoglore_convnext_tiny",
+        "pretrained": true,
+        "in_chans": 3,
+        "num_classes": 2,
+        "proj_dim": 256,
+        "attn_heads": 4,
+        "attn_mlp_ratio": 2.0,
+        "head_hidden_dim": 256,
+        "attn_dropout": 0.1,
+        "head_dropout": 0.2,
+        "active_stage_indices": [
+          2,
+          3,
+          4
+        ],
+        "use_stage4_attention": false
+      },
+      "model_overrides": {
+        "active_stage_indices": [
+          2,
+          3,
+          4
+        ],
+        "use_stage4_attention": false
+      },
+      "training_overrides": {
+        "learning_rate": 3e-05,
+        "weight_decay": 0.05,
+        "scheduler": {
+          "name": "warmup_cosine",
+          "warmup_epochs": 3,
+          "min_lr": 1e-06
+        }
+      },
+      "data_overrides": {
+        "augmentation": {
+          "horizontal_flip": true,
+          "flip_probability": 0.5
+        }
+      },
+      "train_metrics": {
+        "auc": 0.9106136201645824,
+        "threshold": 0.5,
+        "sensitivity": 0.7868852459016393,
+        "recall": 0.7868852459016393,
+        "precision": 0.7933884297520661,
+        "specificity": 0.9011857707509882,
+        "accuracy": 0.864,
+        "f1_score": 0.7901234567901234,
+        "confusion": {
+          "tn": 228,
+          "fp": 25,
+          "fn": 26,
+          "tp": 96
+        },
+        "balanced_accuracy": 0.8440355083263138
+      },
+      "busi_metrics": {
+        "auc": 0.8809142421270567,
+        "threshold": 0.5,
+        "sensitivity": 0.7952380952380952,
+        "recall": 0.7952380952380952,
+        "precision": 0.7046413502109705,
+        "specificity": 0.8398169336384439,
+        "accuracy": 0.8253477588871716,
+        "f1_score": 0.7472035794183446,
+        "confusion": {
+          "tn": 367,
+          "fp": 70,
+          "fn": 43,
+          "tp": 167
+        },
+        "balanced_accuracy": 0.8175275144382695
+      }
+    },
+    {
+      "candidate_group": "regularization",
+      "candidate_id": "S1_T3",
+      "candidate_name": "ms_noattn__regularized_cutmix",
+      "fold": 1,
+      "config_path": "C:\\Users\\876762~1\\AppData\\Local\\Temp\\sonoglore_ablation_matrix\\ms_noattn__regularized_cutmix_fold1.yml",
+      "inference_config": "C:\\Users\\876762~1\\AppData\\Local\\Temp\\sonoglore_ablation_matrix\\ms_noattn__regularized_cutmix_fold1_inference.yml",
+      "checkpoint_path": "C:\\Users\\876762330\\Desktop\\projects\\Agent\\artifacts\\checkpoints\\ms_noattn__regularized_cutmix_fold1.pt",
+      "train_report": "C:\\Users\\876762330\\Desktop\\projects\\Agent\\artifacts\\reports\\train_cls_ms_noattn__regularized_cutmix_fold1.json",
+      "busi_report": "C:\\Users\\876762330\\Desktop\\projects\\Agent\\artifacts\\reports\\generated\\busi_ms_noattn__regularized_cutmix_fold1.json",
+      "train_source": "reused",
+      "busi_source": "reused",
+      "eligible_for_promotion": true,
+      "model_config": {
+        "name": "sonoglore_convnext_tiny",
+        "pretrained": true,
+        "in_chans": 3,
+        "num_classes": 2,
+        "proj_dim": 256,
+        "attn_heads": 4,
+        "attn_mlp_ratio": 2.0,
+        "head_hidden_dim": 256,
+        "attn_dropout": 0.1,
+        "head_dropout": 0.2,
+        "active_stage_indices": [
+          2,
+          3,
+          4
+        ],
+        "use_stage4_attention": false,
+        "drop_path_rate": 0.1
+      },
+      "model_overrides": {
+        "active_stage_indices": [
+          2,
+          3,
+          4
+        ],
+        "use_stage4_attention": false,
+        "drop_path_rate": 0.1
+      },
+      "training_overrides": {
+        "learning_rate": 3e-05,
+        "weight_decay": 0.08,
+        "label_smoothing": 0.03,
+        "cutmix_alpha": 0.6,
+        "mix_probability": 0.5,
+        "scheduler": {
+          "name": "warmup_cosine",
+          "warmup_epochs": 4,
+          "min_lr": 1e-06
+        }
+      },
+      "data_overrides": {
+        "augmentation": {
+          "horizontal_flip": true,
+          "flip_probability": 0.5,
+          "rotation_degrees": 6,
+          "brightness": 0.04,
+          "contrast": 0.08,
+          "scale_min": 0.95,
+          "scale_max": 1.05
+        }
+      },
+      "train_metrics": {
+        "auc": 0.9181299812090975,
+        "threshold": 0.5,
+        "sensitivity": 0.7786885245901639,
+        "recall": 0.7786885245901639,
+        "precision": 0.7307692307692307,
+        "specificity": 0.8616600790513834,
+        "accuracy": 0.8346666666666667,
+        "f1_score": 0.753968253968254,
+        "confusion": {
+          "tn": 218,
+          "fp": 35,
+          "fn": 27,
+          "tp": 95
+        },
+        "balanced_accuracy": 0.8201743018207737
+      },
+      "busi_metrics": {
+        "auc": 0.8853492426718972,
+        "threshold": 0.5,
+        "sensitivity": 0.7904761904761904,
+        "recall": 0.7904761904761904,
+        "precision": 0.694560669456067,
+        "specificity": 0.8329519450800915,
+        "accuracy": 0.8191653786707882,
+        "f1_score": 0.7394209354120267,
+        "confusion": {
+          "tn": 364,
+          "fp": 73,
+          "fn": 44,
+          "tp": 166
+        },
+        "balanced_accuracy": 0.8117140677781409
+      }
+    },
+    {
+      "candidate_group": "regularization",
+      "candidate_id": "S1_T1",
+      "candidate_name": "ms_noattn__regularized",
+      "fold": 1,
+      "config_path": "C:\\Users\\876762~1\\AppData\\Local\\Temp\\sonoglore_ablation_matrix\\ms_noattn__regularized_fold1.yml",
+      "inference_config": "C:\\Users\\876762~1\\AppData\\Local\\Temp\\sonoglore_ablation_matrix\\ms_noattn__regularized_fold1_inference.yml",
+      "checkpoint_path": "C:\\Users\\876762330\\Desktop\\projects\\Agent\\artifacts\\checkpoints\\ms_noattn__regularized_fold1.pt",
+      "train_report": "C:\\Users\\876762330\\Desktop\\projects\\Agent\\artifacts\\reports\\train_cls_ms_noattn__regularized_fold1.json",
+      "busi_report": "C:\\Users\\876762330\\Desktop\\projects\\Agent\\artifacts\\reports\\generated\\busi_ms_noattn__regularized_fold1.json",
+      "train_source": "reused",
+      "busi_source": "reused",
+      "eligible_for_promotion": true,
+      "model_config": {
+        "name": "sonoglore_convnext_tiny",
+        "pretrained": true,
+        "in_chans": 3,
+        "num_classes": 2,
+        "proj_dim": 256,
+        "attn_heads": 4,
+        "attn_mlp_ratio": 2.0,
+        "head_hidden_dim": 256,
+        "attn_dropout": 0.1,
+        "head_dropout": 0.2,
+        "active_stage_indices": [
+          2,
+          3,
+          4
+        ],
+        "use_stage4_attention": false,
+        "drop_path_rate": 0.1
+      },
+      "model_overrides": {
+        "active_stage_indices": [
+          2,
+          3,
+          4
+        ],
+        "use_stage4_attention": false,
+        "drop_path_rate": 0.1
+      },
+      "training_overrides": {
+        "learning_rate": 3e-05,
+        "weight_decay": 0.08,
+        "label_smoothing": 0.03,
+        "scheduler": {
+          "name": "warmup_cosine",
+          "warmup_epochs": 4,
+          "min_lr": 1e-06
+        }
+      },
+      "data_overrides": {
+        "augmentation": {
+          "horizontal_flip": true,
+          "flip_probability": 0.5,
+          "rotation_degrees": 6,
+          "brightness": 0.04,
+          "contrast": 0.08,
+          "scale_min": 0.95,
+          "scale_max": 1.05
+        }
+      },
+      "train_metrics": {
+        "auc": 0.9151169571697012,
+        "threshold": 0.5,
+        "sensitivity": 0.7540983606557377,
+        "recall": 0.7540983606557377,
+        "precision": 0.8,
+        "specificity": 0.9090909090909091,
+        "accuracy": 0.8586666666666667,
+        "f1_score": 0.7763713080168777,
+        "confusion": {
+          "tn": 230,
+          "fp": 23,
+          "fn": 30,
+          "tp": 92
+        },
+        "balanced_accuracy": 0.8315946348733234
+      },
+      "busi_metrics": {
+        "auc": 0.8709327666993569,
+        "threshold": 0.5,
+        "sensitivity": 0.7238095238095238,
+        "recall": 0.7238095238095238,
+        "precision": 0.6940639269406392,
+        "specificity": 0.8466819221967964,
+        "accuracy": 0.8068006182380216,
+        "f1_score": 0.7086247086247085,
+        "confusion": {
+          "tn": 370,
+          "fp": 67,
+          "fn": 58,
+          "tp": 152
+        },
+        "balanced_accuracy": 0.7852457230031601
+      }
+    },
+    {
+      "candidate_group": "regularization",
+      "candidate_id": "S1_T2",
+      "candidate_name": "ms_noattn__cutmix",
+      "fold": 1,
+      "config_path": "C:\\Users\\876762~1\\AppData\\Local\\Temp\\sonoglore_ablation_matrix\\ms_noattn__cutmix_fold1.yml",
+      "inference_config": "C:\\Users\\876762~1\\AppData\\Local\\Temp\\sonoglore_ablation_matrix\\ms_noattn__cutmix_fold1_inference.yml",
+      "checkpoint_path": "C:\\Users\\876762330\\Desktop\\projects\\Agent\\artifacts\\checkpoints\\ms_noattn__cutmix_fold1.pt",
+      "train_report": "C:\\Users\\876762330\\Desktop\\projects\\Agent\\artifacts\\reports\\train_cls_ms_noattn__cutmix_fold1.json",
+      "busi_report": "C:\\Users\\876762330\\Desktop\\projects\\Agent\\artifacts\\reports\\generated\\busi_ms_noattn__cutmix_fold1.json",
+      "train_source": "reused",
+      "busi_source": "reused",
+      "eligible_for_promotion": true,
+      "model_config": {
+        "name": "sonoglore_convnext_tiny",
+        "pretrained": true,
+        "in_chans": 3,
+        "num_classes": 2,
+        "proj_dim": 256,
+        "attn_heads": 4,
+        "attn_mlp_ratio": 2.0,
+        "head_hidden_dim": 256,
+        "attn_dropout": 0.1,
+        "head_dropout": 0.2,
+        "active_stage_indices": [
+          2,
+          3,
+          4
+        ],
+        "use_stage4_attention": false
+      },
+      "model_overrides": {
+        "active_stage_indices": [
+          2,
+          3,
+          4
+        ],
+        "use_stage4_attention": false
+      },
+      "training_overrides": {
+        "learning_rate": 3e-05,
+        "weight_decay": 0.05,
+        "label_smoothing": 0.02,
+        "cutmix_alpha": 0.6,
+        "mix_probability": 0.5,
+        "scheduler": {
+          "name": "warmup_cosine",
+          "warmup_epochs": 3,
+          "min_lr": 1e-06
+        }
+      },
+      "data_overrides": {},
+      "train_metrics": {
+        "auc": 0.9118771463746518,
+        "threshold": 0.5,
+        "sensitivity": 0.9672131147540983,
+        "recall": 0.9672131147540983,
+        "precision": 0.5462962962962963,
+        "specificity": 0.6126482213438735,
+        "accuracy": 0.728,
+        "f1_score": 0.6982248520710059,
+        "confusion": {
+          "tn": 155,
+          "fp": 98,
+          "fn": 4,
+          "tp": 118
+        },
+        "balanced_accuracy": 0.7899306680489859
+      },
+      "busi_metrics": {
+        "auc": 0.9017707311757654,
+        "threshold": 0.5,
+        "sensitivity": 0.9428571428571428,
+        "recall": 0.9428571428571428,
+        "precision": 0.5038167938931297,
+        "specificity": 0.5537757437070938,
+        "accuracy": 0.6800618238021638,
+        "f1_score": 0.6567164179104478,
+        "confusion": {
+          "tn": 242,
+          "fp": 195,
+          "fn": 12,
+          "tp": 198
+        },
+        "balanced_accuracy": 0.7483164432821183
+      }
+    }
+  ],
+  "stage2_regularization_champion": {
+    "candidate_group": "regularization",
+    "candidate_id": "S1_T0",
+    "candidate_name": "ms_noattn__base",
+    "fold": 1,
+    "config_path": "C:\\Users\\876762~1\\AppData\\Local\\Temp\\sonoglore_ablation_matrix\\ms_noattn__base_fold1.yml",
+    "inference_config": "C:\\Users\\876762~1\\AppData\\Local\\Temp\\sonoglore_ablation_matrix\\ms_noattn__base_fold1_inference.yml",
+    "checkpoint_path": "C:\\Users\\876762330\\Desktop\\projects\\Agent\\artifacts\\checkpoints\\ms_noattn__base_fold1.pt",
+    "train_report": "C:\\Users\\876762330\\Desktop\\projects\\Agent\\artifacts\\reports\\train_cls_ms_noattn__base_fold1.json",
+    "busi_report": "C:\\Users\\876762330\\Desktop\\projects\\Agent\\artifacts\\reports\\generated\\busi_ms_noattn__base_fold1.json",
+    "train_source": "reused",
+    "busi_source": "reused",
+    "eligible_for_promotion": true,
+    "model_config": {
+      "name": "sonoglore_convnext_tiny",
+      "pretrained": true,
+      "in_chans": 3,
+      "num_classes": 2,
+      "proj_dim": 256,
+      "attn_heads": 4,
+      "attn_mlp_ratio": 2.0,
+      "head_hidden_dim": 256,
+      "attn_dropout": 0.1,
+      "head_dropout": 0.2,
+      "active_stage_indices": [
+        2,
+        3,
+        4
+      ],
+      "use_stage4_attention": false
+    },
+    "model_overrides": {
+      "active_stage_indices": [
+        2,
+        3,
+        4
+      ],
+      "use_stage4_attention": false
+    },
+    "training_overrides": {
+      "learning_rate": 3e-05,
+      "weight_decay": 0.05,
+      "scheduler": {
+        "name": "warmup_cosine",
+        "warmup_epochs": 3,
+        "min_lr": 1e-06
+      }
+    },
+    "data_overrides": {
+      "augmentation": {
+        "horizontal_flip": true,
+        "flip_probability": 0.5
+      }
+    },
+    "train_metrics": {
+      "auc": 0.9106136201645824,
+      "threshold": 0.5,
+      "sensitivity": 0.7868852459016393,
+      "recall": 0.7868852459016393,
+      "precision": 0.7933884297520661,
+      "specificity": 0.9011857707509882,
+      "accuracy": 0.864,
+      "f1_score": 0.7901234567901234,
+      "confusion": {
+        "tn": 228,
+        "fp": 25,
+        "fn": 26,
+        "tp": 96
+      },
+      "balanced_accuracy": 0.8440355083263138
+    },
+    "busi_metrics": {
+      "auc": 0.8809142421270567,
+      "threshold": 0.5,
+      "sensitivity": 0.7952380952380952,
+      "recall": 0.7952380952380952,
+      "precision": 0.7046413502109705,
+      "specificity": 0.8398169336384439,
+      "accuracy": 0.8253477588871716,
+      "f1_score": 0.7472035794183446,
+      "confusion": {
+        "tn": 367,
+        "fp": 70,
+        "fn": 43,
+        "tp": 167
+      },
+      "balanced_accuracy": 0.8175275144382695
+    }
+  },
+  "promotion_gate": {
+    "balanced_accuracy_threshold": 0.8005502887653917,
+    "minimum_auc": 0.8731682467037157,
+    "passed": true,
+    "candidate_id": "S1_T0",
+    "candidate_name": "ms_noattn__base",
+    "balanced_accuracy": 0.8175275144382695,
+    "auc": 0.8809142421270567
+  },
+  "stage3_final_benchmark": {
+    "champion_candidate_id": "S1_T0",
+    "champion_candidate_name": "ms_noattn__base",
+    "fold_rows": [
+      {
+        "candidate_group": "final5fold",
+        "candidate_id": "S1_T0",
+        "candidate_name": "ms_noattn__base",
+        "fold": 1,
+        "config_path": "C:\\Users\\876762~1\\AppData\\Local\\Temp\\sonoglore_ablation_matrix\\ms_noattn__base_fold1.yml",
+        "inference_config": "C:\\Users\\876762~1\\AppData\\Local\\Temp\\sonoglore_ablation_matrix\\ms_noattn__base_fold1_inference.yml",
+        "checkpoint_path": "C:\\Users\\876762330\\Desktop\\projects\\Agent\\artifacts\\checkpoints\\ms_noattn__base_fold1.pt",
+        "train_report": "C:\\Users\\876762330\\Desktop\\projects\\Agent\\artifacts\\reports\\train_cls_ms_noattn__base_fold1.json",
+        "busi_report": "C:\\Users\\876762330\\Desktop\\projects\\Agent\\artifacts\\reports\\generated\\busi_ms_noattn__base_fold1.json",
+        "train_source": "reused",
+        "busi_source": "reused",
+        "eligible_for_promotion": true,
+        "model_config": {
+          "name": "sonoglore_convnext_tiny",
+          "pretrained": true,
+          "in_chans": 3,
+          "num_classes": 2,
+          "proj_dim": 256,
+          "attn_heads": 4,
+          "attn_mlp_ratio": 2.0,
+          "head_hidden_dim": 256,
+          "attn_dropout": 0.1,
+          "head_dropout": 0.2,
+          "active_stage_indices": [
+            2,
+            3,
+            4
+          ],
+          "use_stage4_attention": false
+        },
+        "model_overrides": {
+          "active_stage_indices": [
+            2,
+            3,
+            4
+          ],
+          "use_stage4_attention": false
+        },
+        "training_overrides": {
+          "learning_rate": 3e-05,
+          "weight_decay": 0.05,
+          "scheduler": {
+            "name": "warmup_cosine",
+            "warmup_epochs": 3,
+            "min_lr": 1e-06
+          }
+        },
+        "data_overrides": {
+          "augmentation": {
+            "horizontal_flip": true,
+            "flip_probability": 0.5
+          }
+        },
+        "train_metrics": {
+          "auc": 0.9106136201645824,
+          "threshold": 0.5,
+          "sensitivity": 0.7868852459016393,
+          "recall": 0.7868852459016393,
+          "precision": 0.7933884297520661,
+          "specificity": 0.9011857707509882,
+          "accuracy": 0.864,
+          "f1_score": 0.7901234567901234,
+          "confusion": {
+            "tn": 228,
+            "fp": 25,
+            "fn": 26,
+            "tp": 96
+          },
+          "balanced_accuracy": 0.8440355083263138
+        },
+        "busi_metrics": {
+          "auc": 0.8809142421270567,
+          "threshold": 0.5,
+          "sensitivity": 0.7952380952380952,
+          "recall": 0.7952380952380952,
+          "precision": 0.7046413502109705,
+          "specificity": 0.8398169336384439,
+          "accuracy": 0.8253477588871716,
+          "f1_score": 0.7472035794183446,
+          "confusion": {
+            "tn": 367,
+            "fp": 70,
+            "fn": 43,
+            "tp": 167
+          },
+          "balanced_accuracy": 0.8175275144382695
+        }
+      },
+      {
+        "candidate_group": "final5fold",
+        "candidate_id": "S1_T0",
+        "candidate_name": "ms_noattn__base",
+        "fold": 2,
+        "config_path": "C:\\Users\\876762~1\\AppData\\Local\\Temp\\sonoglore_ablation_matrix\\ms_noattn__base_fold2.yml",
+        "inference_config": "C:\\Users\\876762~1\\AppData\\Local\\Temp\\sonoglore_ablation_matrix\\ms_noattn__base_fold2_inference.yml",
+        "checkpoint_path": "C:\\Users\\876762330\\Desktop\\projects\\Agent\\artifacts\\checkpoints\\ms_noattn__base_fold2.pt",
+        "train_report": "C:\\Users\\876762330\\Desktop\\projects\\Agent\\artifacts\\reports\\train_cls_ms_noattn__base_fold2.json",
+        "busi_report": "C:\\Users\\876762330\\Desktop\\projects\\Agent\\artifacts\\reports\\generated\\busi_ms_noattn__base_fold2.json",
+        "train_source": "reused",
+        "busi_source": "reused",
+        "eligible_for_promotion": true,
+        "model_config": {
+          "name": "sonoglore_convnext_tiny",
+          "pretrained": true,
+          "in_chans": 3,
+          "num_classes": 2,
+          "proj_dim": 256,
+          "attn_heads": 4,
+          "attn_mlp_ratio": 2.0,
+          "head_hidden_dim": 256,
+          "attn_dropout": 0.1,
+          "head_dropout": 0.2,
+          "active_stage_indices": [
+            2,
+            3,
+            4
+          ],
+          "use_stage4_attention": false
+        },
+        "model_overrides": {
+          "active_stage_indices": [
+            2,
+            3,
+            4
+          ],
+          "use_stage4_attention": false
+        },
+        "training_overrides": {
+          "learning_rate": 3e-05,
+          "weight_decay": 0.05,
+          "scheduler": {
+            "name": "warmup_cosine",
+            "warmup_epochs": 3,
+            "min_lr": 1e-06
+          }
+        },
+        "data_overrides": {
+          "augmentation": {
+            "horizontal_flip": true,
+            "flip_probability": 0.5
+          }
+        },
+        "train_metrics": {
+          "auc": 0.9152404503156113,
+          "threshold": 0.5,
+          "sensitivity": 0.6446280991735537,
+          "recall": 0.6446280991735537,
+          "precision": 0.8387096774193549,
+          "specificity": 0.9409448818897638,
+          "accuracy": 0.8453333333333334,
+          "f1_score": 0.7289719626168224,
+          "confusion": {
+            "tn": 239,
+            "fp": 15,
+            "fn": 43,
+            "tp": 78
+          },
+          "balanced_accuracy": 0.7927864905316587
+        },
+        "busi_metrics": {
+          "auc": 0.8792906178489703,
+          "threshold": 0.5,
+          "sensitivity": 0.6476190476190476,
+          "recall": 0.6476190476190476,
+          "precision": 0.8343558282208589,
+          "specificity": 0.9382151029748284,
+          "accuracy": 0.8438948995363215,
+          "f1_score": 0.7292225201072386,
+          "confusion": {
+            "tn": 410,
+            "fp": 27,
+            "fn": 74,
+            "tp": 136
+          },
+          "balanced_accuracy": 0.792917075296938
+        }
+      },
+      {
+        "candidate_group": "final5fold",
+        "candidate_id": "S1_T0",
+        "candidate_name": "ms_noattn__base",
+        "fold": 3,
+        "config_path": "C:\\Users\\876762~1\\AppData\\Local\\Temp\\sonoglore_ablation_matrix\\ms_noattn__base_fold3.yml",
+        "inference_config": "C:\\Users\\876762~1\\AppData\\Local\\Temp\\sonoglore_ablation_matrix\\ms_noattn__base_fold3_inference.yml",
+        "checkpoint_path": "C:\\Users\\876762330\\Desktop\\projects\\Agent\\artifacts\\checkpoints\\ms_noattn__base_fold3.pt",
+        "train_report": "C:\\Users\\876762330\\Desktop\\projects\\Agent\\artifacts\\reports\\train_cls_ms_noattn__base_fold3.json",
+        "busi_report": "C:\\Users\\876762330\\Desktop\\projects\\Agent\\artifacts\\reports\\generated\\busi_ms_noattn__base_fold3.json",
+        "train_source": "reused",
+        "busi_source": "reused",
+        "eligible_for_promotion": true,
+        "model_config": {
+          "name": "sonoglore_convnext_tiny",
+          "pretrained": true,
+          "in_chans": 3,
+          "num_classes": 2,
+          "proj_dim": 256,
+          "attn_heads": 4,
+          "attn_mlp_ratio": 2.0,
+          "head_hidden_dim": 256,
+          "attn_dropout": 0.1,
+          "head_dropout": 0.2,
+          "active_stage_indices": [
+            2,
+            3,
+            4
+          ],
+          "use_stage4_attention": false
+        },
+        "model_overrides": {
+          "active_stage_indices": [
+            2,
+            3,
+            4
+          ],
+          "use_stage4_attention": false
+        },
+        "training_overrides": {
+          "learning_rate": 3e-05,
+          "weight_decay": 0.05,
+          "scheduler": {
+            "name": "warmup_cosine",
+            "warmup_epochs": 3,
+            "min_lr": 1e-06
+          }
+        },
+        "data_overrides": {
+          "augmentation": {
+            "horizontal_flip": true,
+            "flip_probability": 0.5
+          }
+        },
+        "train_metrics": {
+          "auc": 0.9381792152014057,
+          "threshold": 0.5,
+          "sensitivity": 0.7851239669421488,
+          "recall": 0.7851239669421488,
+          "precision": 0.8050847457627118,
+          "specificity": 0.9094488188976378,
+          "accuracy": 0.8693333333333333,
+          "f1_score": 0.794979079497908,
+          "confusion": {
+            "tn": 231,
+            "fp": 23,
+            "fn": 26,
+            "tp": 95
+          },
+          "balanced_accuracy": 0.8472863929198933
+        },
+        "busi_metrics": {
+          "auc": 0.8846082597798843,
+          "threshold": 0.5,
+          "sensitivity": 0.7952380952380952,
+          "recall": 0.7952380952380952,
+          "precision": 0.6929460580912863,
+          "specificity": 0.8306636155606407,
+          "accuracy": 0.8191653786707882,
+          "f1_score": 0.7405764966740576,
+          "confusion": {
+            "tn": 363,
+            "fp": 74,
+            "fn": 43,
+            "tp": 167
+          },
+          "balanced_accuracy": 0.812950855399368
+        }
+      },
+      {
+        "candidate_group": "final5fold",
+        "candidate_id": "S1_T0",
+        "candidate_name": "ms_noattn__base",
+        "fold": 4,
+        "config_path": "C:\\Users\\876762~1\\AppData\\Local\\Temp\\sonoglore_ablation_matrix\\ms_noattn__base_fold4.yml",
+        "inference_config": "C:\\Users\\876762~1\\AppData\\Local\\Temp\\sonoglore_ablation_matrix\\ms_noattn__base_fold4_inference.yml",
+        "checkpoint_path": "C:\\Users\\876762330\\Desktop\\projects\\Agent\\artifacts\\checkpoints\\ms_noattn__base_fold4.pt",
+        "train_report": "C:\\Users\\876762330\\Desktop\\projects\\Agent\\artifacts\\reports\\train_cls_ms_noattn__base_fold4.json",
+        "busi_report": "C:\\Users\\876762330\\Desktop\\projects\\Agent\\artifacts\\reports\\generated\\busi_ms_noattn__base_fold4.json",
+        "train_source": "reused",
+        "busi_source": "reused",
+        "eligible_for_promotion": true,
+        "model_config": {
+          "name": "sonoglore_convnext_tiny",
+          "pretrained": true,
+          "in_chans": 3,
+          "num_classes": 2,
+          "proj_dim": 256,
+          "attn_heads": 4,
+          "attn_mlp_ratio": 2.0,
+          "head_hidden_dim": 256,
+          "attn_dropout": 0.1,
+          "head_dropout": 0.2,
+          "active_stage_indices": [
+            2,
+            3,
+            4
+          ],
+          "use_stage4_attention": false
+        },
+        "model_overrides": {
+          "active_stage_indices": [
+            2,
+            3,
+            4
+          ],
+          "use_stage4_attention": false
+        },
+        "training_overrides": {
+          "learning_rate": 3e-05,
+          "weight_decay": 0.05,
+          "scheduler": {
+            "name": "warmup_cosine",
+            "warmup_epochs": 3,
+            "min_lr": 1e-06
+          }
+        },
+        "data_overrides": {
+          "augmentation": {
+            "horizontal_flip": true,
+            "flip_probability": 0.5
+          }
+        },
+        "train_metrics": {
+          "auc": 0.8955484999676019,
+          "threshold": 0.5,
+          "sensitivity": 0.8032786885245902,
+          "recall": 0.8032786885245902,
+          "precision": 0.7050359712230215,
+          "specificity": 0.8379446640316206,
+          "accuracy": 0.8266666666666667,
+          "f1_score": 0.7509578544061303,
+          "confusion": {
+            "tn": 212,
+            "fp": 41,
+            "fn": 24,
+            "tp": 98
+          },
+          "balanced_accuracy": 0.8206116762781054
+        },
+        "busi_metrics": {
+          "auc": 0.8714449166394246,
+          "threshold": 0.5,
+          "sensitivity": 0.8,
+          "recall": 0.8,
+          "precision": 0.6199261992619927,
+          "specificity": 0.7643020594965675,
+          "accuracy": 0.7758887171561051,
+          "f1_score": 0.6985446985446986,
+          "confusion": {
+            "tn": 334,
+            "fp": 103,
+            "fn": 42,
+            "tp": 168
+          },
+          "balanced_accuracy": 0.7821510297482838
+        }
+      },
+      {
+        "candidate_group": "final5fold",
+        "candidate_id": "S1_T0",
+        "candidate_name": "ms_noattn__base",
+        "fold": 5,
+        "config_path": "C:\\Users\\876762~1\\AppData\\Local\\Temp\\sonoglore_ablation_matrix\\ms_noattn__base_fold5.yml",
+        "inference_config": "C:\\Users\\876762~1\\AppData\\Local\\Temp\\sonoglore_ablation_matrix\\ms_noattn__base_fold5_inference.yml",
+        "checkpoint_path": "C:\\Users\\876762330\\Desktop\\projects\\Agent\\artifacts\\checkpoints\\ms_noattn__base_fold5.pt",
+        "train_report": "C:\\Users\\876762330\\Desktop\\projects\\Agent\\artifacts\\reports\\train_cls_ms_noattn__base_fold5.json",
+        "busi_report": "C:\\Users\\876762330\\Desktop\\projects\\Agent\\artifacts\\reports\\generated\\busi_ms_noattn__base_fold5.json",
+        "train_source": "reused",
+        "busi_source": "reused",
+        "eligible_for_promotion": true,
+        "model_config": {
+          "name": "sonoglore_convnext_tiny",
+          "pretrained": true,
+          "in_chans": 3,
+          "num_classes": 2,
+          "proj_dim": 256,
+          "attn_heads": 4,
+          "attn_mlp_ratio": 2.0,
+          "head_hidden_dim": 256,
+          "attn_dropout": 0.1,
+          "head_dropout": 0.2,
+          "active_stage_indices": [
+            2,
+            3,
+            4
+          ],
+          "use_stage4_attention": false
+        },
+        "model_overrides": {
+          "active_stage_indices": [
+            2,
+            3,
+            4
+          ],
+          "use_stage4_attention": false
+        },
+        "training_overrides": {
+          "learning_rate": 3e-05,
+          "weight_decay": 0.05,
+          "scheduler": {
+            "name": "warmup_cosine",
+            "warmup_epochs": 3,
+            "min_lr": 1e-06
+          }
+        },
+        "data_overrides": {
+          "augmentation": {
+            "horizontal_flip": true,
+            "flip_probability": 0.5
+          }
+        },
+        "train_metrics": {
+          "auc": 0.9241556582286719,
+          "threshold": 0.5,
+          "sensitivity": 0.7355371900826446,
+          "recall": 0.7355371900826446,
+          "precision": 0.8240740740740741,
+          "specificity": 0.9251968503937008,
+          "accuracy": 0.864,
+          "f1_score": 0.7772925764192141,
+          "confusion": {
+            "tn": 235,
+            "fp": 19,
+            "fn": 32,
+            "tp": 89
+          },
+          "balanced_accuracy": 0.8303670202381728
+        },
+        "busi_metrics": {
+          "auc": 0.8820802005012531,
+          "threshold": 0.5,
+          "sensitivity": 0.7380952380952381,
+          "recall": 0.7380952380952381,
+          "precision": 0.7673267326732673,
+          "specificity": 0.8924485125858124,
+          "accuracy": 0.8423493044822257,
+          "f1_score": 0.7524271844660194,
+          "confusion": {
+            "tn": 390,
+            "fp": 47,
+            "fn": 55,
+            "tp": 155
+          },
+          "balanced_accuracy": 0.8152718753405253
+        }
+      }
+    ],
+    "inference_config_path": "C:\\Users\\876762~1\\AppData\\Local\\Temp\\sonoglore_ablation_matrix\\ms_noattn__base_5fold_inference.yml",
+    "busi_report_path": "C:\\Users\\876762330\\Desktop\\projects\\Agent\\artifacts\\reports\\generated\\ms_noattn__base_5fold_busi.json",
+    "champion_5fold_metrics": {
+      "auc": 0.8982401656314699,
+      "threshold": 0.5,
+      "sensitivity": 0.7619047619047619,
+      "recall": 0.7619047619047619,
+      "precision": 0.7655502392344498,
+      "specificity": 0.8878718535469108,
+      "accuracy": 0.8469860896445132,
+      "f1_score": 0.7637231503579952,
+      "confusion": {
+        "tn": 388,
+        "fp": 49,
+        "fn": 50,
+        "tp": 160
+      },
+      "balanced_accuracy": 0.8248883077258363
+    },
+    "baseline_5fold_report": "C:\\Users\\876762330\\Desktop\\projects\\Agent\\artifacts\\reports\\busi_convnext_tiny_timm_recipe_5fold.json",
+    "baseline_5fold_metrics": {
+      "auc": 0.9043532744905745,
+      "threshold": 0.5,
+      "sensitivity": 0.7523809523809524,
+      "recall": 0.7523809523809524,
+      "precision": 0.7745098039215687,
+      "specificity": 0.8947368421052632,
+      "accuracy": 0.848531684698609,
+      "f1_score": 0.7632850241545894,
+      "confusion": {
+        "tn": 391,
+        "fp": 46,
+        "fn": 52,
+        "tp": 158
+      },
+      "balanced_accuracy": 0.8235588972431078
+    }
+  },
+  "candidate_error_summary": [
+    {
+      "candidate_id": "S1",
+      "candidate_name": "ms_noattn",
+      "newly_worse_count": 47,
+      "newly_better_count": 38,
+      "both_wrong_count": 66
+    },
+    {
+      "candidate_id": "S2",
+      "candidate_name": "stage4_only",
+      "newly_worse_count": 58,
+      "newly_better_count": 43,
+      "both_wrong_count": 61
+    },
+    {
+      "candidate_id": "S3",
+      "candidate_name": "stage34_noattn",
+      "newly_worse_count": 63,
+      "newly_better_count": 32,
+      "both_wrong_count": 72
+    },
+    {
+      "candidate_id": "S1_T0",
+      "candidate_name": "ms_noattn__base",
+      "newly_worse_count": 47,
+      "newly_better_count": 38,
+      "both_wrong_count": 66
+    },
+    {
+      "candidate_id": "S1_T1",
+      "candidate_name": "ms_noattn__regularized",
+      "newly_worse_count": 47,
+      "newly_better_count": 26,
+      "both_wrong_count": 78
+    },
+    {
+      "candidate_id": "S1_T2",
+      "candidate_name": "ms_noattn__cutmix",
+      "newly_worse_count": 138,
+      "newly_better_count": 35,
+      "both_wrong_count": 69
+    },
+    {
+      "candidate_id": "S1_T3",
+      "candidate_name": "ms_noattn__regularized_cutmix",
+      "newly_worse_count": 46,
+      "newly_better_count": 33,
+      "both_wrong_count": 71
+    }
+  ],
+  "final_candidate": {
+    "candidate_group": "regularization",
+    "candidate_id": "S1_T0",
+    "candidate_name": "ms_noattn__base",
+    "fold": 1,
+    "config_path": "C:\\Users\\876762~1\\AppData\\Local\\Temp\\sonoglore_ablation_matrix\\ms_noattn__base_fold1.yml",
+    "inference_config": "C:\\Users\\876762~1\\AppData\\Local\\Temp\\sonoglore_ablation_matrix\\ms_noattn__base_fold1_inference.yml",
+    "checkpoint_path": "C:\\Users\\876762330\\Desktop\\projects\\Agent\\artifacts\\checkpoints\\ms_noattn__base_fold1.pt",
+    "train_report": "C:\\Users\\876762330\\Desktop\\projects\\Agent\\artifacts\\reports\\train_cls_ms_noattn__base_fold1.json",
+    "busi_report": "C:\\Users\\876762330\\Desktop\\projects\\Agent\\artifacts\\reports\\generated\\busi_ms_noattn__base_fold1.json",
+    "train_source": "reused",
+    "busi_source": "reused",
+    "eligible_for_promotion": true,
+    "model_config": {
+      "name": "sonoglore_convnext_tiny",
+      "pretrained": true,
+      "in_chans": 3,
+      "num_classes": 2,
+      "proj_dim": 256,
+      "attn_heads": 4,
+      "attn_mlp_ratio": 2.0,
+      "head_hidden_dim": 256,
+      "attn_dropout": 0.1,
+      "head_dropout": 0.2,
+      "active_stage_indices": [
+        2,
+        3,
+        4
+      ],
+      "use_stage4_attention": false
+    },
+    "model_overrides": {
+      "active_stage_indices": [
+        2,
+        3,
+        4
+      ],
+      "use_stage4_attention": false
+    },
+    "training_overrides": {
+      "learning_rate": 3e-05,
+      "weight_decay": 0.05,
+      "scheduler": {
+        "name": "warmup_cosine",
+        "warmup_epochs": 3,
+        "min_lr": 1e-06
+      }
+    },
+    "data_overrides": {
+      "augmentation": {
+        "horizontal_flip": true,
+        "flip_probability": 0.5
+      }
+    },
+    "train_metrics": {
+      "auc": 0.9106136201645824,
+      "threshold": 0.5,
+      "sensitivity": 0.7868852459016393,
+      "recall": 0.7868852459016393,
+      "precision": 0.7933884297520661,
+      "specificity": 0.9011857707509882,
+      "accuracy": 0.864,
+      "f1_score": 0.7901234567901234,
+      "confusion": {
+        "tn": 228,
+        "fp": 25,
+        "fn": 26,
+        "tp": 96
+      },
+      "balanced_accuracy": 0.8440355083263138
+    },
+    "busi_metrics": {
+      "auc": 0.8809142421270567,
+      "threshold": 0.5,
+      "sensitivity": 0.7952380952380952,
+      "recall": 0.7952380952380952,
+      "precision": 0.7046413502109705,
+      "specificity": 0.8398169336384439,
+      "accuracy": 0.8253477588871716,
+      "f1_score": 0.7472035794183446,
+      "confusion": {
+        "tn": 367,
+        "fp": 70,
+        "fn": 43,
+        "tp": 167
+      },
+      "balanced_accuracy": 0.8175275144382695
+    }
+  },
+  "latency": {
+    "sample_id": "benign (1)",
+    "sample_path": "C:\\Users\\876762330\\Desktop\\projects\\Agent\\测试集\\Dataset_BUSI_with_GT\\benign\\benign (1).png",
+    "warmup_runs": 2,
+    "measured_runs": 10,
+    "rows": [
+      {
+        "label": "B0 baseline",
+        "mean_seconds": 0.015719249995891006,
+        "min_seconds": 0.014753600000403821,
+        "max_seconds": 0.01648189999104943
+      },
+      {
+        "label": "Final candidate",
+        "mean_seconds": 0.017962450002960394,
+        "min_seconds": 0.015577099999063648,
+        "max_seconds": 0.020929999998770654
+      }
+    ]
+  },
+  "error_analysis": {
+    "newly_worse_count": 47,
+    "newly_better_count": 38,
+    "both_wrong_count": 66,
+    "baseline_benign_mean": 0.1412302711378297,
+    "candidate_benign_mean": 0.19198045314691867,
+    "baseline_malignant_mean": 0.7626548283023785,
+    "candidate_malignant_mean": 0.7780627413236947,
+    "diff_csv": "C:\\Users\\876762330\\Desktop\\projects\\Agent\\artifacts\\reports\\generated\\ms_noattn__base_vs_baseline_case_diff.csv",
+    "worsened_csv": "C:\\Users\\876762330\\Desktop\\projects\\Agent\\artifacts\\reports\\generated\\ms_noattn__base_worsened_cases.csv",
+    "top_newly_worse_examples": [
+      {
+        "sample_id": "benign (366)",
+        "pathology_label": "benign",
+        "baseline_probability": 0.0035244743618723304,
+        "candidate_probability": 0.9845451281609128,
+        "probability_shift": 0.9810206537990405
+      },
+      {
+        "sample_id": "benign (360)",
+        "pathology_label": "benign",
+        "baseline_probability": 0.013211271442604025,
+        "candidate_probability": 0.9597125124909915,
+        "probability_shift": 0.9465012410483875
+      },
+      {
+        "sample_id": "benign (285)",
+        "pathology_label": "benign",
+        "baseline_probability": 7.570415571458889e-05,
+        "candidate_probability": 0.9327606946357929,
+        "probability_shift": 0.9326849904800784
+      },
+      {
+        "sample_id": "benign (63)",
+        "pathology_label": "benign",
+        "baseline_probability": 0.016951292248031727,
+        "candidate_probability": 0.925865453147834,
+        "probability_shift": 0.9089141608998023
+      },
+      {
+        "sample_id": "malignant (147)",
+        "pathology_label": "malignant",
+        "baseline_probability": 0.9667690556576481,
+        "candidate_probability": 0.06867050715264636,
+        "probability_shift": -0.8980985485050018
+      },
+      {
+        "sample_id": "benign (162)",
+        "pathology_label": "benign",
+        "baseline_probability": 0.07260166907758764,
+        "candidate_probability": 0.9706623228789832,
+        "probability_shift": 0.8980606538013955
+      },
+      {
+        "sample_id": "benign (284)",
+        "pathology_label": "benign",
+        "baseline_probability": 0.0002522118536118319,
+        "candidate_probability": 0.8769357335110863,
+        "probability_shift": 0.8766835216574745
+      },
+      {
+        "sample_id": "benign (234)",
+        "pathology_label": "benign",
+        "baseline_probability": 0.009539326457432301,
+        "candidate_probability": 0.8789825773542351,
+        "probability_shift": 0.8694432508968029
+      },
+      {
+        "sample_id": "benign (159)",
+        "pathology_label": "benign",
+        "baseline_probability": 0.10686473707653191,
+        "candidate_probability": 0.929121521983192,
+        "probability_shift": 0.8222567849066601
+      },
+      {
+        "sample_id": "malignant (161)",
+        "pathology_label": "malignant",
+        "baseline_probability": 0.9748467225112891,
+        "candidate_probability": 0.15445159605818384,
+        "probability_shift": -0.8203951264531053
+      }
+    ]
+  },
+  "summary_json": "C:\\Users\\876762330\\Desktop\\projects\\Agent\\artifacts\\reports\\generated\\sonoglore_ablation_matrix_summary.json",
+  "report_paths": {
+    "chinese_fold1": "C:\\Users\\876762330\\Desktop\\projects\\Agent\\artifacts\\reports\\Chinese reports\\01_baseline_model_screening\\sonoglore_ablation_matrix_fold1.md",
+    "english_fold1": "C:\\Users\\876762330\\Desktop\\projects\\Agent\\artifacts\\reports\\English reports\\sonoglore_ablation_matrix_fold1.md",
+    "chinese_benchmark": "C:\\Users\\876762330\\Desktop\\projects\\Agent\\artifacts\\reports\\Chinese reports\\01_baseline_model_screening\\sonoglore_ablation_matrix_final_benchmark.md",
+    "english_benchmark": "C:\\Users\\876762330\\Desktop\\projects\\Agent\\artifacts\\reports\\English reports\\sonoglore_ablation_matrix_final_benchmark.md"
+  }
+}

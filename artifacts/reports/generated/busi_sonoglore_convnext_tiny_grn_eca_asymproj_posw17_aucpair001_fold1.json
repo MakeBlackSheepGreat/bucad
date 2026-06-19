@@ -1,0 +1,5316 @@
+{
+  "config_path": "configs/inference/sonoglore_convnext_tiny_grn_eca_asymproj_posw17_aucpair001_fold1.yml",
+  "model_identifier": "sonoglore_convnext_tiny_grn_eca_asymproj_posw17_aucpair001_fold1.pt",
+  "runtime_summary": {
+    "classifier_image_size": 224,
+    "classifier_crop_pct": 0.95,
+    "classifier_tta_variants": [
+      {
+        "name": "identity"
+      },
+      {
+        "name": "hflip"
+      }
+    ],
+    "classifier_member_count": 1
+  },
+  "sample_count": 647,
+  "metrics": {
+    "auc": 0.6256674294431732,
+    "threshold": 0.5,
+    "sensitivity": 0.9571428571428572,
+    "recall": 0.9571428571428572,
+    "precision": 0.3338870431893688,
+    "specificity": 0.08237986270022883,
+    "accuracy": 0.366306027820711,
+    "f1_score": 0.49507389162561577,
+    "confusion": {
+      "tn": 36,
+      "fp": 401,
+      "fn": 9,
+      "tp": 201
+    }
+  },
+  "threshold_analysis": {
+    "best_by_youden": {
+      "auc": 0.6256674294431732,
+      "threshold": 0.53,
+      "sensitivity": 0.6,
+      "recall": 0.6,
+      "precision": 0.40384615384615385,
+      "specificity": 0.5743707093821511,
+      "accuracy": 0.5826893353941267,
+      "f1_score": 0.4827586206896552,
+      "confusion": {
+        "tn": 251,
+        "fp": 186,
+        "fn": 84,
+        "tp": 126
+      },
+      "youden_j": 0.17437070938215093
+    },
+    "rows": [
+      {
+        "auc": 0.6256674294431732,
+        "threshold": 0.1,
+        "sensitivity": 1.0,
+        "recall": 1.0,
+        "precision": 0.32457496136012365,
+        "specificity": 0.0,
+        "accuracy": 0.32457496136012365,
+        "f1_score": 0.49008168028004667,
+        "confusion": {
+          "tn": 0,
+          "fp": 437,
+          "fn": 0,
+          "tp": 210
+        },
+        "youden_j": 0.0
+      },
+      {
+        "auc": 0.6256674294431732,
+        "threshold": 0.11,
+        "sensitivity": 1.0,
+        "recall": 1.0,
+        "precision": 0.32457496136012365,
+        "specificity": 0.0,
+        "accuracy": 0.32457496136012365,
+        "f1_score": 0.49008168028004667,
+        "confusion": {
+          "tn": 0,
+          "fp": 437,
+          "fn": 0,
+          "tp": 210
+        },
+        "youden_j": 0.0
+      },
+      {
+        "auc": 0.6256674294431732,
+        "threshold": 0.12,
+        "sensitivity": 1.0,
+        "recall": 1.0,
+        "precision": 0.32457496136012365,
+        "specificity": 0.0,
+        "accuracy": 0.32457496136012365,
+        "f1_score": 0.49008168028004667,
+        "confusion": {
+          "tn": 0,
+          "fp": 437,
+          "fn": 0,
+          "tp": 210
+        },
+        "youden_j": 0.0
+      },
+      {
+        "auc": 0.6256674294431732,
+        "threshold": 0.13,
+        "sensitivity": 1.0,
+        "recall": 1.0,
+        "precision": 0.32457496136012365,
+        "specificity": 0.0,
+        "accuracy": 0.32457496136012365,
+        "f1_score": 0.49008168028004667,
+        "confusion": {
+          "tn": 0,
+          "fp": 437,
+          "fn": 0,
+          "tp": 210
+        },
+        "youden_j": 0.0
+      },
+      {
+        "auc": 0.6256674294431732,
+        "threshold": 0.14,
+        "sensitivity": 1.0,
+        "recall": 1.0,
+        "precision": 0.32457496136012365,
+        "specificity": 0.0,
+        "accuracy": 0.32457496136012365,
+        "f1_score": 0.49008168028004667,
+        "confusion": {
+          "tn": 0,
+          "fp": 437,
+          "fn": 0,
+          "tp": 210
+        },
+        "youden_j": 0.0
+      },
+      {
+        "auc": 0.6256674294431732,
+        "threshold": 0.15,
+        "sensitivity": 1.0,
+        "recall": 1.0,
+        "precision": 0.32457496136012365,
+        "specificity": 0.0,
+        "accuracy": 0.32457496136012365,
+        "f1_score": 0.49008168028004667,
+        "confusion": {
+          "tn": 0,
+          "fp": 437,
+          "fn": 0,
+          "tp": 210
+        },
+        "youden_j": 0.0
+      },
+      {
+        "auc": 0.6256674294431732,
+        "threshold": 0.16,
+        "sensitivity": 1.0,
+        "recall": 1.0,
+        "precision": 0.32457496136012365,
+        "specificity": 0.0,
+        "accuracy": 0.32457496136012365,
+        "f1_score": 0.49008168028004667,
+        "confusion": {
+          "tn": 0,
+          "fp": 437,
+          "fn": 0,
+          "tp": 210
+        },
+        "youden_j": 0.0
+      },
+      {
+        "auc": 0.6256674294431732,
+        "threshold": 0.17,
+        "sensitivity": 1.0,
+        "recall": 1.0,
+        "precision": 0.32457496136012365,
+        "specificity": 0.0,
+        "accuracy": 0.32457496136012365,
+        "f1_score": 0.49008168028004667,
+        "confusion": {
+          "tn": 0,
+          "fp": 437,
+          "fn": 0,
+          "tp": 210
+        },
+        "youden_j": 0.0
+      },
+      {
+        "auc": 0.6256674294431732,
+        "threshold": 0.18,
+        "sensitivity": 1.0,
+        "recall": 1.0,
+        "precision": 0.32457496136012365,
+        "specificity": 0.0,
+        "accuracy": 0.32457496136012365,
+        "f1_score": 0.49008168028004667,
+        "confusion": {
+          "tn": 0,
+          "fp": 437,
+          "fn": 0,
+          "tp": 210
+        },
+        "youden_j": 0.0
+      },
+      {
+        "auc": 0.6256674294431732,
+        "threshold": 0.19,
+        "sensitivity": 1.0,
+        "recall": 1.0,
+        "precision": 0.32457496136012365,
+        "specificity": 0.0,
+        "accuracy": 0.32457496136012365,
+        "f1_score": 0.49008168028004667,
+        "confusion": {
+          "tn": 0,
+          "fp": 437,
+          "fn": 0,
+          "tp": 210
+        },
+        "youden_j": 0.0
+      },
+      {
+        "auc": 0.6256674294431732,
+        "threshold": 0.2,
+        "sensitivity": 1.0,
+        "recall": 1.0,
+        "precision": 0.32457496136012365,
+        "specificity": 0.0,
+        "accuracy": 0.32457496136012365,
+        "f1_score": 0.49008168028004667,
+        "confusion": {
+          "tn": 0,
+          "fp": 437,
+          "fn": 0,
+          "tp": 210
+        },
+        "youden_j": 0.0
+      },
+      {
+        "auc": 0.6256674294431732,
+        "threshold": 0.21,
+        "sensitivity": 1.0,
+        "recall": 1.0,
+        "precision": 0.32457496136012365,
+        "specificity": 0.0,
+        "accuracy": 0.32457496136012365,
+        "f1_score": 0.49008168028004667,
+        "confusion": {
+          "tn": 0,
+          "fp": 437,
+          "fn": 0,
+          "tp": 210
+        },
+        "youden_j": 0.0
+      },
+      {
+        "auc": 0.6256674294431732,
+        "threshold": 0.22,
+        "sensitivity": 1.0,
+        "recall": 1.0,
+        "precision": 0.32457496136012365,
+        "specificity": 0.0,
+        "accuracy": 0.32457496136012365,
+        "f1_score": 0.49008168028004667,
+        "confusion": {
+          "tn": 0,
+          "fp": 437,
+          "fn": 0,
+          "tp": 210
+        },
+        "youden_j": 0.0
+      },
+      {
+        "auc": 0.6256674294431732,
+        "threshold": 0.23,
+        "sensitivity": 1.0,
+        "recall": 1.0,
+        "precision": 0.32457496136012365,
+        "specificity": 0.0,
+        "accuracy": 0.32457496136012365,
+        "f1_score": 0.49008168028004667,
+        "confusion": {
+          "tn": 0,
+          "fp": 437,
+          "fn": 0,
+          "tp": 210
+        },
+        "youden_j": 0.0
+      },
+      {
+        "auc": 0.6256674294431732,
+        "threshold": 0.24,
+        "sensitivity": 1.0,
+        "recall": 1.0,
+        "precision": 0.32457496136012365,
+        "specificity": 0.0,
+        "accuracy": 0.32457496136012365,
+        "f1_score": 0.49008168028004667,
+        "confusion": {
+          "tn": 0,
+          "fp": 437,
+          "fn": 0,
+          "tp": 210
+        },
+        "youden_j": 0.0
+      },
+      {
+        "auc": 0.6256674294431732,
+        "threshold": 0.25,
+        "sensitivity": 1.0,
+        "recall": 1.0,
+        "precision": 0.32457496136012365,
+        "specificity": 0.0,
+        "accuracy": 0.32457496136012365,
+        "f1_score": 0.49008168028004667,
+        "confusion": {
+          "tn": 0,
+          "fp": 437,
+          "fn": 0,
+          "tp": 210
+        },
+        "youden_j": 0.0
+      },
+      {
+        "auc": 0.6256674294431732,
+        "threshold": 0.26,
+        "sensitivity": 1.0,
+        "recall": 1.0,
+        "precision": 0.32457496136012365,
+        "specificity": 0.0,
+        "accuracy": 0.32457496136012365,
+        "f1_score": 0.49008168028004667,
+        "confusion": {
+          "tn": 0,
+          "fp": 437,
+          "fn": 0,
+          "tp": 210
+        },
+        "youden_j": 0.0
+      },
+      {
+        "auc": 0.6256674294431732,
+        "threshold": 0.27,
+        "sensitivity": 1.0,
+        "recall": 1.0,
+        "precision": 0.32457496136012365,
+        "specificity": 0.0,
+        "accuracy": 0.32457496136012365,
+        "f1_score": 0.49008168028004667,
+        "confusion": {
+          "tn": 0,
+          "fp": 437,
+          "fn": 0,
+          "tp": 210
+        },
+        "youden_j": 0.0
+      },
+      {
+        "auc": 0.6256674294431732,
+        "threshold": 0.28,
+        "sensitivity": 1.0,
+        "recall": 1.0,
+        "precision": 0.32457496136012365,
+        "specificity": 0.0,
+        "accuracy": 0.32457496136012365,
+        "f1_score": 0.49008168028004667,
+        "confusion": {
+          "tn": 0,
+          "fp": 437,
+          "fn": 0,
+          "tp": 210
+        },
+        "youden_j": 0.0
+      },
+      {
+        "auc": 0.6256674294431732,
+        "threshold": 0.29,
+        "sensitivity": 1.0,
+        "recall": 1.0,
+        "precision": 0.32457496136012365,
+        "specificity": 0.0,
+        "accuracy": 0.32457496136012365,
+        "f1_score": 0.49008168028004667,
+        "confusion": {
+          "tn": 0,
+          "fp": 437,
+          "fn": 0,
+          "tp": 210
+        },
+        "youden_j": 0.0
+      },
+      {
+        "auc": 0.6256674294431732,
+        "threshold": 0.3,
+        "sensitivity": 1.0,
+        "recall": 1.0,
+        "precision": 0.32457496136012365,
+        "specificity": 0.0,
+        "accuracy": 0.32457496136012365,
+        "f1_score": 0.49008168028004667,
+        "confusion": {
+          "tn": 0,
+          "fp": 437,
+          "fn": 0,
+          "tp": 210
+        },
+        "youden_j": 0.0
+      },
+      {
+        "auc": 0.6256674294431732,
+        "threshold": 0.31,
+        "sensitivity": 1.0,
+        "recall": 1.0,
+        "precision": 0.32457496136012365,
+        "specificity": 0.0,
+        "accuracy": 0.32457496136012365,
+        "f1_score": 0.49008168028004667,
+        "confusion": {
+          "tn": 0,
+          "fp": 437,
+          "fn": 0,
+          "tp": 210
+        },
+        "youden_j": 0.0
+      },
+      {
+        "auc": 0.6256674294431732,
+        "threshold": 0.32,
+        "sensitivity": 1.0,
+        "recall": 1.0,
+        "precision": 0.32457496136012365,
+        "specificity": 0.0,
+        "accuracy": 0.32457496136012365,
+        "f1_score": 0.49008168028004667,
+        "confusion": {
+          "tn": 0,
+          "fp": 437,
+          "fn": 0,
+          "tp": 210
+        },
+        "youden_j": 0.0
+      },
+      {
+        "auc": 0.6256674294431732,
+        "threshold": 0.33,
+        "sensitivity": 1.0,
+        "recall": 1.0,
+        "precision": 0.32457496136012365,
+        "specificity": 0.0,
+        "accuracy": 0.32457496136012365,
+        "f1_score": 0.49008168028004667,
+        "confusion": {
+          "tn": 0,
+          "fp": 437,
+          "fn": 0,
+          "tp": 210
+        },
+        "youden_j": 0.0
+      },
+      {
+        "auc": 0.6256674294431732,
+        "threshold": 0.34,
+        "sensitivity": 1.0,
+        "recall": 1.0,
+        "precision": 0.32457496136012365,
+        "specificity": 0.0,
+        "accuracy": 0.32457496136012365,
+        "f1_score": 0.49008168028004667,
+        "confusion": {
+          "tn": 0,
+          "fp": 437,
+          "fn": 0,
+          "tp": 210
+        },
+        "youden_j": 0.0
+      },
+      {
+        "auc": 0.6256674294431732,
+        "threshold": 0.35,
+        "sensitivity": 1.0,
+        "recall": 1.0,
+        "precision": 0.32457496136012365,
+        "specificity": 0.0,
+        "accuracy": 0.32457496136012365,
+        "f1_score": 0.49008168028004667,
+        "confusion": {
+          "tn": 0,
+          "fp": 437,
+          "fn": 0,
+          "tp": 210
+        },
+        "youden_j": 0.0
+      },
+      {
+        "auc": 0.6256674294431732,
+        "threshold": 0.36,
+        "sensitivity": 1.0,
+        "recall": 1.0,
+        "precision": 0.32457496136012365,
+        "specificity": 0.0,
+        "accuracy": 0.32457496136012365,
+        "f1_score": 0.49008168028004667,
+        "confusion": {
+          "tn": 0,
+          "fp": 437,
+          "fn": 0,
+          "tp": 210
+        },
+        "youden_j": 0.0
+      },
+      {
+        "auc": 0.6256674294431732,
+        "threshold": 0.37,
+        "sensitivity": 1.0,
+        "recall": 1.0,
+        "precision": 0.32457496136012365,
+        "specificity": 0.0,
+        "accuracy": 0.32457496136012365,
+        "f1_score": 0.49008168028004667,
+        "confusion": {
+          "tn": 0,
+          "fp": 437,
+          "fn": 0,
+          "tp": 210
+        },
+        "youden_j": 0.0
+      },
+      {
+        "auc": 0.6256674294431732,
+        "threshold": 0.38,
+        "sensitivity": 1.0,
+        "recall": 1.0,
+        "precision": 0.32457496136012365,
+        "specificity": 0.0,
+        "accuracy": 0.32457496136012365,
+        "f1_score": 0.49008168028004667,
+        "confusion": {
+          "tn": 0,
+          "fp": 437,
+          "fn": 0,
+          "tp": 210
+        },
+        "youden_j": 0.0
+      },
+      {
+        "auc": 0.6256674294431732,
+        "threshold": 0.39,
+        "sensitivity": 1.0,
+        "recall": 1.0,
+        "precision": 0.32457496136012365,
+        "specificity": 0.0,
+        "accuracy": 0.32457496136012365,
+        "f1_score": 0.49008168028004667,
+        "confusion": {
+          "tn": 0,
+          "fp": 437,
+          "fn": 0,
+          "tp": 210
+        },
+        "youden_j": 0.0
+      },
+      {
+        "auc": 0.6256674294431732,
+        "threshold": 0.4,
+        "sensitivity": 1.0,
+        "recall": 1.0,
+        "precision": 0.32457496136012365,
+        "specificity": 0.0,
+        "accuracy": 0.32457496136012365,
+        "f1_score": 0.49008168028004667,
+        "confusion": {
+          "tn": 0,
+          "fp": 437,
+          "fn": 0,
+          "tp": 210
+        },
+        "youden_j": 0.0
+      },
+      {
+        "auc": 0.6256674294431732,
+        "threshold": 0.41,
+        "sensitivity": 1.0,
+        "recall": 1.0,
+        "precision": 0.32457496136012365,
+        "specificity": 0.0,
+        "accuracy": 0.32457496136012365,
+        "f1_score": 0.49008168028004667,
+        "confusion": {
+          "tn": 0,
+          "fp": 437,
+          "fn": 0,
+          "tp": 210
+        },
+        "youden_j": 0.0
+      },
+      {
+        "auc": 0.6256674294431732,
+        "threshold": 0.42,
+        "sensitivity": 1.0,
+        "recall": 1.0,
+        "precision": 0.32457496136012365,
+        "specificity": 0.0,
+        "accuracy": 0.32457496136012365,
+        "f1_score": 0.49008168028004667,
+        "confusion": {
+          "tn": 0,
+          "fp": 437,
+          "fn": 0,
+          "tp": 210
+        },
+        "youden_j": 0.0
+      },
+      {
+        "auc": 0.6256674294431732,
+        "threshold": 0.43,
+        "sensitivity": 1.0,
+        "recall": 1.0,
+        "precision": 0.32457496136012365,
+        "specificity": 0.0,
+        "accuracy": 0.32457496136012365,
+        "f1_score": 0.49008168028004667,
+        "confusion": {
+          "tn": 0,
+          "fp": 437,
+          "fn": 0,
+          "tp": 210
+        },
+        "youden_j": 0.0
+      },
+      {
+        "auc": 0.6256674294431732,
+        "threshold": 0.44,
+        "sensitivity": 1.0,
+        "recall": 1.0,
+        "precision": 0.32457496136012365,
+        "specificity": 0.0,
+        "accuracy": 0.32457496136012365,
+        "f1_score": 0.49008168028004667,
+        "confusion": {
+          "tn": 0,
+          "fp": 437,
+          "fn": 0,
+          "tp": 210
+        },
+        "youden_j": 0.0
+      },
+      {
+        "auc": 0.6256674294431732,
+        "threshold": 0.45,
+        "sensitivity": 1.0,
+        "recall": 1.0,
+        "precision": 0.32457496136012365,
+        "specificity": 0.0,
+        "accuracy": 0.32457496136012365,
+        "f1_score": 0.49008168028004667,
+        "confusion": {
+          "tn": 0,
+          "fp": 437,
+          "fn": 0,
+          "tp": 210
+        },
+        "youden_j": 0.0
+      },
+      {
+        "auc": 0.6256674294431732,
+        "threshold": 0.46,
+        "sensitivity": 1.0,
+        "recall": 1.0,
+        "precision": 0.32457496136012365,
+        "specificity": 0.0,
+        "accuracy": 0.32457496136012365,
+        "f1_score": 0.49008168028004667,
+        "confusion": {
+          "tn": 0,
+          "fp": 437,
+          "fn": 0,
+          "tp": 210
+        },
+        "youden_j": 0.0
+      },
+      {
+        "auc": 0.6256674294431732,
+        "threshold": 0.47,
+        "sensitivity": 1.0,
+        "recall": 1.0,
+        "precision": 0.32507739938080493,
+        "specificity": 0.002288329519450801,
+        "accuracy": 0.3261205564142195,
+        "f1_score": 0.49065420560747663,
+        "confusion": {
+          "tn": 1,
+          "fp": 436,
+          "fn": 0,
+          "tp": 210
+        },
+        "youden_j": 0.0022883295194509046
+      },
+      {
+        "auc": 0.6256674294431732,
+        "threshold": 0.48,
+        "sensitivity": 0.9857142857142858,
+        "recall": 0.9857142857142858,
+        "precision": 0.32242990654205606,
+        "specificity": 0.004576659038901602,
+        "accuracy": 0.3230293663060278,
+        "f1_score": 0.4859154929577464,
+        "confusion": {
+          "tn": 2,
+          "fp": 435,
+          "fn": 3,
+          "tp": 207
+        },
+        "youden_j": -0.009709055246812648
+      },
+      {
+        "auc": 0.6256674294431732,
+        "threshold": 0.49,
+        "sensitivity": 0.9857142857142858,
+        "recall": 0.9857142857142858,
+        "precision": 0.3275316455696203,
+        "specificity": 0.02745995423340961,
+        "accuracy": 0.3384853168469861,
+        "f1_score": 0.491686460807601,
+        "confusion": {
+          "tn": 12,
+          "fp": 425,
+          "fn": 3,
+          "tp": 207
+        },
+        "youden_j": 0.013174239947695288
+      },
+      {
+        "auc": 0.6256674294431732,
+        "threshold": 0.5,
+        "sensitivity": 0.9571428571428572,
+        "recall": 0.9571428571428572,
+        "precision": 0.3338870431893688,
+        "specificity": 0.08237986270022883,
+        "accuracy": 0.366306027820711,
+        "f1_score": 0.49507389162561577,
+        "confusion": {
+          "tn": 36,
+          "fp": 401,
+          "fn": 9,
+          "tp": 201
+        },
+        "youden_j": 0.039522719843086085
+      },
+      {
+        "auc": 0.6256674294431732,
+        "threshold": 0.51,
+        "sensitivity": 0.8809523809523809,
+        "recall": 0.8809523809523809,
+        "precision": 0.3510436432637571,
+        "specificity": 0.21739130434782608,
+        "accuracy": 0.4327666151468315,
+        "f1_score": 0.5020352781546811,
+        "confusion": {
+          "tn": 95,
+          "fp": 342,
+          "fn": 25,
+          "tp": 185
+        },
+        "youden_j": 0.0983436853002071
+      },
+      {
+        "auc": 0.6256674294431732,
+        "threshold": 0.52,
+        "sensitivity": 0.7904761904761904,
+        "recall": 0.7904761904761904,
+        "precision": 0.37813211845102507,
+        "specificity": 0.37528604118993136,
+        "accuracy": 0.5100463678516228,
+        "f1_score": 0.5115562403697996,
+        "confusion": {
+          "tn": 164,
+          "fp": 273,
+          "fn": 44,
+          "tp": 166
+        },
+        "youden_j": 0.1657622316661218
+      },
+      {
+        "auc": 0.6256674294431732,
+        "threshold": 0.53,
+        "sensitivity": 0.6,
+        "recall": 0.6,
+        "precision": 0.40384615384615385,
+        "specificity": 0.5743707093821511,
+        "accuracy": 0.5826893353941267,
+        "f1_score": 0.4827586206896552,
+        "confusion": {
+          "tn": 251,
+          "fp": 186,
+          "fn": 84,
+          "tp": 126
+        },
+        "youden_j": 0.17437070938215093
+      },
+      {
+        "auc": 0.6256674294431732,
+        "threshold": 0.54,
+        "sensitivity": 0.40476190476190477,
+        "recall": 0.40476190476190477,
+        "precision": 0.4473684210526316,
+        "specificity": 0.7597254004576659,
+        "accuracy": 0.6445131375579598,
+        "f1_score": 0.42500000000000004,
+        "confusion": {
+          "tn": 332,
+          "fp": 105,
+          "fn": 125,
+          "tp": 85
+        },
+        "youden_j": 0.16448730521957078
+      },
+      {
+        "auc": 0.6256674294431732,
+        "threshold": 0.55,
+        "sensitivity": 0.22380952380952382,
+        "recall": 0.22380952380952382,
+        "precision": 0.5053763440860215,
+        "specificity": 0.8947368421052632,
+        "accuracy": 0.6769706336939721,
+        "f1_score": 0.31023102310231027,
+        "confusion": {
+          "tn": 391,
+          "fp": 46,
+          "fn": 163,
+          "tp": 47
+        },
+        "youden_j": 0.11854636591478696
+      },
+      {
+        "auc": 0.6256674294431732,
+        "threshold": 0.56,
+        "sensitivity": 0.09523809523809523,
+        "recall": 0.09523809523809523,
+        "precision": 0.5714285714285714,
+        "specificity": 0.965675057208238,
+        "accuracy": 0.6831530139103554,
+        "f1_score": 0.16326530612244897,
+        "confusion": {
+          "tn": 422,
+          "fp": 15,
+          "fn": 190,
+          "tp": 20
+        },
+        "youden_j": 0.06091315244633311
+      },
+      {
+        "auc": 0.6256674294431732,
+        "threshold": 0.57,
+        "sensitivity": 0.047619047619047616,
+        "recall": 0.047619047619047616,
+        "precision": 0.7142857142857143,
+        "specificity": 0.9908466819221968,
+        "accuracy": 0.6846986089644513,
+        "f1_score": 0.08928571428571427,
+        "confusion": {
+          "tn": 433,
+          "fp": 4,
+          "fn": 200,
+          "tp": 10
+        },
+        "youden_j": 0.0384657295412445
+      },
+      {
+        "auc": 0.6256674294431732,
+        "threshold": 0.58,
+        "sensitivity": 0.01904761904761905,
+        "recall": 0.01904761904761905,
+        "precision": 0.6666666666666666,
+        "specificity": 0.9954233409610984,
+        "accuracy": 0.678516228748068,
+        "f1_score": 0.037037037037037035,
+        "confusion": {
+          "tn": 435,
+          "fp": 2,
+          "fn": 206,
+          "tp": 4
+        },
+        "youden_j": 0.014470960008717393
+      },
+      {
+        "auc": 0.6256674294431732,
+        "threshold": 0.59,
+        "sensitivity": 0.0,
+        "recall": 0.0,
+        "precision": 0.0,
+        "specificity": 1.0,
+        "accuracy": 0.6754250386398764,
+        "f1_score": 0.0,
+        "confusion": {
+          "tn": 437,
+          "fp": 0,
+          "fn": 210,
+          "tp": 0
+        },
+        "youden_j": 0.0
+      },
+      {
+        "auc": 0.6256674294431732,
+        "threshold": 0.6,
+        "sensitivity": 0.0,
+        "recall": 0.0,
+        "precision": 0.0,
+        "specificity": 1.0,
+        "accuracy": 0.6754250386398764,
+        "f1_score": 0.0,
+        "confusion": {
+          "tn": 437,
+          "fp": 0,
+          "fn": 210,
+          "tp": 0
+        },
+        "youden_j": 0.0
+      },
+      {
+        "auc": 0.6256674294431732,
+        "threshold": 0.61,
+        "sensitivity": 0.0,
+        "recall": 0.0,
+        "precision": 0.0,
+        "specificity": 1.0,
+        "accuracy": 0.6754250386398764,
+        "f1_score": 0.0,
+        "confusion": {
+          "tn": 437,
+          "fp": 0,
+          "fn": 210,
+          "tp": 0
+        },
+        "youden_j": 0.0
+      },
+      {
+        "auc": 0.6256674294431732,
+        "threshold": 0.62,
+        "sensitivity": 0.0,
+        "recall": 0.0,
+        "precision": 0.0,
+        "specificity": 1.0,
+        "accuracy": 0.6754250386398764,
+        "f1_score": 0.0,
+        "confusion": {
+          "tn": 437,
+          "fp": 0,
+          "fn": 210,
+          "tp": 0
+        },
+        "youden_j": 0.0
+      },
+      {
+        "auc": 0.6256674294431732,
+        "threshold": 0.63,
+        "sensitivity": 0.0,
+        "recall": 0.0,
+        "precision": 0.0,
+        "specificity": 1.0,
+        "accuracy": 0.6754250386398764,
+        "f1_score": 0.0,
+        "confusion": {
+          "tn": 437,
+          "fp": 0,
+          "fn": 210,
+          "tp": 0
+        },
+        "youden_j": 0.0
+      },
+      {
+        "auc": 0.6256674294431732,
+        "threshold": 0.64,
+        "sensitivity": 0.0,
+        "recall": 0.0,
+        "precision": 0.0,
+        "specificity": 1.0,
+        "accuracy": 0.6754250386398764,
+        "f1_score": 0.0,
+        "confusion": {
+          "tn": 437,
+          "fp": 0,
+          "fn": 210,
+          "tp": 0
+        },
+        "youden_j": 0.0
+      },
+      {
+        "auc": 0.6256674294431732,
+        "threshold": 0.65,
+        "sensitivity": 0.0,
+        "recall": 0.0,
+        "precision": 0.0,
+        "specificity": 1.0,
+        "accuracy": 0.6754250386398764,
+        "f1_score": 0.0,
+        "confusion": {
+          "tn": 437,
+          "fp": 0,
+          "fn": 210,
+          "tp": 0
+        },
+        "youden_j": 0.0
+      },
+      {
+        "auc": 0.6256674294431732,
+        "threshold": 0.66,
+        "sensitivity": 0.0,
+        "recall": 0.0,
+        "precision": 0.0,
+        "specificity": 1.0,
+        "accuracy": 0.6754250386398764,
+        "f1_score": 0.0,
+        "confusion": {
+          "tn": 437,
+          "fp": 0,
+          "fn": 210,
+          "tp": 0
+        },
+        "youden_j": 0.0
+      },
+      {
+        "auc": 0.6256674294431732,
+        "threshold": 0.67,
+        "sensitivity": 0.0,
+        "recall": 0.0,
+        "precision": 0.0,
+        "specificity": 1.0,
+        "accuracy": 0.6754250386398764,
+        "f1_score": 0.0,
+        "confusion": {
+          "tn": 437,
+          "fp": 0,
+          "fn": 210,
+          "tp": 0
+        },
+        "youden_j": 0.0
+      },
+      {
+        "auc": 0.6256674294431732,
+        "threshold": 0.68,
+        "sensitivity": 0.0,
+        "recall": 0.0,
+        "precision": 0.0,
+        "specificity": 1.0,
+        "accuracy": 0.6754250386398764,
+        "f1_score": 0.0,
+        "confusion": {
+          "tn": 437,
+          "fp": 0,
+          "fn": 210,
+          "tp": 0
+        },
+        "youden_j": 0.0
+      },
+      {
+        "auc": 0.6256674294431732,
+        "threshold": 0.69,
+        "sensitivity": 0.0,
+        "recall": 0.0,
+        "precision": 0.0,
+        "specificity": 1.0,
+        "accuracy": 0.6754250386398764,
+        "f1_score": 0.0,
+        "confusion": {
+          "tn": 437,
+          "fp": 0,
+          "fn": 210,
+          "tp": 0
+        },
+        "youden_j": 0.0
+      },
+      {
+        "auc": 0.6256674294431732,
+        "threshold": 0.7,
+        "sensitivity": 0.0,
+        "recall": 0.0,
+        "precision": 0.0,
+        "specificity": 1.0,
+        "accuracy": 0.6754250386398764,
+        "f1_score": 0.0,
+        "confusion": {
+          "tn": 437,
+          "fp": 0,
+          "fn": 210,
+          "tp": 0
+        },
+        "youden_j": 0.0
+      },
+      {
+        "auc": 0.6256674294431732,
+        "threshold": 0.71,
+        "sensitivity": 0.0,
+        "recall": 0.0,
+        "precision": 0.0,
+        "specificity": 1.0,
+        "accuracy": 0.6754250386398764,
+        "f1_score": 0.0,
+        "confusion": {
+          "tn": 437,
+          "fp": 0,
+          "fn": 210,
+          "tp": 0
+        },
+        "youden_j": 0.0
+      },
+      {
+        "auc": 0.6256674294431732,
+        "threshold": 0.72,
+        "sensitivity": 0.0,
+        "recall": 0.0,
+        "precision": 0.0,
+        "specificity": 1.0,
+        "accuracy": 0.6754250386398764,
+        "f1_score": 0.0,
+        "confusion": {
+          "tn": 437,
+          "fp": 0,
+          "fn": 210,
+          "tp": 0
+        },
+        "youden_j": 0.0
+      },
+      {
+        "auc": 0.6256674294431732,
+        "threshold": 0.73,
+        "sensitivity": 0.0,
+        "recall": 0.0,
+        "precision": 0.0,
+        "specificity": 1.0,
+        "accuracy": 0.6754250386398764,
+        "f1_score": 0.0,
+        "confusion": {
+          "tn": 437,
+          "fp": 0,
+          "fn": 210,
+          "tp": 0
+        },
+        "youden_j": 0.0
+      },
+      {
+        "auc": 0.6256674294431732,
+        "threshold": 0.74,
+        "sensitivity": 0.0,
+        "recall": 0.0,
+        "precision": 0.0,
+        "specificity": 1.0,
+        "accuracy": 0.6754250386398764,
+        "f1_score": 0.0,
+        "confusion": {
+          "tn": 437,
+          "fp": 0,
+          "fn": 210,
+          "tp": 0
+        },
+        "youden_j": 0.0
+      },
+      {
+        "auc": 0.6256674294431732,
+        "threshold": 0.75,
+        "sensitivity": 0.0,
+        "recall": 0.0,
+        "precision": 0.0,
+        "specificity": 1.0,
+        "accuracy": 0.6754250386398764,
+        "f1_score": 0.0,
+        "confusion": {
+          "tn": 437,
+          "fp": 0,
+          "fn": 210,
+          "tp": 0
+        },
+        "youden_j": 0.0
+      },
+      {
+        "auc": 0.6256674294431732,
+        "threshold": 0.76,
+        "sensitivity": 0.0,
+        "recall": 0.0,
+        "precision": 0.0,
+        "specificity": 1.0,
+        "accuracy": 0.6754250386398764,
+        "f1_score": 0.0,
+        "confusion": {
+          "tn": 437,
+          "fp": 0,
+          "fn": 210,
+          "tp": 0
+        },
+        "youden_j": 0.0
+      },
+      {
+        "auc": 0.6256674294431732,
+        "threshold": 0.77,
+        "sensitivity": 0.0,
+        "recall": 0.0,
+        "precision": 0.0,
+        "specificity": 1.0,
+        "accuracy": 0.6754250386398764,
+        "f1_score": 0.0,
+        "confusion": {
+          "tn": 437,
+          "fp": 0,
+          "fn": 210,
+          "tp": 0
+        },
+        "youden_j": 0.0
+      },
+      {
+        "auc": 0.6256674294431732,
+        "threshold": 0.78,
+        "sensitivity": 0.0,
+        "recall": 0.0,
+        "precision": 0.0,
+        "specificity": 1.0,
+        "accuracy": 0.6754250386398764,
+        "f1_score": 0.0,
+        "confusion": {
+          "tn": 437,
+          "fp": 0,
+          "fn": 210,
+          "tp": 0
+        },
+        "youden_j": 0.0
+      },
+      {
+        "auc": 0.6256674294431732,
+        "threshold": 0.79,
+        "sensitivity": 0.0,
+        "recall": 0.0,
+        "precision": 0.0,
+        "specificity": 1.0,
+        "accuracy": 0.6754250386398764,
+        "f1_score": 0.0,
+        "confusion": {
+          "tn": 437,
+          "fp": 0,
+          "fn": 210,
+          "tp": 0
+        },
+        "youden_j": 0.0
+      },
+      {
+        "auc": 0.6256674294431732,
+        "threshold": 0.8,
+        "sensitivity": 0.0,
+        "recall": 0.0,
+        "precision": 0.0,
+        "specificity": 1.0,
+        "accuracy": 0.6754250386398764,
+        "f1_score": 0.0,
+        "confusion": {
+          "tn": 437,
+          "fp": 0,
+          "fn": 210,
+          "tp": 0
+        },
+        "youden_j": 0.0
+      },
+      {
+        "auc": 0.6256674294431732,
+        "threshold": 0.81,
+        "sensitivity": 0.0,
+        "recall": 0.0,
+        "precision": 0.0,
+        "specificity": 1.0,
+        "accuracy": 0.6754250386398764,
+        "f1_score": 0.0,
+        "confusion": {
+          "tn": 437,
+          "fp": 0,
+          "fn": 210,
+          "tp": 0
+        },
+        "youden_j": 0.0
+      },
+      {
+        "auc": 0.6256674294431732,
+        "threshold": 0.82,
+        "sensitivity": 0.0,
+        "recall": 0.0,
+        "precision": 0.0,
+        "specificity": 1.0,
+        "accuracy": 0.6754250386398764,
+        "f1_score": 0.0,
+        "confusion": {
+          "tn": 437,
+          "fp": 0,
+          "fn": 210,
+          "tp": 0
+        },
+        "youden_j": 0.0
+      },
+      {
+        "auc": 0.6256674294431732,
+        "threshold": 0.83,
+        "sensitivity": 0.0,
+        "recall": 0.0,
+        "precision": 0.0,
+        "specificity": 1.0,
+        "accuracy": 0.6754250386398764,
+        "f1_score": 0.0,
+        "confusion": {
+          "tn": 437,
+          "fp": 0,
+          "fn": 210,
+          "tp": 0
+        },
+        "youden_j": 0.0
+      },
+      {
+        "auc": 0.6256674294431732,
+        "threshold": 0.84,
+        "sensitivity": 0.0,
+        "recall": 0.0,
+        "precision": 0.0,
+        "specificity": 1.0,
+        "accuracy": 0.6754250386398764,
+        "f1_score": 0.0,
+        "confusion": {
+          "tn": 437,
+          "fp": 0,
+          "fn": 210,
+          "tp": 0
+        },
+        "youden_j": 0.0
+      },
+      {
+        "auc": 0.6256674294431732,
+        "threshold": 0.85,
+        "sensitivity": 0.0,
+        "recall": 0.0,
+        "precision": 0.0,
+        "specificity": 1.0,
+        "accuracy": 0.6754250386398764,
+        "f1_score": 0.0,
+        "confusion": {
+          "tn": 437,
+          "fp": 0,
+          "fn": 210,
+          "tp": 0
+        },
+        "youden_j": 0.0
+      },
+      {
+        "auc": 0.6256674294431732,
+        "threshold": 0.86,
+        "sensitivity": 0.0,
+        "recall": 0.0,
+        "precision": 0.0,
+        "specificity": 1.0,
+        "accuracy": 0.6754250386398764,
+        "f1_score": 0.0,
+        "confusion": {
+          "tn": 437,
+          "fp": 0,
+          "fn": 210,
+          "tp": 0
+        },
+        "youden_j": 0.0
+      },
+      {
+        "auc": 0.6256674294431732,
+        "threshold": 0.87,
+        "sensitivity": 0.0,
+        "recall": 0.0,
+        "precision": 0.0,
+        "specificity": 1.0,
+        "accuracy": 0.6754250386398764,
+        "f1_score": 0.0,
+        "confusion": {
+          "tn": 437,
+          "fp": 0,
+          "fn": 210,
+          "tp": 0
+        },
+        "youden_j": 0.0
+      },
+      {
+        "auc": 0.6256674294431732,
+        "threshold": 0.88,
+        "sensitivity": 0.0,
+        "recall": 0.0,
+        "precision": 0.0,
+        "specificity": 1.0,
+        "accuracy": 0.6754250386398764,
+        "f1_score": 0.0,
+        "confusion": {
+          "tn": 437,
+          "fp": 0,
+          "fn": 210,
+          "tp": 0
+        },
+        "youden_j": 0.0
+      },
+      {
+        "auc": 0.6256674294431732,
+        "threshold": 0.89,
+        "sensitivity": 0.0,
+        "recall": 0.0,
+        "precision": 0.0,
+        "specificity": 1.0,
+        "accuracy": 0.6754250386398764,
+        "f1_score": 0.0,
+        "confusion": {
+          "tn": 437,
+          "fp": 0,
+          "fn": 210,
+          "tp": 0
+        },
+        "youden_j": 0.0
+      },
+      {
+        "auc": 0.6256674294431732,
+        "threshold": 0.9,
+        "sensitivity": 0.0,
+        "recall": 0.0,
+        "precision": 0.0,
+        "specificity": 1.0,
+        "accuracy": 0.6754250386398764,
+        "f1_score": 0.0,
+        "confusion": {
+          "tn": 437,
+          "fp": 0,
+          "fn": 210,
+          "tp": 0
+        },
+        "youden_j": 0.0
+      }
+    ]
+  },
+  "rows": [
+    {
+      "sample_id": "benign (1)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.4834253787994385,
+      "final_label": "benign"
+    },
+    {
+      "sample_id": "benign (10)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.52127827767367,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (100)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5513660907745361,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (101)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5409897839433083,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (102)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5490953326225281,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (103)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5287083825853949,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (104)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.48813876580364907,
+      "final_label": "benign"
+    },
+    {
+      "sample_id": "benign (105)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.49755068130640145,
+      "final_label": "benign"
+    },
+    {
+      "sample_id": "benign (106)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5184781551361084,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (107)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5633669235328986,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (108)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5353264808654785,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (109)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5031508207321167,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (11)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5079615116119385,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (110)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5050508975982666,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (111)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5432025517942042,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (112)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5230523943901062,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (113)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5176621366940656,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (114)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5219680666923523,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (115)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5098810640012901,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (116)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5340272188186646,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (117)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.49642170976335676,
+      "final_label": "benign"
+    },
+    {
+      "sample_id": "benign (118)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5165941715240479,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (119)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5439261522249074,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (12)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5036849825476115,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (120)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5425129371132571,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (121)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5217861973707021,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (122)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5487256377175831,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (123)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5032739043235779,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (124)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5110897726470096,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (125)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5053828954696655,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (126)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5412452220916748,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (127)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5342948118272536,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (128)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5415172142242555,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (129)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5532463788986206,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (13)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5598068237304688,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (130)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5057061910629272,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (131)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5151296854019165,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (132)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5421907144132043,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (133)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5378381013870239,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (134)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.500424936426429,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (135)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5122295022010803,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (136)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.508266806602478,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (137)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5225951671600342,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (138)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5265724972827731,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (139)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5080155730247498,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (14)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5040146708488464,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (140)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.542025056956705,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (141)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.555734412543011,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (142)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5389170967887101,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (143)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5029723944051501,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (144)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5107393860816956,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (145)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5248901404407662,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (146)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5575882196426392,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (147)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5145102739334106,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (148)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5227979110003763,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (149)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5261309899726805,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (15)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5242404497933522,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (150)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5107194185256958,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (151)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5703221389555294,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (152)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.56336510181427,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (153)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5165739367350303,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (154)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5239551067352295,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (155)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.517572314594526,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (156)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5042237639427185,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (157)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5119871344570179,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (158)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5179368257522583,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (159)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5207316720267632,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (16)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5562678575515747,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (160)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5380852222442627,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (161)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5290167331695557,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (162)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5428869128227234,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (163)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5297301411628723,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (164)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.4984724521636963,
+      "final_label": "benign"
+    },
+    {
+      "sample_id": "benign (165)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5356789827346802,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (166)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5111566338287781,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (167)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.492311954498291,
+      "final_label": "benign"
+    },
+    {
+      "sample_id": "benign (168)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5404238700866699,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (169)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5050964656529704,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (17)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.4989473819732666,
+      "final_label": "benign"
+    },
+    {
+      "sample_id": "benign (170)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5358816821610426,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (171)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.529317601641488,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (172)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5051390528678894,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (173)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.509905219078064,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (174)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5478531122207642,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (175)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5394872701473671,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (176)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5265156030654907,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (177)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5258418164896423,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (178)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5356470346450806,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (179)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5440150499343872,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (18)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5590641831793894,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (180)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5293622016906738,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (181)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5338825583457947,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (182)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.510749563254429,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (183)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5216336250305176,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (184)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5298042297363281,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (185)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5366743643082867,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (186)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5600942540196852,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (187)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5441476540521486,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (188)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5360082983970642,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (189)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5170610855258159,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (19)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.512502908706665,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (190)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5289065680233667,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (191)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.538771390914917,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (192)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.534525990486145,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (193)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5287892818450928,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (194)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5006632804870605,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (195)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5294793686425874,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (196)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5248812437057495,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (197)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5331275463104248,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (198)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5344502925872803,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (199)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5147337913513184,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (2)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5172847509384155,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (20)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5376664560337798,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (200)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.492695689201355,
+      "final_label": "benign"
+    },
+    {
+      "sample_id": "benign (201)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5038288831710815,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (202)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5110089626607608,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (203)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5426493883132935,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (204)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5134474039077759,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (205)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5001312494277954,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (206)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5067315546652211,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (207)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5151674151420593,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (208)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5089914202690125,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (209)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.523170440008018,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (21)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.502927303314209,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (210)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5151439020123423,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (211)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5008076280114762,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (212)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5684123804692144,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (213)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5223464654477558,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (214)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5193551469233545,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (215)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5325155854225159,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (216)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.523335500856176,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (217)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.47872424125671387,
+      "final_label": "benign"
+    },
+    {
+      "sample_id": "benign (218)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5167551040649414,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (219)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5332323908805847,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (22)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.561679210562753,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (220)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5440291490572183,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (221)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5071155277754209,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (222)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.46453693720478195,
+      "final_label": "benign"
+    },
+    {
+      "sample_id": "benign (223)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5209968090057373,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (224)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5538620948791504,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (225)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5067195741319783,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (226)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5335777997970581,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (227)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5297161340713501,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (228)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5428647671422501,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (229)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5279490947723389,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (23)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5445959134279463,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (230)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5113797783851624,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (231)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5393765294180232,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (232)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5392917876802493,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (233)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5241949558258057,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (234)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5307777523994446,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (235)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5227158665657043,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (236)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.4899718317397883,
+      "final_label": "benign"
+    },
+    {
+      "sample_id": "benign (237)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5086037809488904,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (238)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5233052684846681,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (239)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5237641022345959,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (24)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5086019039154053,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (240)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5230472683906555,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (241)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.4863516092300415,
+      "final_label": "benign"
+    },
+    {
+      "sample_id": "benign (242)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5418459499982565,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (243)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5003109425213652,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (244)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.4879802465438843,
+      "final_label": "benign"
+    },
+    {
+      "sample_id": "benign (245)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5208394527435303,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (246)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5473835468292236,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (247)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5051448345184326,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (248)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.49130196895295475,
+      "final_label": "benign"
+    },
+    {
+      "sample_id": "benign (249)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.4962549655513455,
+      "final_label": "benign"
+    },
+    {
+      "sample_id": "benign (25)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5387301123899154,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (250)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5053524971008301,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (251)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.49249049976411463,
+      "final_label": "benign"
+    },
+    {
+      "sample_id": "benign (252)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5247040830640768,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (253)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5122503943592545,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (254)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.509507625728391,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (255)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5259208083152771,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (256)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5130286812782288,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (257)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5366048812866211,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (258)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5187911987304688,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (259)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.540115936395051,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (26)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.491862952709198,
+      "final_label": "benign"
+    },
+    {
+      "sample_id": "benign (260)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5301843881607056,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (261)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5406345451256361,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (262)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5096493211493098,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (263)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5558135509490967,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (264)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5008289516466231,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (265)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5180187512625009,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (266)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.48398494720458984,
+      "final_label": "benign"
+    },
+    {
+      "sample_id": "benign (267)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5109642896343556,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (268)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.4892672300338745,
+      "final_label": "benign"
+    },
+    {
+      "sample_id": "benign (269)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5258345290521068,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (27)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5363855042227802,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (270)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.4953051805496216,
+      "final_label": "benign"
+    },
+    {
+      "sample_id": "benign (271)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5347325046440212,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (272)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5211227536201477,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (273)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.516071588758921,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (274)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.48649190326010894,
+      "final_label": "benign"
+    },
+    {
+      "sample_id": "benign (275)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.543543354974489,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (276)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5413315457502468,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (277)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5239283882400874,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (278)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5276965937704863,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (279)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5004657506942749,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (28)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.49047335925539487,
+      "final_label": "benign"
+    },
+    {
+      "sample_id": "benign (280)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5323187112808228,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (281)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5170117616653442,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (282)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5006047785642611,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (283)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.515575007068366,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (284)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.527736485004425,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (285)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.508652791123009,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (286)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5125034160914073,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (287)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5381459593772888,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (288)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5052567870991465,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (289)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5518507094294256,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (29)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5294498205184937,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (290)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5284159183502197,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (291)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5075067432971818,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (292)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.49326370636414607,
+      "final_label": "benign"
+    },
+    {
+      "sample_id": "benign (293)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5062621982771813,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (294)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5192377412546354,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (295)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5269566774368286,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (296)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.4944254159927368,
+      "final_label": "benign"
+    },
+    {
+      "sample_id": "benign (297)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5330550670623779,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (298)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5290628356300094,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (299)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5259991884231567,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (3)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5181249688938242,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (30)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5399237871170044,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (300)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5207031654892466,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (301)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5179047738881342,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (302)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5107645696857315,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (303)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5166091611022258,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (304)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5131780062072875,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (305)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5164320468902588,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (306)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5562620162963867,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (307)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5071602463722229,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (308)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.540590850079605,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (309)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5149993011354983,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (31)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5364245772361755,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (310)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5321763753890991,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (311)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.4947843551635742,
+      "final_label": "benign"
+    },
+    {
+      "sample_id": "benign (312)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5294084864502243,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (313)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5441948175430298,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (314)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5380032062530518,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (315)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.4983634948730469,
+      "final_label": "benign"
+    },
+    {
+      "sample_id": "benign (316)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5388053816200906,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (317)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5474713281550607,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (318)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5120978355407715,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (319)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5347455421241795,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (32)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5062320232391357,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (320)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5353978872299194,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (321)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5474386215209961,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (322)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5383661389350891,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (323)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5149565935134888,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (324)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5227728045813085,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (325)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5568427443504333,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (326)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5478681325912476,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (327)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5236883007380873,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (328)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.49129295349121094,
+      "final_label": "benign"
+    },
+    {
+      "sample_id": "benign (329)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5164155960083008,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (33)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5081647634506226,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (330)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.552395761013031,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (331)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5286118984222412,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (332)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5277045807926481,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (333)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5288906974261584,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (334)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5405674576759338,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (335)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5502429008483887,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (336)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5248977825106512,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (337)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5399221777915955,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (338)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.540537866386048,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (339)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5216407775878906,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (34)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5346932570544856,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (340)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.557872619755708,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (341)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5274802446365356,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (342)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5185551488830105,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (343)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5279906234744005,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (344)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5275424718856812,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (345)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5233280502758011,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (346)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.531211793422699,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (347)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5401146411895752,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (348)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5371642112731934,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (349)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5331972559212003,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (35)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5055217742919922,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (350)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5566722750663757,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (351)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5250966109364215,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (352)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5350860357284546,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (353)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.550649794974911,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (354)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5231298804283142,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (355)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5175278186798096,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (356)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5185121893882751,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (357)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5312237739562988,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (358)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5316608827316235,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (359)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5178258860759173,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (36)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5055451838509684,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (360)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5360684990882874,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (361)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5434451427128996,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (362)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5090942978858948,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (363)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5467033386230469,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (364)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5467200605106389,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (365)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5240236520767212,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (366)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5593966579077636,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (367)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5246838018486618,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (368)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5141615271568298,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (369)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5565023422241211,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (37)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5261215567588806,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (370)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5133861899375916,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (371)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5382015705108643,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (372)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5537406371158551,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (373)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5494354694745225,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (374)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5416640639305115,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (375)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.524936898799631,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (376)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5307649970054626,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (377)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5169960414468062,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (378)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5373377799987793,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (379)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5077552644087295,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (38)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.542328953742981,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (380)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5524079635021697,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (381)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5250487923622131,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (382)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5228043794631958,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (383)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5435941219329834,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (384)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5056097507476807,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (385)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5174365352056346,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (386)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5012488961219788,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (387)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5129196490967378,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (388)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5092577934265137,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (389)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5464775725149384,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (39)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5493819549863947,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (390)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5512138605117798,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (391)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5359146595001221,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (392)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.49629640579223633,
+      "final_label": "benign"
+    },
+    {
+      "sample_id": "benign (393)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5418427748037211,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (394)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5616187714565533,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (395)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5564320947866384,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (396)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5759556293487549,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (397)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5558341145515442,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (398)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5389288663864136,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (399)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5461926134709946,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (4)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5349717140197754,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (40)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5103901624679565,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (400)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5636762212611371,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (401)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5529371500015259,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (402)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5454389452934265,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (403)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.537763150797078,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (404)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5504105687141418,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (405)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5186371207237244,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (406)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5198933768335953,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (407)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5401770746602371,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (408)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5468310713768005,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (409)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5548857285116395,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (41)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5272864103317261,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (410)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5643085837364197,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (411)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5572733879089355,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (412)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5691621133934822,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (413)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5832088763478064,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (414)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5296414494514465,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (415)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5224409543740465,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (416)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5334308306405195,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (417)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5405471324920654,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (418)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5317352693238694,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (419)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5169903039932251,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (42)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5124435424804688,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (420)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.516619101662013,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (421)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5297191300904491,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (422)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5225691199302673,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (423)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5176409482955933,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (424)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5377728067501072,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (425)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5141317844390869,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (426)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5309695601463318,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (427)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5462061166763306,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (428)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5459902286529541,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (429)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5272130966186523,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (43)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.4920729398727417,
+      "final_label": "benign"
+    },
+    {
+      "sample_id": "benign (430)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5167102813720703,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (431)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.48368194796550584,
+      "final_label": "benign"
+    },
+    {
+      "sample_id": "benign (432)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.4986767470047919,
+      "final_label": "benign"
+    },
+    {
+      "sample_id": "benign (433)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5296944695529026,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (434)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5313458442687988,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (435)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5472539663314819,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (436)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.51200500059098,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (437)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.548315031876712,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (44)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5828584606307287,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (45)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5314638773043119,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (46)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5346907695943576,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (47)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5532133249513314,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (48)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5304661831120794,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (49)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5367172360420227,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (5)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5206097960472107,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (50)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5138884629640441,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (51)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5440911922400479,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (52)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5214650941768345,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (53)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5306671699682721,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (54)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.520848274230957,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (55)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5356740951538086,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (56)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5131595134735107,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (57)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5376002192497253,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (58)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5391229391098022,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (59)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.569388747215271,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (6)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5242166519165039,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (60)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5307774543762207,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (61)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5254977941513062,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (62)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.552059531211853,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (63)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5163324033120991,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (64)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5504351854324341,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (65)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5058631896972656,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (66)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.536817193031311,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (67)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5342831293175739,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (68)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5464968355597951,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (69)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5252320766448975,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (7)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5094616413116455,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (70)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5015217661857605,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (71)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5252555452211038,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (72)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.49731124945547434,
+      "final_label": "benign"
+    },
+    {
+      "sample_id": "benign (73)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5472818939257797,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (74)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5097483992576599,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (75)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.48473918437957764,
+      "final_label": "benign"
+    },
+    {
+      "sample_id": "benign (76)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5467558232996358,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (77)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5375588536262512,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (78)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5396287119609885,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (79)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5069485751703806,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (8)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5468644932846876,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (80)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5316949486732483,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (81)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5247112512588501,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (82)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5339751998774767,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (83)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5014628022473215,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (84)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5028973518075137,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (85)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.4916365146636963,
+      "final_label": "benign"
+    },
+    {
+      "sample_id": "benign (86)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5382342659374634,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (87)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.544382718540268,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (88)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.524792492389679,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (89)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5420932769775391,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (9)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5385218858718872,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (90)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5675854682922363,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (91)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5037923455238342,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (92)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.49867355823516846,
+      "final_label": "benign"
+    },
+    {
+      "sample_id": "benign (93)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.529958097341174,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (94)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.539495094433573,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (95)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5157420942629632,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (96)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5377219319343567,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (97)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5025136470794678,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (98)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.5339328209737784,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "benign (99)",
+      "pathology_label": "benign",
+      "malignant_probability": 0.49990817905019647,
+      "final_label": "benign"
+    },
+    {
+      "sample_id": "malignant (1)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5045532138512496,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (10)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.4948939530519829,
+      "final_label": "benign"
+    },
+    {
+      "sample_id": "malignant (100)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5395485162734985,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (101)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5373329795996559,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (102)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5156069686647076,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (103)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.584719342448731,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (104)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5472155213356018,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (105)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5255428709251544,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (106)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5422902976101459,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (107)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5354002714157104,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (108)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.514708936214447,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (109)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.4954083411517245,
+      "final_label": "benign"
+    },
+    {
+      "sample_id": "malignant (11)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5243488862722449,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (110)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.47977450610551203,
+      "final_label": "benign"
+    },
+    {
+      "sample_id": "malignant (111)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.49619336437602746,
+      "final_label": "benign"
+    },
+    {
+      "sample_id": "malignant (112)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5219073580558683,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (113)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5062295198440552,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (114)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5151263168378879,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (115)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5400105714797974,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (116)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5347308793824387,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (117)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5651828387488627,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (118)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5294859409332275,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (119)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5257782936096191,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (12)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5181086659431458,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (120)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5241177521908953,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (121)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5132542848587036,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (122)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5313479583652044,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (123)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.4918285012245178,
+      "final_label": "benign"
+    },
+    {
+      "sample_id": "malignant (124)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5577577020074307,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (125)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5232254266738892,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (126)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5006830096244812,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (127)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5186855483838589,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (128)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5225744843482971,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (129)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.546115311748702,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (13)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.4770230210714632,
+      "final_label": "benign"
+    },
+    {
+      "sample_id": "malignant (130)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5433347063262848,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (131)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5375232100486755,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (132)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5448631210584378,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (133)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.509162083541217,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (134)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5306370854377747,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (135)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5278940639527421,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (136)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5603030586062039,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (137)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.500213474022539,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (138)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.522504448890686,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (139)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5091842857246314,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (14)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5084350109100342,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (140)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5334183732693902,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (141)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.540290268676893,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (142)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5692094394800234,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (143)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5191017389297485,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (144)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5644106864929199,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (145)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5296944695529026,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (146)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5080065878631648,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (147)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5274701118469238,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (148)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5148923243614338,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (149)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5477932095527649,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (15)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5174952745437622,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (150)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5337654948234558,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (151)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5452274246581621,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (152)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5397890210151672,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (153)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5466901063919067,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (154)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5474521191446711,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (155)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5318317413330078,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (156)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5118358287762352,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (157)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5171099305152893,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (158)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5596544313327798,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (159)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5569003820419312,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (16)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5334719260492347,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (160)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5775919304842907,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (161)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5439710779181444,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (162)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.4952598364573766,
+      "final_label": "benign"
+    },
+    {
+      "sample_id": "malignant (163)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5499259561256145,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (164)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5261804743897632,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (165)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5433870553970337,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (166)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5263071656227112,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (167)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5566558837890625,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (168)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5491112470626831,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (169)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5551349255523041,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (17)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5398394626331169,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (170)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5375378131866455,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (171)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5388148587588923,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (172)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5279625058174133,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (173)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.527149216149724,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (174)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5389978014825464,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (175)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5278998298704726,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (176)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5185280155258188,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (177)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.549345645269492,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (178)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5158386384200644,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (179)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5292396545410156,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (18)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5456483960151672,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (180)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5442832708358765,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (181)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5542097091674805,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (182)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5227312161166201,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (183)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5326326210875881,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (184)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.55054644051471,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (185)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5449305772781372,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (186)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5615216158913603,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (187)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5396810173988342,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (188)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.53938889503479,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (189)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5225735747047193,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (19)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5666471719741821,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (190)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5339693704861778,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (191)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5030761957168579,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (192)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5515022277832031,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (193)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5512388780343866,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (194)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5053486227989197,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (195)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5088922825785791,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (196)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5197493720204013,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (197)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5346605777740479,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (198)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5592903661516417,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (199)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5439145889231317,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (2)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5421956777572632,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (20)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5379848480224609,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (200)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5331371426582336,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (201)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5280731916427612,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (202)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5243772268295288,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (203)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5575038194656372,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (204)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5239594862485238,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (205)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5536589622497559,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (206)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5405697822570801,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (207)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5224952853469635,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (208)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5449651154896548,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (209)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5251374401193094,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (21)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5348957180976868,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (210)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5546331405639648,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (22)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5500073432922363,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (23)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5615264512018234,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (24)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5372029542922974,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (25)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5476043224334717,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (26)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5308871865272522,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (27)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5513899654978494,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (28)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.49100953340530396,
+      "final_label": "benign"
+    },
+    {
+      "sample_id": "malignant (29)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5706669092178345,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (3)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5807189768338509,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (30)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5410797595977783,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (31)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5702365636825562,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (32)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5466130375862122,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (33)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5511787533760071,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (34)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5331997871398926,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (35)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5062081662950466,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (36)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5459268093109131,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (37)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5341107845306396,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (38)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5237463712692261,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (39)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5346718707876282,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (4)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5781331658363342,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (40)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5304434895515442,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (41)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.52485705986193,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (42)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5420814318085143,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (43)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5482029914855957,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (44)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5501546859741211,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (45)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5465911626815796,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (46)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5324524799720192,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (47)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.535565094219598,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (48)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5552975535392761,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (49)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5566333864112727,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (5)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5828711986541748,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (50)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5282179117202759,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (51)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5067236423492432,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (52)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.505083769256844,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (53)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.47249873064462156,
+      "final_label": "benign"
+    },
+    {
+      "sample_id": "malignant (54)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5218049883842468,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (55)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5201175808906555,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (56)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5251614451408386,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (57)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5203838038215755,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (58)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5245193555664632,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (59)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5547926425933838,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (6)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5803476399079669,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (60)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.531443178653717,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (61)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5344463905362123,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (62)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5661795735359192,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (63)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5752951674251309,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (64)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5180211067199707,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (65)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5285452008247375,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (66)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5524952082338805,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (67)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5168139780517227,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (68)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.509178369690277,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (69)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5111702084541321,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (7)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5546085999789416,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (70)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5125057697296143,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (71)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5515362024307251,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (72)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5480077266693115,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (73)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5223245776392393,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (74)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5085130333900452,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (75)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5512882471084595,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (76)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5212050676345825,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (77)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5349601188325811,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (78)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5427555441856384,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (79)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5638959407806396,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (8)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.567531943321228,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (80)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5228941440582275,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (81)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5395936095472341,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (82)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5389490288182803,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (83)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5419714450836182,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (84)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5262014552234736,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (85)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5281092085870864,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (86)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5423007011413574,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (87)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5276556015014648,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (88)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5471483469009399,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (89)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5344679355621338,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (9)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5729242221758233,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (90)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5436962680907169,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (91)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5476785898208618,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (92)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5359568755613826,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (93)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5585728717275598,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (94)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5313051501305446,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (95)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5562734007835388,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (96)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5557273626327515,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (97)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.542192816734314,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (98)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5180508185594787,
+      "final_label": "malignant"
+    },
+    {
+      "sample_id": "malignant (99)",
+      "pathology_label": "malignant",
+      "malignant_probability": 0.5342994928359985,
+      "final_label": "malignant"
+    }
+  ]
+}

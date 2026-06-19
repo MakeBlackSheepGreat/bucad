@@ -1,0 +1,51 @@
+paths_config: configs/paths.local.yml
+task_type: classification
+seed: 42
+device: auto
+model:
+  name: sonoglore_convnext_tiny
+  pretrained: true
+  in_chans: 3
+  num_classes: 2
+  proj_dim: 256
+  stage_proj_dims: [192, 256, 320]
+  stage_fusion_weights: [0.8, 1.0, 1.0]
+  attn_heads: 4
+  attn_mlp_ratio: 2.0
+  head_hidden_dim: 256
+  attn_dropout: 0.1
+  head_dropout: 0.2
+  active_stage_indices: [2, 3, 4]
+  use_stage4_attention: true
+  stage4_attention_type: coordatt
+  stage4_coord_attention_reduction: 32
+  use_projection_grn: true
+  use_projection_eca: true
+  use_scale_gate: false
+data:
+  image_size: 224
+  batch_size: 8
+  num_workers: 0
+  preprocess:
+    clahe: true
+    use_timm_data_config: true
+  augmentation:
+    horizontal_flip: true
+    flip_probability: 0.5
+training:
+  epochs: 30
+  learning_rate: 0.00003
+  weight_decay: 0.05
+  class_weights: balanced
+  positive_class_weight: 1.7
+  checkpoint_strategy: best_auc
+  scheduler:
+    name: warmup_cosine
+    warmup_epochs: 3
+    min_lr: 0.000001
+  fold_count: 5
+  split_path: ./artifacts/reports/busbra_5fold_splits.csv
+  positive_class: malignant
+output:
+  checkpoint_name: sonoglore_convnext_tiny_grn_eca_asymproj_posw17_coordatt_fold{fold}.pt
+  report_name: train_cls_sonoglore_convnext_tiny_grn_eca_asymproj_posw17_coordatt_fold{fold}.json

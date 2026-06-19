@@ -70,3 +70,21 @@ def test_resolves_conv_head_target() -> None:
     model = Model()
 
     assert resolve_gradcam_target_layer(model) is model.conv_head
+
+
+def test_resolves_explicit_gradcam_layer_before_generic_candidates() -> None:
+    """Verify explicit gradcam_layer takes precedence when present."""
+    class Model:
+        """Represent Model for this module."""
+
+        def __init__(self) -> None:
+            """Initialize this lightweight test helper."""
+            self.gradcam_layer = classifier.nn.Conv2d(5, 6, 1)
+            self.blocks = classifier.nn.Sequential(
+                classifier.nn.Conv2d(3, 4, 1),
+                classifier.nn.Conv2d(4, 5, 1),
+            )
+
+    model = Model()
+
+    assert resolve_gradcam_target_layer(model) is model.gradcam_layer

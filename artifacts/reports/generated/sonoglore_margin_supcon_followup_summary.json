@@ -1,0 +1,49 @@
+{
+  "date": "2026-06-19",
+  "experiment_family": "sonoglore_margin_and_supcon_followup",
+  "reference": {
+    "name": "sonoglore_convnext_tiny_grn_eca_asymproj_posw17",
+    "fold1_internal_auc": 0.9173848247262361,
+    "fold1_internal_specificity": 0.8774703557312253,
+    "fold1_internal_sensitivity": 0.7950819672131147,
+    "fold1_busi_auc": 0.9046256946714613,
+    "fold1_busi_specificity": 0.8810068649885584,
+    "fold1_busi_sensitivity": 0.7761904761904762
+  },
+  "candidates": [
+    {
+      "name": "posw17_arcmargin",
+      "idea": "ArcFace-style cosine margin head to suppress benign high-confidence false positives",
+      "paper_basis": [
+        "ArcFace",
+        "CosFace"
+      ],
+      "fold1_internal_auc": 0.9073414112615823,
+      "fold1_internal_specificity": 0.924901185770751,
+      "fold1_internal_sensitivity": 0.7213114754098361,
+      "fold1_busi_auc": 0.8674566851912391,
+      "fold1_busi_specificity": 0.8741418764302059,
+      "fold1_busi_sensitivity": 0.7142857142857143,
+      "decision": "reject"
+    },
+    {
+      "name": "posw17_supcon",
+      "idea": "Supervised contrastive auxiliary loss on fused SonoGloReNet embedding",
+      "paper_basis": [
+        "Supervised Contrastive Learning"
+      ],
+      "fold1_internal_auc": 0.9110023974599883,
+      "fold1_internal_specificity": 0.9130434782608695,
+      "fold1_internal_sensitivity": 0.7213114754098361,
+      "fold1_busi_auc": 0.8949166394246486,
+      "fold1_busi_specificity": 0.8810068649885584,
+      "fold1_busi_sensitivity": 0.7666666666666667,
+      "decision": "reject"
+    }
+  ],
+  "interpretation": {
+    "shared_pattern": "Both methods reduced internal false positives by making the classifier more conservative, but both also reduced malignant recall and failed to improve external BUSI AUC.",
+    "engineering_read": "The bottleneck is unlikely to be solved by stronger separation losses alone. The remaining issue looks more like calibration / cross-domain probability bias than insufficient feature discrimination.",
+    "next_best_direction": "Try post-hoc calibration or learnable logit/bias correction before another structural loss sweep."
+  }
+}

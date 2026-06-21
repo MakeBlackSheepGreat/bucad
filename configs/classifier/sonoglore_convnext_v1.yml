@@ -1,0 +1,45 @@
+paths_config: configs/paths.local.yml
+task_type: classification
+seed: 42
+device: auto
+experiment:
+  family: SonoGloRe-ConvNeXt
+  version: v1
+  objective: Fair single-model modern CNN comparison against ConvNeXt-Tiny
+  frozen: true
+  baseline_config: configs/classifier/convnext_tiny_timm_recipe.yml
+  notes:
+    - Uses the selected GRN + ECA + asymmetric multi-stage projection structure.
+    - Uses the same BUSBRA/BUSI data boundary as the ConvNeXt-Tiny reference.
+model:
+  name: sonoglore_convnext_v1
+  pretrained: true
+  in_chans: 3
+  num_classes: 2
+data:
+  image_size: 224
+  batch_size: 8
+  num_workers: 0
+  preprocess:
+    clahe: true
+    use_timm_data_config: true
+  augmentation:
+    horizontal_flip: true
+    flip_probability: 0.5
+training:
+  epochs: 30
+  learning_rate: 0.00003
+  weight_decay: 0.05
+  class_weights: balanced
+  positive_class_weight: 1.7
+  checkpoint_strategy: best_auc
+  scheduler:
+    name: warmup_cosine
+    warmup_epochs: 3
+    min_lr: 0.000001
+  fold_count: 5
+  split_path: ./artifacts/reports/busbra_5fold_splits.csv
+  positive_class: malignant
+output:
+  checkpoint_name: sonoglore_convnext_v1_fold{fold}.pt
+  report_name: train_cls_sonoglore_convnext_v1_fold{fold}.json

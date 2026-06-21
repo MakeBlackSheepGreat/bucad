@@ -7,10 +7,12 @@ from typing import Any
 
 import numpy as np
 
+from src.engine.descriptors import ROI_DESCRIPTOR_FEATURES, extract_roi_descriptors
 from src.engine.devices import resolve_torch_device
 from src.engine.errors import ClassificationUnavailableError
 from src.engine.runtime_config import RuntimeConfig
 from src.models.classifier import classifier_probabilities, load_classifier
+from src.preprocess.roi import crop_to_mask_bbox
 from src.preprocess.io import cv2
 from src.preprocess.transforms import prepare_classifier_input
 from src.utils.runtime import optional_import
@@ -201,8 +203,16 @@ class ClassifierEnsemble:
         member: dict[str, Any],
         *,
         device: str,
+        mask: np.ndarray | None = None,
     ) -> np.ndarray:
         """Run TTA variants for one member and return averaged class probabilities."""
+        if self._member_input_mode(member) == "dual_view_roi":
+            return self._predict_dual_view_member_probabilities(
+                image,
+                mask,
+                member,
+                device=device,
+            )
         input_tensors = self.input_tensors(image, member)
         if not input_tensors or not hasattr(input_tensors[0], "unsqueeze"):
             raise ClassificationUnavailableError("Torch tensor conversion failed for classifier input.")
@@ -214,6 +224,121 @@ class ClassifierEnsemble:
             move_model=False,
         )
         return np.mean(tta_probs, axis=0)
+
+    def _member_input_mode(self, member: dict[str, Any]) -> str:
+        """Return the configured or model-declared classifier input mode."""
+        configured = self.member_config_value(member, "input_mode", "classifier_input_mode", None)
+        if configured is not None:
+            return str(configured).lower()
+        model = member.get("model_instance")
+        return str(getattr(model, "input_mode", "single_image")).lower()
+
+    def requires_roi_mask(self) -> bool:
+        """Return True when any configured classifier member consumes ROI inputs."""
+        for member in self.resolved_classifier_member_configs():
+            configured = self.member_config_value(member, "input_mode", "classifier_input_mode", None)
+            if configured is not None and str(configured).lower() == "dual_view_roi":
+                return True
+            if str(member.get("model", "")).lower() in {"roi_dualview_convnext_tiny", "dualview_convnext_tiny"}:
+                return True
+        if self._classifier_members is not None:
+            for member in self._classifier_members:
+                if self._member_input_mode(member) == "dual_view_roi":
+                    return True
+        return False
+
+    def _roi_config_for_member(self, member: dict[str, Any]) -> dict[str, Any]:
+        """Resolve dual-view ROI preprocessing settings for one member."""
+        config = self.member_config_value(member, "roi", "classifier_roi", {}) or {}
+        return dict(config) if isinstance(config, dict) else {}
+
+    def _dual_view_roi_image_and_descriptors(
+        self,
+        image: np.ndarray,
+        mask: np.ndarray | None,
+        member: dict[str, Any],
+    ) -> tuple[np.ndarray, np.ndarray]:
+        """Build ROI image and descriptor vector for a dual-view classifier member."""
+        roi_cfg = self._roi_config_for_member(member)
+        mask_threshold = float(roi_cfg.get("mask_threshold", 0.4))
+        margin_ratio = float(roi_cfg.get("margin_ratio", 0.35))
+        min_area_ratio = float(roi_cfg.get("min_area_ratio", 0.08))
+        max_area_ratio = float(roi_cfg.get("max_area_ratio", 0.75))
+        largest_component = bool(roi_cfg.get("largest_component", True))
+        descriptors = extract_roi_descriptors(
+            image,
+            mask,
+            threshold=mask_threshold,
+            margin_ratio=margin_ratio,
+            min_area_ratio=min_area_ratio,
+            largest_component=largest_component,
+        )
+        roi_valid = bool(descriptors.get("roi_valid", 0.0) >= 0.5)
+        roi_area = float(descriptors.get("roi_area_ratio", 1.0))
+        if roi_valid and min_area_ratio <= roi_area <= max_area_ratio:
+            roi_image = crop_to_mask_bbox(
+                image,
+                mask,
+                threshold=mask_threshold,
+                margin_ratio=margin_ratio,
+                min_area_ratio=min_area_ratio,
+                largest_component=largest_component,
+            )
+        else:
+            roi_image = image.copy()
+            descriptors = dict(descriptors)
+            descriptors["roi_valid"] = 0.0
+            descriptors["roi_area_ratio"] = 1.0
+        descriptor_vector = np.asarray(
+            [float(descriptors.get(name, 0.0)) for name in ROI_DESCRIPTOR_FEATURES],
+            dtype=np.float32,
+        )
+        return roi_image, descriptor_vector
+
+    def _predict_dual_view_member_probabilities(
+        self,
+        image: np.ndarray,
+        mask: np.ndarray | None,
+        member: dict[str, Any],
+        *,
+        device: str,
+    ) -> np.ndarray:
+        """Run TTA variants for one dual-view member and return averaged probabilities."""
+        roi_image, descriptor_vector = self._dual_view_roi_image_and_descriptors(image, mask, member)
+        image_size = int(
+            self.member_config_value(member, "image_size", "classifier_image_size", 224)
+        )
+        full_tensors = []
+        roi_tensors = []
+        for variant in self.tta_variants(member):
+            full_variant = self.apply_tta_variant(image, variant)
+            roi_variant = self.apply_tta_variant(roi_image, variant)
+            preprocess_kwargs = self.preprocess_kwargs(variant, member)
+            full_tensor = prepare_classifier_input(
+                full_variant,
+                image_size,
+                **preprocess_kwargs,
+            )
+            roi_tensor = prepare_classifier_input(
+                roi_variant,
+                image_size,
+                **preprocess_kwargs,
+            )
+            full_tensors.append(full_tensor)
+            roi_tensors.append(roi_tensor)
+        if not full_tensors or not hasattr(full_tensors[0], "unsqueeze"):
+            raise ClassificationUnavailableError("Torch tensor conversion failed for dual-view classifier input.")
+        descriptor_tensor = torch.from_numpy(descriptor_vector).repeat(len(full_tensors), 1)
+        batch = {
+            "image_full": torch.stack(full_tensors).to(device=device, dtype=torch.float32),
+            "image_roi": torch.stack(roi_tensors).to(device=device, dtype=torch.float32),
+            "roi_descriptor": descriptor_tensor.to(device=device, dtype=torch.float32),
+        }
+        inference_context = torch.inference_mode if hasattr(torch, "inference_mode") else torch.no_grad
+        with inference_context():
+            logits = member["model_instance"](**batch)
+            probabilities = torch.softmax(logits, dim=1).cpu().numpy()
+        return np.mean(np.asarray(probabilities, dtype=np.float32), axis=0)
 
     @staticmethod
     def _weighted_average_probabilities(
@@ -305,6 +430,7 @@ class ClassifierEnsemble:
         image: np.ndarray,
         *,
         member_weight_overrides: dict[str, float] | None = None,
+        mask: np.ndarray | None = None,
     ) -> tuple[float, float]:
         """Return ensemble benign/malignant probabilities for one image."""
         member_configs = self.resolved_classifier_member_configs()
@@ -326,6 +452,7 @@ class ClassifierEnsemble:
                 image,
                 member,
                 device=device,
+                mask=mask,
             )
             weighted_probabilities.append(member_probabilities * weight)
             weights.append(weight)

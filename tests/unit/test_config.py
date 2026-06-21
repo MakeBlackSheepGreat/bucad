@@ -35,6 +35,7 @@ def test_load_project_config_resolves_paths_relative_to_paths_file() -> None:
     (config_root / "configs" / "classifier").mkdir(parents=True, exist_ok=True)
     (config_root / "datasets" / "BUSBRA").mkdir(parents=True, exist_ok=True)
     (config_root / "datasets" / "BUSI").mkdir(parents=True, exist_ok=True)
+    (config_root / "datasets" / "imagenet").mkdir(parents=True, exist_ok=True)
 
     paths_path = config_root / "configs" / "paths.local.yml"
     save_yaml(
@@ -44,6 +45,7 @@ def test_load_project_config_resolves_paths_relative_to_paths_file() -> None:
             "datasets": {
                 "busbra_root": "./datasets/BUSBRA",
                 "busi_root": "./datasets/BUSI",
+                "imagenet_root": "./datasets/imagenet",
             },
         },
     )
@@ -55,3 +57,4 @@ def test_load_project_config_resolves_paths_relative_to_paths_file() -> None:
     assert paths.project_root == config_root.resolve()
     assert paths.busbra_root == (config_root / "datasets" / "BUSBRA").resolve()
     assert paths.busi_root == (config_root / "datasets" / "BUSI").resolve()
+    assert paths.imagenet_root == (config_root / "datasets" / "imagenet").resolve()

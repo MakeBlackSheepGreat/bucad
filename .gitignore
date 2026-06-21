@@ -1,7 +1,12 @@
 # Local datasets and raw medical data
 data/
+datasets/
 训练集/
 测试集/
+ILSVRC2012_*.tar
+ILSVRC2012_*.tar.gz
+ILSVRC2012_*.tgz
+ILSVRC2012_*.zip
 *.png
 *.jpg
 *.jpeg

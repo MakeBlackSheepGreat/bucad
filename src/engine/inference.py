@@ -289,11 +289,13 @@ class BreastUltrasoundInferenceService:
         image: np.ndarray,
         *,
         member_weight_overrides: dict[str, float] | None = None,
+        mask: np.ndarray | None = None,
     ) -> tuple[float, float]:
         """Predict benign/malignant probabilities with the classifier ensemble."""
         return self.classifier_ensemble.predict_on_image(
             image,
             member_weight_overrides=member_weight_overrides,
+            mask=mask,
         )
 
     def _roi_enhancement_config(self) -> dict[str, Any] | None:
@@ -386,7 +388,23 @@ class BreastUltrasoundInferenceService:
             benign, malignant = self.classifier_predictor(image)
             return float(benign), float(malignant)
 
-        full_benign, full_malignant = self._predict_classifier_ensemble_on_image(image)
+        classifier_mask = None
+        if self.classifier_ensemble.requires_roi_mask():
+            classifier_mask = (
+                self.segmenter_predictor(image)
+                if self.segmenter_predictor is not None
+                else self._predict_segmentation(image)
+            )
+        try:
+            if classifier_mask is None:
+                full_benign, full_malignant = self._predict_classifier_ensemble_on_image(image)
+            else:
+                full_benign, full_malignant = self._predict_classifier_ensemble_on_image(
+                    image,
+                    mask=classifier_mask,
+                )
+        except TypeError:
+            full_benign, full_malignant = self._predict_classifier_ensemble_on_image(image)
         roi_config = self._roi_enhancement_config()
         if roi_config is None:
             return full_benign, full_malignant

@@ -1,0 +1,33 @@
+paths_config: configs/paths.local.yml
+seed: 42
+device: auto
+experiment:
+  family: SonoGloRe-ConvNeXt
+  version: v1
+  benchmark: ImageNet-1K fair evaluation
+  baseline: convnext_tiny
+dataset:
+  root: null
+  split: val
+  num_classes: 1000
+model:
+  name: sonoglore_convnext_v1
+  pretrained: false
+  in_chans: 3
+  num_classes: 1000
+checkpoint: ./artifacts/checkpoints/imagenet_sonoglore_convnext_v1.pt
+data:
+  image_size: 224
+  batch_size: 64
+  num_workers: 4
+  preprocess:
+    use_timm_data_config: true
+    mean: null
+    std: null
+    interpolation: null
+    crop_pct: null
+evaluation:
+  amp: true
+  channels_last: false
+output:
+  report_name: imagenet_sonoglore_convnext_v1_eval.json

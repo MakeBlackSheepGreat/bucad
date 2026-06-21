@@ -1,0 +1,63 @@
+paths_config: configs/paths.local.yml
+seed: 42
+device: auto
+experiment:
+  family: SonoGloRe-ConvNeXt
+  version: v1
+  objective: Fair single-model modern CNN comparison against ConvNeXt-Tiny
+  frozen: true
+  checkpoint_source: sonoglore_convnext_tiny_grn_eca_asymproj_posw17
+  baseline_config: configs/inference/convnext_tiny_timm_recipe_5fold_tta_crop_sweep.yml
+runtime:
+  classifier_model: sonoglore_convnext_v1
+  classifier_pretrained: false
+  classifier_image_size: 224
+  classifier_apply_clahe: true
+  classifier_mean: [0.485, 0.456, 0.406]
+  classifier_std: [0.229, 0.224, 0.225]
+  classifier_interpolation: bicubic
+  classifier_crop_pct: 0.95
+  classifier_tta_horizontal_flip: false
+  classifier_tta_variants:
+    - name: identity
+      crop_pct: 0.90
+    - name: hflip
+      crop_pct: 0.90
+    - name: identity
+      crop_pct: 0.95
+    - name: hflip
+      crop_pct: 0.95
+    - name: identity
+      crop_pct: 1.00
+    - name: hflip
+      crop_pct: 1.00
+  default_threshold: 0.5
+  borderline_margin: 0.08
+  classifier_checkpoint: ./artifacts/checkpoints/sonoglore_convnext_tiny_grn_eca_asymproj_posw17_fold1.pt
+  classifier_checkpoints:
+    - ./artifacts/checkpoints/sonoglore_convnext_tiny_grn_eca_asymproj_posw17_fold1.pt
+    - ./artifacts/checkpoints/sonoglore_convnext_tiny_grn_eca_asymproj_posw17_fold2.pt
+    - ./artifacts/checkpoints/sonoglore_convnext_tiny_grn_eca_asymproj_posw17_fold3.pt
+    - ./artifacts/checkpoints/sonoglore_convnext_tiny_grn_eca_asymproj_posw17_fold4.pt
+    - ./artifacts/checkpoints/sonoglore_convnext_tiny_grn_eca_asymproj_posw17_fold5.pt
+  classifier_members:
+    - model: sonoglore_convnext_v1
+      checkpoint: ./artifacts/checkpoints/sonoglore_convnext_tiny_grn_eca_asymproj_posw17_fold1.pt
+      weight: 1.0
+    - model: sonoglore_convnext_v1
+      checkpoint: ./artifacts/checkpoints/sonoglore_convnext_tiny_grn_eca_asymproj_posw17_fold2.pt
+      weight: 1.0
+    - model: sonoglore_convnext_v1
+      checkpoint: ./artifacts/checkpoints/sonoglore_convnext_tiny_grn_eca_asymproj_posw17_fold3.pt
+      weight: 1.0
+    - model: sonoglore_convnext_v1
+      checkpoint: ./artifacts/checkpoints/sonoglore_convnext_tiny_grn_eca_asymproj_posw17_fold4.pt
+      weight: 1.0
+    - model: sonoglore_convnext_v1
+      checkpoint: ./artifacts/checkpoints/sonoglore_convnext_tiny_grn_eca_asymproj_posw17_fold5.pt
+      weight: 1.0
+  segmenter_checkpoint: null
+  segmenter_image_size: 256
+  gradcam_enabled: false
+  segmentation_enabled: false
+  allow_missing_visuals: true

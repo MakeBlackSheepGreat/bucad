@@ -41,6 +41,246 @@ def test_timm_classifier_accepts_regularization_kwargs() -> None:
     assert model is not None
 
 
+@pytest.mark.skipif(classifier.torch is None, reason="torch is not installed")
+def test_dualview_convnext_tiny_outputs_two_logits_with_descriptors(monkeypatch) -> None:
+    """Verify dual-view ConvNeXt alias accepts full, ROI, and descriptor tensors."""
+    torch = classifier.torch
+
+    class _Backbone(torch.nn.Module):
+        """Small backbone stand-in for timm ConvNeXt."""
+
+        num_features = 4
+        pretrained_cfg = {"input_size": (3, 8, 8)}
+
+        def forward(self, images):
+            """Return deterministic four-channel embeddings."""
+            return images.mean(dim=(2, 3))[:, :1].repeat(1, self.num_features)
+
+    monkeypatch.setattr(
+        classifier.timm,
+        "create_model",
+        lambda *_args, **_kwargs: _Backbone(),
+    )
+    model = create_classifier(
+        "roi_dualview_convnext_tiny",
+        pretrained=False,
+        descriptor_dim=14,
+        fusion_hidden_dim=8,
+    )
+    image_full = torch.zeros((2, 3, 8, 8), dtype=torch.float32)
+    image_roi = torch.ones((2, 3, 8, 8), dtype=torch.float32)
+    roi_descriptor = torch.zeros((2, 14), dtype=torch.float32)
+
+    logits = model(
+        image_full=image_full,
+        image_roi=image_roi,
+        roi_descriptor=roi_descriptor,
+    )
+
+    assert tuple(logits.shape) == (2, 2)
+    assert model.input_mode == "dual_view_roi"
+
+
+@pytest.mark.skipif(classifier.timm is None, reason="timm is not installed")
+def test_lesion_scale_moe_outputs_logits_and_soft_expert_weights(monkeypatch) -> None:
+    """Verify lesion-scale MoE consumes full/ROI views and records router weights."""
+    torch = classifier.torch
+
+    class _FeatureInfo:
+        """Small timm feature_info stand-in."""
+
+        @staticmethod
+        def channels():
+            """Return stage 2/3/4 channel counts."""
+            return [4, 6, 8]
+
+    class _FeatureBackbone(torch.nn.Module):
+        """Small features-only backbone stand-in for SonoGloRe tests."""
+
+        feature_info = _FeatureInfo()
+        pretrained_cfg = {"input_size": (3, 8, 8)}
+        default_cfg = {"input_size": (3, 8, 8)}
+
+        def forward(self, images):
+            """Return deterministic multi-stage feature maps."""
+            base = images.mean(dim=1, keepdim=True)
+            return [
+                base.mean(dim=(2, 3), keepdim=True).repeat(1, 4, 4, 4),
+                base.mean(dim=(2, 3), keepdim=True).repeat(1, 6, 2, 2),
+                base.mean(dim=(2, 3), keepdim=True).repeat(1, 8, 1, 1),
+            ]
+
+    monkeypatch.setattr(classifier.timm, "create_model", lambda *_args, **_kwargs: _FeatureBackbone())
+    model = create_classifier(
+        "sonoglore_lesion_moe_convnext_tiny",
+        pretrained=False,
+        in_chans=3,
+        num_classes=2,
+        stage_proj_dims=[4, 5, 6],
+        expert_hidden_dim=8,
+        router_hidden_dim=7,
+        descriptor_dim=14,
+    )
+    image_full = torch.zeros((2, 3, 8, 8), dtype=torch.float32)
+    image_roi = torch.ones((2, 3, 8, 8), dtype=torch.float32)
+    roi_descriptor = torch.zeros((2, 14), dtype=torch.float32)
+
+    logits, embedding = model.forward_with_embedding(
+        image_full=image_full,
+        image_roi=image_roi,
+        roi_descriptor=roi_descriptor,
+    )
+
+    assert tuple(logits.shape) == (2, 2)
+    assert embedding.shape == (2, 44)
+    assert model.input_mode == "dual_view_roi"
+    assert model.last_expert_weights is not None
+    assert tuple(model.last_expert_weights.shape) == (2, 3)
+    assert torch.allclose(
+        model.last_expert_weights.sum(dim=1),
+        torch.ones(2, dtype=model.last_expert_weights.dtype),
+        atol=1e-5,
+    )
+
+
+@pytest.mark.skipif(classifier.timm is None, reason="timm is not installed")
+def test_lesion_scale_moe_fixed_equal_expert_average(monkeypatch) -> None:
+    """Verify lesion-scale MoE can run the equal-weight ablation path."""
+    torch = classifier.torch
+
+    class _FeatureInfo:
+        @staticmethod
+        def channels():
+            return [4, 6, 8]
+
+    class _FeatureBackbone(torch.nn.Module):
+        feature_info = _FeatureInfo()
+        pretrained_cfg = {}
+        default_cfg = {}
+
+        def forward(self, images):
+            base = images.mean(dim=1, keepdim=True)
+            return [
+                base.mean(dim=(2, 3), keepdim=True).repeat(1, 4, 4, 4),
+                base.mean(dim=(2, 3), keepdim=True).repeat(1, 6, 2, 2),
+                base.mean(dim=(2, 3), keepdim=True).repeat(1, 8, 1, 1),
+            ]
+
+    monkeypatch.setattr(classifier.timm, "create_model", lambda *_args, **_kwargs: _FeatureBackbone())
+    model = create_classifier(
+        "sonoglore_lesion_moe_convnext_tiny",
+        pretrained=False,
+        stage_proj_dims=[4, 5, 6],
+        expert_hidden_dim=8,
+        router_hidden_dim=7,
+        fixed_equal_expert_weights=True,
+    )
+    batch = torch.zeros((2, 3, 8, 8), dtype=torch.float32)
+
+    logits = model(batch)
+
+    assert tuple(logits.shape) == (2, 2)
+    assert model.last_expert_weights is not None
+    assert torch.allclose(
+        model.last_expert_weights,
+        torch.full((2, 3), 1.0 / 3.0, dtype=model.last_expert_weights.dtype),
+        atol=1e-6,
+    )
+
+
+@pytest.mark.skipif(classifier.timm is None, reason="timm is not installed")
+def test_lesion_scale_moe_v2_outputs_logits_and_area_prior(monkeypatch) -> None:
+    """Verify MoE v2 records expert weights and area-prior logits."""
+    torch = classifier.torch
+
+    class _FeatureInfo:
+        @staticmethod
+        def channels():
+            return [4, 6, 8]
+
+    class _FeatureBackbone(torch.nn.Module):
+        feature_info = _FeatureInfo()
+        pretrained_cfg = {}
+        default_cfg = {}
+
+        def forward(self, images):
+            base = images.mean(dim=1, keepdim=True)
+            return [
+                base.repeat(1, 4, 4, 4),
+                base[:, :, ::4, ::4].repeat(1, 6, 1, 1),
+                base.mean(dim=(2, 3), keepdim=True).repeat(1, 8, 1, 1),
+            ]
+
+    monkeypatch.setattr(classifier.timm, "create_model", lambda *_args, **_kwargs: _FeatureBackbone())
+    model = create_classifier(
+        "sonoglore_lesion_moe_v2_convnext_tiny",
+        pretrained=False,
+        stage_proj_dims=[4, 5, 6],
+        expert_hidden_dim=8,
+        router_hidden_dim=7,
+        small_spatial_hidden_dim=5,
+        residual_alpha=0.1,
+    )
+    image_full = torch.zeros((3, 3, 8, 8), dtype=torch.float32)
+    image_roi = torch.ones((3, 3, 8, 8), dtype=torch.float32)
+    roi_descriptor = torch.zeros((3, 14), dtype=torch.float32)
+    roi_descriptor[:, 1] = torch.tensor([0.08, 0.32, 0.70], dtype=torch.float32)
+
+    logits, embedding = model.forward_with_embedding(
+        image_full=image_full,
+        image_roi=image_roi,
+        roi_descriptor=roi_descriptor,
+    )
+
+    assert tuple(logits.shape) == (3, 2)
+    assert embedding.shape == (3, 44)
+    assert tuple(model.last_expert_weights.shape) == (3, 3)
+    assert torch.allclose(model.last_expert_weights.sum(dim=1), torch.ones(3), atol=1e-5)
+    assert model.last_router_area_prior_logits[0].argmax().item() == 0
+    assert model.last_router_area_prior_logits[1].argmax().item() == 1
+    assert model.last_router_area_prior_logits[2].argmax().item() == 2
+
+
+@pytest.mark.skipif(classifier.timm is None, reason="timm is not installed")
+def test_lesion_scale_moe_v2_residual_alpha_zero_matches_moe_logits(monkeypatch) -> None:
+    """Verify residual_alpha=0 returns pure MoE logits."""
+    torch = classifier.torch
+
+    class _FeatureInfo:
+        @staticmethod
+        def channels():
+            return [4, 6, 8]
+
+    class _FeatureBackbone(torch.nn.Module):
+        feature_info = _FeatureInfo()
+        pretrained_cfg = {}
+        default_cfg = {}
+
+        def forward(self, images):
+            base = images.mean(dim=1, keepdim=True)
+            return [
+                base.repeat(1, 4, 4, 4),
+                base[:, :, ::4, ::4].repeat(1, 6, 1, 1),
+                base.mean(dim=(2, 3), keepdim=True).repeat(1, 8, 1, 1),
+            ]
+
+    monkeypatch.setattr(classifier.timm, "create_model", lambda *_args, **_kwargs: _FeatureBackbone())
+    model = create_classifier(
+        "sonoglore_lesion_moe_v2_convnext_tiny",
+        pretrained=False,
+        stage_proj_dims=[4, 5, 6],
+        expert_hidden_dim=8,
+        router_hidden_dim=7,
+        small_spatial_hidden_dim=5,
+        residual_alpha=0.0,
+    )
+    batch = torch.zeros((2, 3, 8, 8), dtype=torch.float32)
+
+    logits = model(batch)
+
+    assert torch.allclose(logits, model.last_moe_logits, atol=1e-6)
+
+
 @pytest.mark.skipif(classifier.timm is None, reason="timm is not installed")
 def test_sonoglore_convnext_tiny_outputs_two_logits_and_exposes_metadata() -> None:
     """Verify SonoGloReNet tiny constructs, runs, and exposes pretrained metadata."""
@@ -205,6 +445,30 @@ def test_sonoglore_grn_eca_outputs_two_logits() -> None:
     assert model.use_projection_eca is True
     assert model.scale_gate is None
     assert resolve_gradcam_target_layer(model) is model.gradcam_layer
+
+
+@pytest.mark.skipif(classifier.timm is None, reason="timm is not installed")
+def test_sonoglore_convnext_v1_alias_freezes_selected_structure() -> None:
+    """Verify the V1 alias expands to the selected modern CNN structure."""
+    model = create_classifier(
+        "sonoglore_convnext_v1",
+        pretrained=False,
+        in_chans=3,
+        num_classes=2,
+    )
+    batch = classifier.torch.zeros((2, 3, 224, 224), dtype=classifier.torch.float32)
+
+    logits = model(batch)
+
+    assert tuple(logits.shape) == (2, 2)
+    assert model.backbone_name == "convnext_tiny"
+    assert tuple(model.active_stage_indices) == (2, 3, 4)
+    assert tuple(model.stage_proj_dims) == (192, 256, 320)
+    assert tuple(model.stage_fusion_weights) == (0.8, 1.0, 1.0)
+    assert model.use_stage4_attention is False
+    assert model.use_projection_grn is True
+    assert model.use_projection_eca is True
+    assert model.scale_gate is None
 
 
 @pytest.mark.skipif(classifier.timm is None, reason="timm is not installed")

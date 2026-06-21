@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pickle
+
 import numpy as np
 
 from src.preprocess.transforms import build_classifier_transform
@@ -29,6 +31,20 @@ def test_augmented_classifier_transform_preserves_tensor_shape() -> None:
     assert tuple(tensor.shape) == (3, 256, 256)
     assert float(tensor.min()) >= 0.0
     assert float(tensor.max()) <= 1.0
+
+
+def test_classifier_transform_is_pickle_safe_for_worker_processes() -> None:
+    """Verify classifier transform can be serialized for DataLoader workers."""
+    transform = build_classifier_transform(
+        image_size=64,
+        horizontal_flip=True,
+        flip_probability=1.0,
+    )
+    restored = pickle.loads(pickle.dumps(transform))
+
+    tensor = restored(np.zeros((32, 32), dtype=np.uint8))
+
+    assert tuple(tensor.shape) == (3, 64, 64)
 
 
 def test_optimized_classifier_config_uses_higher_resolution_and_augments() -> None:

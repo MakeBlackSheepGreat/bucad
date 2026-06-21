@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import copy
 import dataclasses
 import math
 from pathlib import Path
@@ -10,10 +11,18 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from src.datasets.busbra import BUSBRAClassificationDataset, generate_busbra_split_assignments, load_busbra_manifest
+from src.datasets.busbra import (
+    BUSBRAClassificationDataset,
+    BUSBRAClassificationDualViewDataset,
+    generate_busbra_split_assignments,
+    load_busbra_manifest,
+)
 from src.engine.checkpoints import atomic_torch_save
 from src.models.classifier import create_classifier
-from src.preprocess.transforms import build_classifier_transform
+from src.models.segmenter import load_segmenter
+from src.preprocess.io import read_image, save_image
+from src.preprocess.io import cv2
+from src.preprocess.transforms import build_classifier_transform, prepare_classifier_input
 from src.utils.config import load_project_config
 from src.utils.logging import get_logger
 from src.utils.metrics import best_threshold_by_youden, classification_metrics
@@ -61,9 +70,12 @@ def _collect_validation_probabilities(model, loader, device: str) -> tuple[list[
     inference_context = torch.inference_mode if hasattr(torch, "inference_mode") else torch.no_grad
     with inference_context():
         for batch in loader:
-            images = batch["image"].to(device=device, dtype=torch.float32)
-            labels = batch["label"].to(device=device)
-            logits = model(images)
+            images, labels, _batch_weights = _prepare_classifier_batch(
+                batch,
+                {},
+                device=device,
+            )
+            logits = _model_logits(model, images)
             probs = torch.softmax(logits, dim=1)
             y_true.extend(labels.cpu().tolist())
             malignant_probabilities.extend(probs[:, 1].cpu().tolist())
@@ -371,10 +383,25 @@ def _set_optimizer_lr(optimizer, learning_rate: float) -> None:
         group["lr"] = float(learning_rate)
 
 
+def _move_dual_view_batch(batch: dict[str, Any], *, device: str) -> dict[str, Any]:
+    """Move dual-view image and descriptor tensors to the training device."""
+    moved = {
+        "image_full": batch["image_full"].to(device=device, dtype=torch.float32, non_blocking=True),
+        "image_roi": batch["image_roi"].to(device=device, dtype=torch.float32, non_blocking=True),
+        "roi_descriptor": batch["roi_descriptor"].to(device=device, dtype=torch.float32, non_blocking=True),
+    }
+    if "roi_valid" in batch and hasattr(batch["roi_valid"], "to"):
+        moved["roi_valid"] = batch["roi_valid"].to(device=device, dtype=torch.float32, non_blocking=True)
+    return moved
+
+
 def _prepare_classifier_batch(batch: dict[str, Any], sample_weights: dict[str, float], *, device: str):
     """Move one training batch to device and attach optional sample weights."""
-    images = batch["image"].to(device=device, dtype=torch.float32)
-    labels = batch["label"].to(device=device)
+    if "image_full" in batch:
+        images = _move_dual_view_batch(batch, device=device)
+    else:
+        images = batch["image"].to(device=device, dtype=torch.float32, non_blocking=True)
+    labels = batch["label"].to(device=device, non_blocking=True)
     batch_weights = _batch_sample_weights(
         [str(value) for value in batch["sample_id"]],
         sample_weights,
@@ -385,6 +412,13 @@ def _prepare_classifier_batch(batch: dict[str, Any], sample_weights: dict[str, f
 
 def _model_logits(model, images, labels=None):
     """Call model forward, passing labels only for heads that support label-aware logits."""
+    if isinstance(images, dict):
+        if labels is None:
+            return model(**images)
+        try:
+            return model(**images, labels=labels)
+        except TypeError:
+            return model(**images)
     if labels is None:
         return model(images)
     try:
@@ -398,8 +432,12 @@ def _model_logits_and_embedding(model, images, labels=None):
     forward_with_embedding = getattr(model, "forward_with_embedding", None)
     if callable(forward_with_embedding):
         try:
+            if isinstance(images, dict):
+                return forward_with_embedding(**images, labels=labels)
             return forward_with_embedding(images, labels=labels)
         except TypeError:
+            if isinstance(images, dict):
+                return forward_with_embedding(**images)
             return forward_with_embedding(images)
     return _model_logits(model, images, labels=labels), None
 
@@ -428,6 +466,18 @@ def _supervised_contrastive_loss(embeddings, labels, *, temperature: float) -> A
     mean_log_prob_pos = (log_prob * positive_mask).sum(dim=1) / positive_counts.clamp_min(1)
     loss = -mean_log_prob_pos[valid].mean()
     return loss
+
+
+def _moe_load_balance_loss(expert_weights, *, num_experts: int | None = None):
+    """Penalize collapsed MoE routing by matching the batch mean to uniform use."""
+    if expert_weights is None:
+        return None
+    if expert_weights.ndim != 2 or expert_weights.shape[0] <= 0:
+        return expert_weights.new_zeros(())
+    expert_count = int(num_experts or expert_weights.shape[1])
+    target = expert_weights.new_full((expert_count,), 1.0 / float(expert_count))
+    mean_weights = expert_weights.mean(dim=0)
+    return torch.nn.functional.mse_loss(mean_weights, target)
 
 
 def _mixed_classification_loss(
@@ -516,6 +566,7 @@ def _train_classifier_epoch(
     pairwise_auc_margin: float,
     supcon_weight: float,
     supcon_temperature: float,
+    moe_load_balance_weight: float,
     use_sam: bool,
 ) -> float:
     """Run one classifier epoch with optional sample weights and mix augmentations."""
@@ -527,21 +578,28 @@ def _train_classifier_epoch(
             sample_weights,
             device=device,
         )
-        (
-            images,
-            labels_a,
-            labels_b,
-            mix_lambda,
-            weights_a,
-            weights_b,
-        ) = _maybe_apply_mix_augmentation(
-            images,
-            labels,
-            batch_weights,
-            mixup_alpha=mixup_alpha,
-            cutmix_alpha=cutmix_alpha,
-            mix_probability=mix_probability,
-        )
+        if isinstance(images, dict):
+            labels_a = labels
+            labels_b = None
+            mix_lambda = 1.0
+            weights_a = batch_weights
+            weights_b = None
+        else:
+            (
+                images,
+                labels_a,
+                labels_b,
+                mix_lambda,
+                weights_a,
+                weights_b,
+            ) = _maybe_apply_mix_augmentation(
+                images,
+                labels,
+                batch_weights,
+                mixup_alpha=mixup_alpha,
+                cutmix_alpha=cutmix_alpha,
+                mix_probability=mix_probability,
+            )
         optimizer.zero_grad()
         logits, embeddings = _model_logits_and_embedding(model, images, labels_a)
         loss = _mixed_classification_loss(
@@ -572,6 +630,14 @@ def _train_classifier_epoch(
             )
             if supcon_loss is not None:
                 loss = loss + float(supcon_weight) * supcon_loss
+        if float(moe_load_balance_weight) > 0.0:
+            expert_weights = getattr(model, "last_expert_weights", None)
+            load_balance_loss = _moe_load_balance_loss(
+                expert_weights,
+                num_experts=getattr(model, "num_experts", None),
+            )
+            if load_balance_loss is not None:
+                loss = loss + float(moe_load_balance_weight) * load_balance_loss
         loss.backward()
         if bool(use_sam):
             optimizer.first_step()
@@ -605,6 +671,14 @@ def _train_classifier_epoch(
                 )
                 if supcon_loss_second is not None:
                     second_loss = second_loss + float(supcon_weight) * supcon_loss_second
+            if float(moe_load_balance_weight) > 0.0:
+                expert_weights_second = getattr(model, "last_expert_weights", None)
+                load_balance_loss_second = _moe_load_balance_loss(
+                    expert_weights_second,
+                    num_experts=getattr(model, "num_experts", None),
+                )
+                if load_balance_loss_second is not None:
+                    second_loss = second_loss + float(moe_load_balance_weight) * load_balance_loss_second
             second_loss.backward()
             optimizer.second_step()
         else:
@@ -719,6 +793,130 @@ def _prepare_fold_manifests(
     return train_manifest, val_manifest
 
 
+def _resolve_project_path(value: str | Path, paths) -> Path:
+    """Resolve a path relative to the project root."""
+    path = Path(value)
+    if path.is_absolute():
+        return path
+    return (paths.project_root / path).resolve()
+
+
+def _segmenter_oof_cache_dir(paths, roi_cfg: dict[str, Any]) -> Path:
+    """Return the cache directory for training-time predicted ROI masks."""
+    cache_dir = roi_cfg.get("mask_cache_dir", "artifacts/cache/segmenter_oof_masks")
+    return _resolve_project_path(cache_dir, paths)
+
+
+def _segmenter_checkpoint_for_fold(paths, roi_cfg: dict[str, Any], fold_id: int) -> Path:
+    """Resolve one segmenter OOF checkpoint path for a validation fold id."""
+    pattern = str(roi_cfg.get("segmenter_checkpoint_pattern", "artifacts/checkpoints/segmenter_5fold_fold{fold}.pt"))
+    return _resolve_project_path(pattern.format(fold=int(fold_id)), paths)
+
+
+def _predict_segmenter_mask(model, image: np.ndarray, *, image_size: int, device: str) -> np.ndarray:
+    """Predict a probability mask with one loaded segmenter and resize it to image shape."""
+    input_tensor = prepare_classifier_input(image, int(image_size), apply_clahe_enabled=False)
+    batch = input_tensor.unsqueeze(0).to(device=device, dtype=torch.float32)
+    inference_context = torch.inference_mode if hasattr(torch, "inference_mode") else torch.no_grad
+    with inference_context():
+        logits = model(batch)
+        probability = torch.sigmoid(logits)[0, 0].cpu().numpy()
+    if cv2 is not None:
+        return cv2.resize(
+            probability.astype(np.float32),
+            (image.shape[1], image.shape[0]),
+            interpolation=cv2.INTER_LINEAR,
+        )
+    y_index = np.linspace(0, probability.shape[0] - 1, image.shape[0]).round().astype(int)
+    x_index = np.linspace(0, probability.shape[1] - 1, image.shape[1]).round().astype(int)
+    return probability[np.ix_(y_index, x_index)].astype(np.float32)
+
+
+def _ensure_segmenter_oof_mask_cache(
+    *,
+    manifest: pd.DataFrame,
+    assignments: pd.DataFrame,
+    paths,
+    roi_cfg: dict[str, Any],
+    device: str,
+) -> dict[str, Path]:
+    """Generate or reuse BUSBRA OOF predicted masks for the requested samples."""
+    require_dependency("torch", torch)
+    cache_dir = _segmenter_oof_cache_dir(paths, roi_cfg)
+    ensure_dir(cache_dir)
+    assignment_by_sample = {}
+    for row in assignments.itertuples(index=False):
+        if str(getattr(row, "stage", "")) != "val":
+            continue
+        fold_value = getattr(row, "fold_id", None)
+        if fold_value is None:
+            fold_value = getattr(row, "fold")
+        assignment_by_sample[str(row.sample_id)] = int(fold_value)
+    mask_paths: dict[str, Path] = {}
+    loaded_segmenters: dict[int, Any] = {}
+    segmenter_image_size = int(roi_cfg.get("segmenter_image_size", 256))
+    for row in manifest.itertuples(index=False):
+        sample_id = str(row.sample_id)
+        fold_id = assignment_by_sample.get(sample_id)
+        if fold_id is None:
+            raise ValueError(f"No OOF segmenter fold assignment found for sample {sample_id}.")
+        mask_path = cache_dir / f"fold{fold_id}_{sample_id}.png"
+        mask_paths[sample_id] = mask_path
+        if mask_path.exists():
+            continue
+        checkpoint = _segmenter_checkpoint_for_fold(paths, roi_cfg, fold_id)
+        if not checkpoint.exists():
+            raise FileNotFoundError(f"Segmenter OOF checkpoint not found: {checkpoint}")
+        if fold_id not in loaded_segmenters:
+            model = load_segmenter(
+                {"architecture": "unet", "encoder_name": "resnet18", "encoder_weights": None, "in_channels": 3, "classes": 1},
+                checkpoint,
+                map_location=device,
+            ).to(device)
+            model.eval()
+            loaded_segmenters[fold_id] = model
+        image = read_image(row.image_path, grayscale=True)
+        probability = _predict_segmenter_mask(
+            loaded_segmenters[fold_id],
+            image,
+            image_size=segmenter_image_size,
+            device=device,
+        )
+        save_image(mask_path, (np.clip(probability, 0.0, 1.0) * 255.0).astype(np.uint8))
+    return mask_paths
+
+
+def _apply_roi_mask_source(
+    *,
+    train_manifest: pd.DataFrame,
+    val_manifest: pd.DataFrame,
+    assignments: pd.DataFrame,
+    paths,
+    data_cfg: dict[str, Any],
+    device: str,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Attach configured ROI mask source columns to dual-view manifests."""
+    roi_cfg = data_cfg.get("roi", {}) or {}
+    mask_source = str(roi_cfg.get("mask_source", "gt_mask")).lower()
+    if mask_source in {"gt", "gt_mask", "ground_truth"}:
+        return train_manifest, val_manifest
+    if mask_source != "segmenter_oof":
+        raise ValueError(f"Unsupported ROI mask_source: {mask_source}")
+    combined = pd.concat([train_manifest, val_manifest], ignore_index=True)
+    mask_paths = _ensure_segmenter_oof_mask_cache(
+        manifest=combined,
+        assignments=assignments,
+        paths=paths,
+        roi_cfg=roi_cfg,
+        device=device,
+    )
+    train_manifest = train_manifest.copy()
+    val_manifest = val_manifest.copy()
+    train_manifest["roi_mask_path"] = train_manifest["sample_id"].astype(str).map(lambda sample_id: str(mask_paths[sample_id]))
+    val_manifest["roi_mask_path"] = val_manifest["sample_id"].astype(str).map(lambda sample_id: str(mask_paths[sample_id]))
+    return train_manifest, val_manifest
+
+
 def _build_classifier_model_and_transforms(
     *,
     config: dict[str, Any],
@@ -780,12 +978,37 @@ def _build_classifier_loaders(
     device: str,
 ):
     """Create train/validation DataLoaders with Windows-safe worker defaults."""
-    train_dataset = BUSBRAClassificationDataset(
-        train_manifest, image_size=image_size, transform=train_transform
-    )
-    val_dataset = BUSBRAClassificationDataset(
-        val_manifest, image_size=image_size, transform=eval_transform
-    )
+    input_mode = str(data_cfg.get("input_mode", "single_image")).lower()
+    if input_mode == "dual_view_roi":
+        roi_cfg = data_cfg.get("roi", {}) or {}
+        roi_kwargs = {
+            "mask_threshold": float(roi_cfg.get("mask_threshold", 0.4)),
+            "margin_ratio": float(roi_cfg.get("margin_ratio", 0.35)),
+            "min_area_ratio": float(roi_cfg.get("min_area_ratio", 0.08)),
+            "max_area_ratio": float(roi_cfg.get("max_area_ratio", 0.75)),
+            "largest_component": bool(roi_cfg.get("largest_component", True)),
+        }
+        train_dataset = BUSBRAClassificationDualViewDataset(
+            train_manifest,
+            image_size=image_size,
+            transform=train_transform,
+            roi_transform=train_transform,
+            **roi_kwargs,
+        )
+        val_dataset = BUSBRAClassificationDualViewDataset(
+            val_manifest,
+            image_size=image_size,
+            transform=eval_transform,
+            roi_transform=eval_transform,
+            **roi_kwargs,
+        )
+    else:
+        train_dataset = BUSBRAClassificationDataset(
+            train_manifest, image_size=image_size, transform=train_transform
+        )
+        val_dataset = BUSBRAClassificationDataset(
+            val_manifest, image_size=image_size, transform=eval_transform
+        )
     num_workers = int(data_cfg.get("num_workers", 0))
     pin_memory = device.startswith("cuda")
     # Persistent workers only make sense when DataLoader starts child workers.
@@ -796,6 +1019,7 @@ def _build_classifier_loaders(
     }
     if num_workers > 0:
         loader_kwargs["persistent_workers"] = True
+        loader_kwargs["prefetch_factor"] = int(data_cfg.get("prefetch_factor", 2))
     train_loader = torch_utils_data.DataLoader(
         train_dataset,
         shuffle=True,
@@ -869,6 +1093,7 @@ def _write_classifier_training_outputs(
     pairwise_auc_margin: float,
     supcon_weight: float,
     supcon_temperature: float,
+    moe_load_balance_weight: float,
     use_sam: bool,
     sam_rho: float,
     sam_adaptive: bool,
@@ -924,6 +1149,7 @@ def _write_classifier_training_outputs(
         pairwise_auc_margin=pairwise_auc_margin,
         supcon_weight=supcon_weight,
         supcon_temperature=supcon_temperature,
+        moe_load_balance_weight=moe_load_balance_weight,
         use_sam=use_sam,
         sam_rho=sam_rho,
         sam_adaptive=sam_adaptive,
@@ -987,6 +1213,7 @@ def _classifier_training_report(
     pairwise_auc_margin: float,
     supcon_weight: float,
     supcon_temperature: float,
+    moe_load_balance_weight: float,
     use_sam: bool,
     sam_rho: float,
     sam_adaptive: bool,
@@ -1026,6 +1253,7 @@ def _classifier_training_report(
         "pairwise_auc_margin": pairwise_auc_margin,
         "supcon_weight": supcon_weight,
         "supcon_temperature": supcon_temperature if supcon_weight > 0.0 else None,
+        "moe_load_balance_weight": moe_load_balance_weight,
         "optimizer": "sam" if use_sam else "adamw",
         "sam_rho": sam_rho if use_sam else None,
         "sam_adaptive": sam_adaptive if use_sam else None,
@@ -1064,6 +1292,7 @@ class _TrainingLoopConfig:
     pairwise_auc_margin: float
     supcon_weight: float
     supcon_temperature: float
+    moe_load_balance_weight: float
     use_sam: bool
     sam_rho: float
     sam_adaptive: bool
@@ -1152,6 +1381,7 @@ def _build_training_loop_config(
         pairwise_auc_margin=float(training_cfg.get("pairwise_auc_margin", 0.0)),
         supcon_weight=float(training_cfg.get("supcon_weight", 0.0)),
         supcon_temperature=float(training_cfg.get("supcon_temperature", 0.07)),
+        moe_load_balance_weight=float(training_cfg.get("moe_load_balance_weight", 0.0)),
         use_sam=str(training_cfg.get("optimizer", "adamw")).lower() == "sam",
         sam_rho=float(training_cfg.get("sam_rho", 0.05)),
         sam_adaptive=bool(training_cfg.get("sam_adaptive", False)),
@@ -1182,6 +1412,25 @@ def _prepare_classifier_training_run(
         fold=fold,
         seed=seed,
     )
+    roi_cfg = data_cfg.get("roi", {}) or {}
+    if str(roi_cfg.get("mask_source", "gt_mask")).lower() == "segmenter_oof":
+        split_path = Path(training_cfg.get("split_path", paths.reports_root / "busbra_5fold_splits.csv"))
+        if not split_path.is_absolute():
+            split_path = (paths.project_root / split_path).resolve()
+        assignments = _load_or_create_splits(
+            manifest,
+            split_path,
+            fold_count=int(training_cfg.get("fold_count", 5)),
+            seed=seed,
+        )
+        train_manifest, val_manifest = _apply_roi_mask_source(
+            train_manifest=train_manifest,
+            val_manifest=val_manifest,
+            assignments=assignments,
+            paths=paths,
+            data_cfg=data_cfg,
+            device=device,
+        )
     model, image_size, train_transform, eval_transform, preprocess_settings = (
         _build_classifier_model_and_transforms(
             config=config,
@@ -1293,6 +1542,7 @@ def _run_training_loop(
             pairwise_auc_margin=cfg.pairwise_auc_margin,
             supcon_weight=cfg.supcon_weight,
             supcon_temperature=cfg.supcon_temperature,
+            moe_load_balance_weight=cfg.moe_load_balance_weight,
             use_sam=cfg.use_sam,
         )
         val_y_true, val_malignant_probabilities = _collect_validation_probabilities(
@@ -1438,6 +1688,7 @@ def _finish_classifier_training_run(
         pairwise_auc_margin=prepared.loop_config.pairwise_auc_margin,
         supcon_weight=prepared.loop_config.supcon_weight,
         supcon_temperature=prepared.loop_config.supcon_temperature,
+        moe_load_balance_weight=prepared.loop_config.moe_load_balance_weight,
         use_sam=prepared.loop_config.use_sam,
         sam_rho=prepared.loop_config.sam_rho,
         sam_adaptive=prepared.loop_config.sam_adaptive,

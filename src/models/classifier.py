@@ -1017,8 +1017,8 @@ if nn is not None:
             tokens = self.context_block(tokens)
             return tokens.transpose(1, 2).reshape(batch_size, channels, height, width)
 
-        def _fused_embedding(self, x):
-            """Return the fused representation before classifier-only dropout."""
+        def _stage_embedding_bundle(self, x):
+            """Return active projected stage embeddings before the final classifier head."""
             stage_features = list(self.backbone(x))
             if len(stage_features) != 3:
                 raise RuntimeError(f"SonoGloReNet received {len(stage_features)} features, expected 3.")
@@ -1064,6 +1064,15 @@ if nn is not None:
             else:
                 self.last_scale_gate_weights = None
             self.last_projection_spectral_gate_weights = projection_spectral_gate_weights or None
+            stage_embeddings = {
+                stage_number: pooled_embeddings[position]
+                for position, stage_number in enumerate(self.active_stage_indices)
+            }
+            return pooled_embeddings, stage_embeddings
+
+        def _fused_embedding(self, x):
+            """Return the fused representation before classifier-only dropout."""
+            pooled_embeddings, _stage_embeddings = self._stage_embedding_bundle(x)
             fused = torch.cat(pooled_embeddings, dim=1)
             fused = self.head_norm(fused)
             fused = self.head_dropout(fused)
@@ -1084,6 +1093,470 @@ if nn is not None:
         def forward(self, x, labels=None):
             """Return class logits for one image batch."""
             logits, _embedding = self.forward_with_embedding(x, labels=labels)
+            return logits
+
+
+    class LesionScaleMoEConvNeXtClassifier(SonoGloReNetClassifier):
+        """SonoGloRe classifier with soft lesion-scale expert routing."""
+
+        input_mode = "dual_view_roi"
+
+        def __init__(
+            self,
+            *,
+            num_classes: int = 2,
+            descriptor_dim: int = 14,
+            expert_hidden_dim: int = 256,
+            router_hidden_dim: int = 160,
+            router_temperature: float = 1.0,
+            fixed_equal_expert_weights: bool = False,
+            router_uses_descriptors: bool = True,
+            expert_dropout: float | None = None,
+            **model_kwargs,
+        ) -> None:
+            """Build a three-expert lesion-scale MoE on top of SonoGloRe stage embeddings."""
+            model_kwargs = dict(model_kwargs)
+            model_kwargs.setdefault("active_stage_indices", [2, 3, 4])
+            model_kwargs.setdefault("stage_proj_dims", [192, 256, 320])
+            model_kwargs.setdefault("stage_fusion_weights", [0.8, 1.0, 1.0])
+            model_kwargs.setdefault("use_stage4_attention", False)
+            model_kwargs.setdefault("use_projection_grn", True)
+            model_kwargs.setdefault("use_projection_eca", True)
+            super().__init__(num_classes=num_classes, **model_kwargs)
+            missing_stages = {2, 3, 4}.difference(self.active_stage_indices)
+            if missing_stages:
+                raise ValueError("LesionScaleMoE requires active_stage_indices to include [2, 3, 4].")
+            self.descriptor_dim = int(descriptor_dim)
+            self.num_experts = 3
+            self.fixed_equal_expert_weights = bool(fixed_equal_expert_weights)
+            self.router_uses_descriptors = bool(router_uses_descriptors)
+            self.router_temperature = max(float(router_temperature), 1e-4)
+            self.last_expert_weights = None
+            stage2_dim = self.stage_proj_dims[self._stage_number_to_position[2]]
+            stage3_dim = self.stage_proj_dims[self._stage_number_to_position[3]]
+            stage4_dim = self.stage_proj_dims[self._stage_number_to_position[4]]
+            self._moe_stage_dims = {2: stage2_dim, 3: stage3_dim, 4: stage4_dim}
+            fused_dim = int(stage2_dim + stage3_dim + stage4_dim)
+            dropout = float(self.head_dropout.p if expert_dropout is None else expert_dropout)
+            self.small_expert = self._make_expert_head(stage2_dim + stage3_dim, expert_hidden_dim, num_classes, dropout)
+            self.medium_expert = self._make_expert_head(fused_dim, expert_hidden_dim, num_classes, dropout)
+            self.large_expert = self._make_expert_head(stage4_dim, expert_hidden_dim, num_classes, dropout)
+            descriptor_router_dim = self.descriptor_dim if self.router_uses_descriptors else 0
+            router_input_dim = fused_dim * 2 + descriptor_router_dim
+            self.router = nn.Sequential(
+                nn.LayerNorm(router_input_dim),
+                nn.Linear(router_input_dim, int(router_hidden_dim)),
+                nn.GELU(),
+                nn.Dropout(dropout),
+                nn.Linear(int(router_hidden_dim), self.num_experts),
+            )
+
+        @staticmethod
+        def _make_expert_head(input_dim: int, hidden_dim: int, num_classes: int, dropout: float):
+            """Create one lightweight MLP expert classifier head."""
+            return nn.Sequential(
+                nn.LayerNorm(int(input_dim)),
+                nn.Linear(int(input_dim), int(hidden_dim)),
+                nn.GELU(),
+                nn.Dropout(float(dropout)),
+                nn.Linear(int(hidden_dim), int(num_classes)),
+            )
+
+        def _normalize_descriptors(self, descriptor, reference):
+            """Return ROI descriptors aligned to the current image batch."""
+            if not self.router_uses_descriptors:
+                return reference.new_zeros((reference.shape[0], 0))
+            if descriptor is None:
+                return reference.new_zeros((reference.shape[0], self.descriptor_dim))
+            descriptor = descriptor.to(device=reference.device, dtype=reference.dtype)
+            if descriptor.ndim == 1:
+                descriptor = descriptor.unsqueeze(0)
+            if descriptor.shape[0] == 1 and reference.shape[0] > 1:
+                descriptor = descriptor.expand(reference.shape[0], -1)
+            if descriptor.shape[1] != self.descriptor_dim:
+                raise ValueError(
+                    f"LesionScaleMoE expected {self.descriptor_dim} ROI descriptors, got {descriptor.shape[1]}."
+                )
+            return descriptor
+
+        def _stage_cat(self, stage_embeddings: dict[int, Any]):
+            """Concatenate stage 2, 3, and 4 embeddings in anatomical scale order."""
+            return torch.cat([stage_embeddings[2], stage_embeddings[3], stage_embeddings[4]], dim=1)
+
+        def _average_stage_embeddings(self, first: dict[int, Any], second: dict[int, Any]) -> dict[int, Any]:
+            """Average matching stage embeddings from full-image and ROI views."""
+            return {
+                stage_number: (first[stage_number] + second[stage_number]) * 0.5
+                for stage_number in (2, 3, 4)
+            }
+
+        def _resolve_inputs(self, image=None, image_full=None, image_roi=None, roi_descriptor=None, **batch):
+            """Normalize supported single-image and dual-view calling conventions."""
+            if isinstance(image, dict):
+                batch = {**image, **batch}
+                image = None
+            if image_full is None:
+                image_full = batch.get("image_full")
+            if image_roi is None:
+                image_roi = batch.get("image_roi")
+            if roi_descriptor is None:
+                roi_descriptor = batch.get("roi_descriptor")
+            if image is None:
+                image = batch.get("image")
+            if image_full is None:
+                image_full = image
+            if image_full is None:
+                raise ValueError("LesionScaleMoE requires image_full or image.")
+            return image_full, image_roi, roi_descriptor
+
+        def forward_with_embedding(
+            self,
+            image=None,
+            image_full=None,
+            image_roi=None,
+            roi_descriptor=None,
+            labels=None,
+            **batch,
+        ):
+            """Return logits and router embedding for lesion-scale MoE training."""
+            image_full, image_roi, roi_descriptor = self._resolve_inputs(
+                image=image,
+                image_full=image_full,
+                image_roi=image_roi,
+                roi_descriptor=roi_descriptor,
+                **batch,
+            )
+            _full_pooled, full_stages = self._stage_embedding_bundle(image_full)
+            if image_roi is None:
+                roi_stages = full_stages
+                full_roi_delta = self._stage_cat(full_stages).new_zeros(self._stage_cat(full_stages).shape)
+            else:
+                _roi_pooled, roi_stages = self._stage_embedding_bundle(image_roi)
+                full_roi_delta = torch.abs(self._stage_cat(full_stages) - self._stage_cat(roi_stages))
+            medium_stages = self._average_stage_embeddings(full_stages, roi_stages)
+            small_input = torch.cat([roi_stages[2], roi_stages[3]], dim=1)
+            medium_input = self._stage_cat(medium_stages)
+            large_input = full_stages[4]
+            expert_logits = torch.stack(
+                [
+                    self.small_expert(small_input),
+                    self.medium_expert(medium_input),
+                    self.large_expert(large_input),
+                ],
+                dim=1,
+            )
+            descriptor = self._normalize_descriptors(roi_descriptor, medium_input)
+            router_input = torch.cat([self._stage_cat(full_stages), full_roi_delta, descriptor], dim=1)
+            if self.fixed_equal_expert_weights:
+                expert_weights = router_input.new_full(
+                    (router_input.shape[0], self.num_experts),
+                    1.0 / float(self.num_experts),
+                )
+            else:
+                expert_weights = torch.softmax(self.router(router_input) / self.router_temperature, dim=1)
+            self.last_expert_weights = expert_weights.detach()
+            logits = (expert_logits * expert_weights.unsqueeze(-1)).sum(dim=1)
+            return logits, router_input
+
+        def forward(
+            self,
+            image=None,
+            image_full=None,
+            image_roi=None,
+            roi_descriptor=None,
+            labels=None,
+            **batch,
+        ):
+            """Return class logits from the lesion-scale MoE classifier."""
+            logits, _embedding = self.forward_with_embedding(
+                image=image,
+                image_full=image_full,
+                image_roi=image_roi,
+                roi_descriptor=roi_descriptor,
+                labels=labels,
+                **batch,
+            )
+            return logits
+
+
+    class LesionScaleMoEV2ConvNeXtClassifier(LesionScaleMoEConvNeXtClassifier):
+        """Lesion-scale MoE with area prior, spatial small expert, and residual logits."""
+
+        def __init__(
+            self,
+            *,
+            num_classes: int = 2,
+            area_prior_strength: float = 0.75,
+            area_prior_small_center: float = 0.12,
+            area_prior_medium_center: float = 0.32,
+            area_prior_large_center: float = 0.68,
+            area_prior_sigma: float = 0.22,
+            small_spatial_hidden_dim: int = 96,
+            residual_alpha: float = 0.15,
+            **model_kwargs,
+        ) -> None:
+            """Build the v2 MoE classifier while preserving the v1 call surface."""
+            super().__init__(num_classes=num_classes, **model_kwargs)
+            self.area_prior_strength = float(area_prior_strength)
+            self.area_prior_sigma = max(float(area_prior_sigma), 1e-4)
+            self.residual_alpha = float(residual_alpha)
+            self.register_buffer(
+                "area_prior_centers",
+                torch.tensor(
+                    [
+                        float(area_prior_small_center),
+                        float(area_prior_medium_center),
+                        float(area_prior_large_center),
+                    ],
+                    dtype=torch.float32,
+                ),
+                persistent=False,
+            )
+            stage2_dim = self._moe_stage_dims[2]
+            stage3_dim = self._moe_stage_dims[3]
+            spatial_hidden_dim = int(small_spatial_hidden_dim)
+            self.small_spatial_head = nn.Sequential(
+                nn.Conv2d(stage2_dim + stage3_dim, spatial_hidden_dim, kernel_size=3, padding=1, bias=False),
+                nn.GELU(),
+                nn.AdaptiveAvgPool2d(1),
+                nn.Flatten(),
+                nn.LayerNorm(spatial_hidden_dim),
+            )
+            self.small_spatial_logits = nn.Linear(spatial_hidden_dim, num_classes)
+            fused_dim = sum(self._moe_stage_dims.values())
+            self.baseline_residual_head = nn.Sequential(
+                nn.LayerNorm(fused_dim),
+                nn.Linear(fused_dim, int(num_classes)),
+            )
+            self.last_moe_logits = None
+            self.last_baseline_logits = None
+            self.last_router_area_prior_logits = None
+
+        def _projected_stage_feature_bundle(self, x):
+            """Return projected feature maps and pooled embeddings for stages 2, 3, and 4."""
+            stage_features = list(self.backbone(x))
+            if len(stage_features) != 3:
+                raise RuntimeError(f"LesionScaleMoEV2 received {len(stage_features)} features, expected 3.")
+            if self.use_stage4_attention and 4 in self.active_stage_indices and self.context_block is not None:
+                stage4_position = self._stage_number_to_position[4]
+                stage_features[stage4_position] = self._contextualize_stage4(stage_features[stage4_position])
+            projected_features = {}
+            pooled_embeddings = []
+            fusion_factors = self._active_stage_fusion_factors(
+                device=stage_features[0].device,
+                dtype=stage_features[0].dtype,
+            )
+            for active_position, stage_number in enumerate(self.active_stage_indices):
+                position = self._stage_number_to_position[stage_number]
+                projected = self.stage_projections[position](stage_features[position])
+                projected_features[stage_number] = projected
+                pooled = self.stage_pools[position](projected).flatten(1)
+                pooled_embeddings.append(pooled * fusion_factors[active_position])
+            stage_embeddings = {
+                stage_number: pooled_embeddings[position]
+                for position, stage_number in enumerate(self.active_stage_indices)
+            }
+            return projected_features, stage_embeddings
+
+        def _small_spatial_expert_logits(self, roi_projected_features: dict[int, Any]):
+            """Classify small-lesion local details from stage2/stage3 feature maps."""
+            stage2 = roi_projected_features[2]
+            stage3 = roi_projected_features[3]
+            if stage3.shape[-2:] != stage2.shape[-2:]:
+                stage3 = F.interpolate(stage3, size=stage2.shape[-2:], mode="bilinear", align_corners=False)
+            spatial_features = self.small_spatial_head(torch.cat([stage2, stage3], dim=1))
+            return self.small_spatial_logits(spatial_features)
+
+        def _router_area_prior_logits(self, descriptor, reference):
+            """Return geometry-derived router prior logits for small/medium/large experts."""
+            if self.area_prior_strength <= 0.0:
+                return reference.new_zeros((reference.shape[0], self.num_experts))
+            descriptor = self._normalize_descriptors(descriptor, reference)
+            if descriptor.shape[1] <= 1:
+                return reference.new_zeros((reference.shape[0], self.num_experts))
+            area_ratio = descriptor[:, 1].clamp(0.0, 1.0).unsqueeze(1)
+            centers = self.area_prior_centers.to(device=reference.device, dtype=reference.dtype).view(1, -1)
+            distances = (area_ratio - centers).pow(2)
+            prior_logits = -distances / (2.0 * self.area_prior_sigma * self.area_prior_sigma)
+            return prior_logits * float(self.area_prior_strength)
+
+        def forward_with_embedding(
+            self,
+            image=None,
+            image_full=None,
+            image_roi=None,
+            roi_descriptor=None,
+            labels=None,
+            **batch,
+        ):
+            """Return logits and router embedding for the optimized lesion-scale MoE."""
+            image_full, image_roi, roi_descriptor = self._resolve_inputs(
+                image=image,
+                image_full=image_full,
+                image_roi=image_roi,
+                roi_descriptor=roi_descriptor,
+                **batch,
+            )
+            _full_projected, full_stages = self._projected_stage_feature_bundle(image_full)
+            if image_roi is None:
+                roi_projected = _full_projected
+                roi_stages = full_stages
+                full_stage_cat = self._stage_cat(full_stages)
+                full_roi_delta = full_stage_cat.new_zeros(full_stage_cat.shape)
+            else:
+                roi_projected, roi_stages = self._projected_stage_feature_bundle(image_roi)
+                full_stage_cat = self._stage_cat(full_stages)
+                full_roi_delta = torch.abs(full_stage_cat - self._stage_cat(roi_stages))
+            medium_stages = self._average_stage_embeddings(full_stages, roi_stages)
+            small_input = torch.cat([roi_stages[2], roi_stages[3]], dim=1)
+            medium_input = self._stage_cat(medium_stages)
+            large_input = full_stages[4]
+            small_logits = self.small_expert(small_input) + self._small_spatial_expert_logits(roi_projected)
+            expert_logits = torch.stack(
+                [
+                    small_logits,
+                    self.medium_expert(medium_input),
+                    self.large_expert(large_input),
+                ],
+                dim=1,
+            )
+            descriptor = self._normalize_descriptors(roi_descriptor, medium_input)
+            router_input = torch.cat([full_stage_cat, full_roi_delta, descriptor], dim=1)
+            area_prior_logits = self._router_area_prior_logits(roi_descriptor, medium_input)
+            if self.fixed_equal_expert_weights:
+                expert_weights = router_input.new_full(
+                    (router_input.shape[0], self.num_experts),
+                    1.0 / float(self.num_experts),
+                )
+            else:
+                router_logits = self.router(router_input) + area_prior_logits
+                expert_weights = torch.softmax(router_logits / self.router_temperature, dim=1)
+            moe_logits = (expert_logits * expert_weights.unsqueeze(-1)).sum(dim=1)
+            baseline_logits = self.baseline_residual_head(self._stage_cat(medium_stages))
+            logits = moe_logits + float(self.residual_alpha) * baseline_logits
+            self.last_expert_weights = expert_weights.detach()
+            self.last_moe_logits = moe_logits.detach()
+            self.last_baseline_logits = baseline_logits.detach()
+            self.last_router_area_prior_logits = area_prior_logits.detach()
+            return logits, router_input
+
+
+    class DualViewConvNeXtClassifier(nn.Module):
+        """Shared-backbone ConvNeXt classifier over full-image and ROI views."""
+
+        input_mode = "dual_view_roi"
+
+        def __init__(
+            self,
+            *,
+            backbone_name: str = "convnext_tiny",
+            pretrained: bool = True,
+            in_chans: int = 3,
+            num_classes: int = 2,
+            descriptor_dim: int = 14,
+            fusion_hidden_dim: int = 512,
+            dropout: float = 0.2,
+            **backbone_kwargs,
+        ) -> None:
+            """Build a shared ConvNeXt encoder plus late fusion classifier head."""
+            super().__init__()
+            if timm is None:
+                raise RuntimeError("timm is required to construct DualViewConvNeXtClassifier.")
+            self.backbone_name = str(backbone_name)
+            self.descriptor_dim = int(descriptor_dim)
+            self.input_mode = "dual_view_roi"
+            self.backbone = timm.create_model(
+                self.backbone_name,
+                pretrained=pretrained,
+                in_chans=in_chans,
+                num_classes=0,
+                global_pool="avg",
+                **backbone_kwargs,
+            )
+            self.pretrained_cfg = getattr(self.backbone, "pretrained_cfg", {}) or {}
+            embedding_dim = int(getattr(self.backbone, "num_features", 0))
+            if embedding_dim <= 0:
+                raise RuntimeError(f"Backbone {self.backbone_name!r} did not expose num_features.")
+            fusion_dim = embedding_dim * 4 + self.descriptor_dim
+            hidden_dim = int(fusion_hidden_dim)
+            self.fusion = nn.Sequential(
+                nn.LayerNorm(fusion_dim),
+                nn.Linear(fusion_dim, hidden_dim),
+                nn.GELU(),
+                nn.Dropout(float(dropout)),
+                nn.Linear(hidden_dim, num_classes),
+            )
+
+        def encode(self, image):
+            """Return one embedding per image."""
+            return self.backbone(image)
+
+        def _normalize_descriptors(self, descriptor, reference):
+            """Return descriptor tensor aligned to the image batch."""
+            if descriptor is None:
+                return reference.new_zeros((reference.shape[0], self.descriptor_dim))
+            descriptor = descriptor.to(device=reference.device, dtype=reference.dtype)
+            if descriptor.ndim == 1:
+                descriptor = descriptor.unsqueeze(0)
+            if descriptor.shape[0] == 1 and reference.shape[0] > 1:
+                descriptor = descriptor.expand(reference.shape[0], -1)
+            if descriptor.shape[1] != self.descriptor_dim:
+                raise ValueError(
+                    f"DualViewConvNeXt expected {self.descriptor_dim} ROI descriptors, got {descriptor.shape[1]}."
+                )
+            return descriptor
+
+        def forward_with_embedding(
+            self,
+            image_full=None,
+            image_roi=None,
+            roi_descriptor=None,
+            labels=None,
+            **batch,
+        ):
+            """Return logits and fused embedding for dual-view training."""
+            if isinstance(image_full, dict):
+                batch = image_full
+                image_full = batch.get("image_full")
+                image_roi = batch.get("image_roi")
+                roi_descriptor = batch.get("roi_descriptor")
+            if image_full is None:
+                image_full = batch.get("image")
+            if image_full is None:
+                raise ValueError("DualViewConvNeXt requires image_full or image.")
+            if image_roi is None:
+                image_roi = image_full
+            full_embedding = self.encode(image_full)
+            roi_embedding = self.encode(image_roi)
+            descriptors = self._normalize_descriptors(roi_descriptor, full_embedding)
+            fused = torch.cat(
+                [
+                    full_embedding,
+                    roi_embedding,
+                    torch.abs(full_embedding - roi_embedding),
+                    full_embedding * roi_embedding,
+                    descriptors,
+                ],
+                dim=1,
+            )
+            return self.fusion(fused), fused
+
+        def forward(
+            self,
+            image_full=None,
+            image_roi=None,
+            roi_descriptor=None,
+            labels=None,
+            **batch,
+        ):
+            """Return class logits for one dual-view batch."""
+            logits, _embedding = self.forward_with_embedding(
+                image_full=image_full,
+                image_roi=image_roi,
+                roi_descriptor=roi_descriptor,
+                labels=labels,
+                **batch,
+            )
             return logits
 else:  # pragma: no cover - torch missing
     class TinyCNNClassifier:  # type: ignore[override]
@@ -1198,6 +1671,22 @@ else:  # pragma: no cover - torch missing
             raise RuntimeError("Torch is required to construct SonoGloReNet.")
 
 
+    class LesionScaleMoEConvNeXtClassifier:  # type: ignore[override]
+        """Placeholder lesion-scale MoE used when torch is unavailable."""
+
+        def __init__(self, *args, **kwargs) -> None:
+            """Raise a dependency error on construction."""
+            raise RuntimeError("Torch is required to construct LesionScaleMoEConvNeXtClassifier.")
+
+
+    class DualViewConvNeXtClassifier:  # type: ignore[override]
+        """Placeholder dual-view ConvNeXt used when torch is unavailable."""
+
+        def __init__(self, *args, **kwargs) -> None:
+            """Raise a dependency error on construction."""
+            raise RuntimeError("Torch is required to construct DualViewConvNeXtClassifier.")
+
+
 def create_classifier(
     model_name: str = "resnet18",
     *,
@@ -1212,10 +1701,106 @@ def create_classifier(
     normalized_name = model_name.lower()
     if normalized_name in {"basic_cnn", "tiny_cnn"}:
         return TinyCNNClassifier(in_chans=in_chans, num_classes=num_classes)
-    if normalized_name in {"sonoglore_convnext_tiny", "sonoglore_convnext_small"}:
-        default_backbone = "convnext_tiny" if normalized_name.endswith("tiny") else "convnext_small"
+    if normalized_name in {"sonoglore_lesion_moe_convnext_tiny", "lesion_moe_convnext_tiny"}:
+        model_kwargs = dict(model_kwargs)
+        moe_defaults = {
+            "stage_proj_dims": [192, 256, 320],
+            "stage_fusion_weights": [0.8, 1.0, 1.0],
+            "attn_heads": 4,
+            "attn_mlp_ratio": 2.0,
+            "head_hidden_dim": 256,
+            "attn_dropout": 0.1,
+            "head_dropout": 0.2,
+            "active_stage_indices": [2, 3, 4],
+            "use_stage4_attention": False,
+            "use_projection_grn": True,
+            "use_projection_eca": True,
+            "use_scale_gate": False,
+            "descriptor_dim": 14,
+            "expert_hidden_dim": 256,
+            "router_hidden_dim": 160,
+            "router_temperature": 1.0,
+        }
+        moe_defaults.update(model_kwargs)
+        backbone_name = str(moe_defaults.pop("backbone_name", "convnext_tiny"))
+        return LesionScaleMoEConvNeXtClassifier(
+            backbone_name=backbone_name,
+            pretrained=pretrained,
+            in_chans=in_chans,
+            num_classes=num_classes,
+            **moe_defaults,
+        )
+    if normalized_name in {"sonoglore_lesion_moe_v2_convnext_tiny", "lesion_moe_v2_convnext_tiny"}:
+        model_kwargs = dict(model_kwargs)
+        moe_defaults = {
+            "stage_proj_dims": [192, 256, 320],
+            "stage_fusion_weights": [0.8, 1.0, 1.0],
+            "attn_heads": 4,
+            "attn_mlp_ratio": 2.0,
+            "head_hidden_dim": 256,
+            "attn_dropout": 0.1,
+            "head_dropout": 0.2,
+            "active_stage_indices": [2, 3, 4],
+            "use_stage4_attention": False,
+            "use_projection_grn": True,
+            "use_projection_eca": True,
+            "use_scale_gate": False,
+            "descriptor_dim": 14,
+            "expert_hidden_dim": 256,
+            "router_hidden_dim": 160,
+            "router_temperature": 1.0,
+            "area_prior_strength": 0.75,
+            "area_prior_sigma": 0.22,
+            "small_spatial_hidden_dim": 96,
+            "residual_alpha": 0.15,
+        }
+        moe_defaults.update(model_kwargs)
+        backbone_name = str(moe_defaults.pop("backbone_name", "convnext_tiny"))
+        return LesionScaleMoEV2ConvNeXtClassifier(
+            backbone_name=backbone_name,
+            pretrained=pretrained,
+            in_chans=in_chans,
+            num_classes=num_classes,
+            **moe_defaults,
+        )
+    if normalized_name in {
+        "sonoglore_convnext_tiny",
+        "sonoglore_convnext_small",
+        "sonoglore_convnext_v1",
+    }:
+        model_kwargs = dict(model_kwargs)
+        if normalized_name == "sonoglore_convnext_v1":
+            default_backbone = "convnext_tiny"
+            v1_defaults = {
+                "proj_dim": 256,
+                "stage_proj_dims": [192, 256, 320],
+                "stage_fusion_weights": [0.8, 1.0, 1.0],
+                "attn_heads": 4,
+                "attn_mlp_ratio": 2.0,
+                "head_hidden_dim": 256,
+                "attn_dropout": 0.1,
+                "head_dropout": 0.2,
+                "active_stage_indices": [2, 3, 4],
+                "use_stage4_attention": False,
+                "use_projection_grn": True,
+                "use_projection_eca": True,
+                "use_scale_gate": False,
+            }
+            v1_defaults.update(model_kwargs)
+            model_kwargs = v1_defaults
+        else:
+            default_backbone = "convnext_tiny" if normalized_name.endswith("tiny") else "convnext_small"
         backbone_name = str(model_kwargs.pop("backbone_name", default_backbone))
         return SonoGloReNetClassifier(
+            backbone_name=backbone_name,
+            pretrained=pretrained,
+            in_chans=in_chans,
+            num_classes=num_classes,
+            **model_kwargs,
+        )
+    if normalized_name in {"roi_dualview_convnext_tiny", "dualview_convnext_tiny"}:
+        backbone_name = str(model_kwargs.pop("backbone_name", "convnext_tiny"))
+        return DualViewConvNeXtClassifier(
             backbone_name=backbone_name,
             pretrained=pretrained,
             in_chans=in_chans,

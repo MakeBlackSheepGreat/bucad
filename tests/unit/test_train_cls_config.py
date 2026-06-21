@@ -15,6 +15,7 @@ from src.engine.train_cls import (
     _pairwise_auc_regularizer,
     _classification_loss,
     _count_sample_weight_hits,
+    _moe_load_balance_loss,
     _supervised_contrastive_loss,
     _build_training_loop_config,
     _score_checkpoint_candidate,
@@ -341,6 +342,24 @@ def test_supervised_contrastive_loss_prefers_separable_embeddings() -> None:
     assert float(good_loss.item()) < float(bad_loss.item())
 
 
+def test_moe_load_balance_loss_penalizes_collapsed_routing() -> None:
+    """Verify MoE load-balance loss is larger for collapsed expert routing."""
+    if train_cls.torch is None:
+        return
+    torch = train_cls.torch
+    uniform = torch.full((6, 3), 1.0 / 3.0, dtype=torch.float32)
+    collapsed = torch.tensor(
+        [
+            [1.0, 0.0, 0.0],
+            [1.0, 0.0, 0.0],
+            [1.0, 0.0, 0.0],
+        ],
+        dtype=torch.float32,
+    )
+
+    assert float(_moe_load_balance_loss(collapsed).item()) > float(_moe_load_balance_loss(uniform).item())
+
+
 def test_model_ema_updates_toward_latest_weights() -> None:
     """Verify EMA state moves toward the latest model weights."""
     if train_cls.torch is None:
@@ -430,3 +449,41 @@ def test_run_classifier_training_smoke_uses_loop_config_outputs(tmp_path: Path, 
     assert report["use_ema"] is False
     assert report["ema_decay"] is None
     assert len(report["epoch_reports"]) == 1
+
+
+def test_dualview_batch_routing_calls_model_with_named_inputs() -> None:
+    """Verify train_cls routes dual-view batches through named model inputs."""
+    if train_cls.torch is None:
+        return
+    torch = train_cls.torch
+    batch = {
+        "image_full": torch.zeros((2, 3, 8, 8), dtype=torch.float32),
+        "image_roi": torch.ones((2, 3, 8, 8), dtype=torch.float32),
+        "roi_descriptor": torch.zeros((2, 14), dtype=torch.float32),
+        "roi_valid": torch.ones((2,), dtype=torch.float32),
+        "label": torch.tensor([0, 1], dtype=torch.long),
+        "sample_id": ["a", "b"],
+    }
+
+    class _DualViewModel(torch.nn.Module):
+        """Small dual-view model for batch routing tests."""
+
+        def forward_with_embedding(self, image_full, image_roi, roi_descriptor, labels=None, **_kwargs):
+            """Return logits based on named inputs."""
+            assert tuple(image_full.shape) == (2, 3, 8, 8)
+            assert tuple(image_roi.shape) == (2, 3, 8, 8)
+            assert tuple(roi_descriptor.shape) == (2, 14)
+            assert labels.tolist() == [0, 1]
+            logits = torch.stack(
+                [image_full.mean((1, 2, 3)), image_roi.mean((1, 2, 3))],
+                dim=1,
+            )
+            return logits, roi_descriptor
+
+    images, labels, weights = train_cls._prepare_classifier_batch(batch, {}, device="cpu")
+    logits, embeddings = train_cls._model_logits_and_embedding(_DualViewModel(), images, labels)
+
+    assert isinstance(images, dict)
+    assert weights is None
+    assert tuple(logits.shape) == (2, 2)
+    assert tuple(embeddings.shape) == (2, 14)

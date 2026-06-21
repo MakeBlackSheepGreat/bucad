@@ -263,10 +263,17 @@ class RoiEnhancer:
         if self.should_fallback_by_area(mask, config):
             return full_benign_probability, full_malignant_probability, "roi_area_gate"
         roi_image = self._roi_image(image, mask, config)
-        _, roi_malignant_probability = classifier_predictor(
-            roi_image,
-            member_weight_overrides=self._member_weight_overrides(config),
-        )
+        try:
+            _, roi_malignant_probability = classifier_predictor(
+                roi_image,
+                member_weight_overrides=self._member_weight_overrides(config),
+                mask=mask,
+            )
+        except TypeError:
+            _, roi_malignant_probability = classifier_predictor(
+                roi_image,
+                member_weight_overrides=self._member_weight_overrides(config),
+            )
         malignant_probability = self._combine_full_and_roi_probabilities(
             image=image,
             mask=mask,

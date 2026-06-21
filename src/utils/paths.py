@@ -28,6 +28,7 @@ class ProjectPaths:
     project_root: Path
     busbra_root: Path
     busi_root: Path
+    imagenet_root: Path
     artifacts_root: Path
     checkpoints_root: Path
     logs_root: Path
@@ -52,6 +53,7 @@ class ProjectPaths:
             project_root=root,
             busbra_root=resolve_path(datasets.get("busbra_root", "./训练集/BUSBRA"), base_dir=root),
             busi_root=resolve_path(datasets.get("busi_root", "./测试集/Dataset_BUSI_with_GT"), base_dir=root),
+            imagenet_root=resolve_path(datasets.get("imagenet_root", "./datasets/imagenet"), base_dir=root),
             artifacts_root=artifacts_root,
             checkpoints_root=resolve_path(
                 artifacts.get("checkpoints", artifacts_root / "checkpoints"),

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Any, Sequence
 
 import numpy as np
@@ -241,6 +242,54 @@ def prepare_classifier_input(
     return to_tensor_if_available(chw)
 
 
+@dataclass(frozen=True)
+class ClassifierTransform:
+    """Pickle-safe stochastic classifier transform for DataLoader workers."""
+
+    image_size: int
+    apply_clahe_enabled: bool = False
+    horizontal_flip: bool = False
+    flip_probability: float = 0.5
+    rotation_degrees: float = 0.0
+    brightness: float = 0.0
+    contrast: float = 0.0
+    scale_min: float = 1.0
+    scale_max: float = 1.0
+    mean: Sequence[float] | None = None
+    std: Sequence[float] | None = None
+    interpolation: str = "area"
+    crop_pct: float = 1.0
+
+    def __call__(self, image: np.ndarray) -> Any:
+        """Apply stochastic image augmentation then standard classifier preprocessing."""
+        processed = image
+        if self.scale_min != 1.0 or self.scale_max != 1.0:
+            processed = _random_scale_crop(
+                processed,
+                scale_min=float(self.scale_min),
+                scale_max=float(self.scale_max),
+            )
+        if self.rotation_degrees > 0:
+            processed = _random_rotate(processed, max_degrees=float(self.rotation_degrees))
+        if self.horizontal_flip and np.random.random() < float(self.flip_probability):
+            processed = np.fliplr(processed).copy()
+        if self.brightness > 0 or self.contrast > 0:
+            processed = _random_brightness_contrast(
+                processed,
+                brightness=float(self.brightness),
+                contrast=float(self.contrast),
+            )
+        return prepare_classifier_input(
+            processed,
+            self.image_size,
+            apply_clahe_enabled=self.apply_clahe_enabled,
+            mean=self.mean,
+            std=self.std,
+            interpolation=self.interpolation,
+            crop_pct=self.crop_pct,
+        )
+
+
 def build_classifier_transform(
     *,
     image_size: int,
@@ -258,36 +307,21 @@ def build_classifier_transform(
     crop_pct: float = 1.0,
 ):
     """Create the stochastic training/evaluation transform used by classifiers."""
-    def transform(image: np.ndarray) -> Any:
-        """Apply stochastic image augmentation then standard classifier preprocessing."""
-        processed = image
-        if scale_min != 1.0 or scale_max != 1.0:
-            processed = _random_scale_crop(
-                processed,
-                scale_min=float(scale_min),
-                scale_max=float(scale_max),
-            )
-        if rotation_degrees > 0:
-            processed = _random_rotate(processed, max_degrees=float(rotation_degrees))
-        if horizontal_flip and np.random.random() < float(flip_probability):
-            processed = np.fliplr(processed).copy()
-        if brightness > 0 or contrast > 0:
-            processed = _random_brightness_contrast(
-                processed,
-                brightness=float(brightness),
-                contrast=float(contrast),
-            )
-        return prepare_classifier_input(
-            processed,
-            image_size,
-            apply_clahe_enabled=apply_clahe_enabled,
-            mean=mean,
-            std=std,
-            interpolation=interpolation,
-            crop_pct=crop_pct,
-        )
-
-    return transform
+    return ClassifierTransform(
+        image_size=image_size,
+        apply_clahe_enabled=apply_clahe_enabled,
+        horizontal_flip=horizontal_flip,
+        flip_probability=flip_probability,
+        rotation_degrees=rotation_degrees,
+        brightness=brightness,
+        contrast=contrast,
+        scale_min=scale_min,
+        scale_max=scale_max,
+        mean=mean,
+        std=std,
+        interpolation=interpolation,
+        crop_pct=crop_pct,
+    )
 
 
 def prepare_mask_target(mask: np.ndarray, image_size: int) -> Any:

@@ -15,7 +15,6 @@ from src.engine.train_cls import (
     _pairwise_auc_regularizer,
     _classification_loss,
     _count_sample_weight_hits,
-    _moe_load_balance_loss,
     _supervised_contrastive_loss,
     _build_training_loop_config,
     _score_checkpoint_candidate,
@@ -52,6 +51,27 @@ def test_checkpoint_scoring_reuses_validation_probabilities() -> None:
     assert metrics["auc"] == 0.9
     assert metrics["sensitivity"] == 1.0
     assert score > 0.0
+
+
+def test_checkpoint_scoring_can_select_by_f1() -> None:
+    """Verify best_f1 checkpoint strategy scores by validation F1."""
+    metrics, score = _score_checkpoint_candidate(
+        epoch_metrics={
+            "auc": 0.99,
+            "sensitivity": 0.5,
+            "specificity": 0.5,
+            "f1_score": 0.42,
+        },
+        y_true=[0, 1],
+        malignant_probabilities=[0.2, 0.8],
+        checkpoint_strategy="best_f1",
+        selection_threshold=0.5,
+        sensitivity_weight=0.0,
+        min_specificity=0.0,
+    )
+
+    assert metrics["auc"] == 0.99
+    assert score == 0.42
 
 
 def test_last_checkpoint_metrics_reuse_final_epoch_report(monkeypatch) -> None:
@@ -190,6 +210,37 @@ def test_build_training_loop_config_reads_sam_settings() -> None:
     assert loop_config.use_sam is True
     assert loop_config.sam_rho == 0.05
     assert loop_config.sam_adaptive is True
+
+
+def test_build_training_loop_config_reads_early_stopping_settings() -> None:
+    """Verify early stopping settings are preserved for the training loop."""
+    default_config = _build_training_loop_config(
+        training_cfg={"epochs": 3},
+        epochs_override=None,
+        class_weights=None,
+        class_priors=None,
+        sample_weights={},
+    )
+    enabled_config = _build_training_loop_config(
+        training_cfg={
+            "epochs": 18,
+            "early_stopping": {
+                "enabled": True,
+                "patience": 5,
+                "min_delta": 0.001,
+                "monitor": "selection_score",
+            },
+        },
+        epochs_override=None,
+        class_weights=None,
+        class_priors=None,
+        sample_weights={},
+    )
+
+    assert default_config.early_stopping_cfg["enabled"] is False
+    assert enabled_config.early_stopping_cfg["enabled"] is True
+    assert enabled_config.early_stopping_cfg["patience"] == 5
+    assert enabled_config.early_stopping_cfg["monitor"] == "selection_score"
 
 
 def test_build_class_priors_returns_empirical_distribution_for_balanced_softmax() -> None:
@@ -342,24 +393,6 @@ def test_supervised_contrastive_loss_prefers_separable_embeddings() -> None:
     assert float(good_loss.item()) < float(bad_loss.item())
 
 
-def test_moe_load_balance_loss_penalizes_collapsed_routing() -> None:
-    """Verify MoE load-balance loss is larger for collapsed expert routing."""
-    if train_cls.torch is None:
-        return
-    torch = train_cls.torch
-    uniform = torch.full((6, 3), 1.0 / 3.0, dtype=torch.float32)
-    collapsed = torch.tensor(
-        [
-            [1.0, 0.0, 0.0],
-            [1.0, 0.0, 0.0],
-            [1.0, 0.0, 0.0],
-        ],
-        dtype=torch.float32,
-    )
-
-    assert float(_moe_load_balance_loss(collapsed).item()) > float(_moe_load_balance_loss(uniform).item())
-
-
 def test_model_ema_updates_toward_latest_weights() -> None:
     """Verify EMA state moves toward the latest model weights."""
     if train_cls.torch is None:
@@ -448,6 +481,8 @@ def test_run_classifier_training_smoke_uses_loop_config_outputs(tmp_path: Path, 
     assert report["pairwise_auc_margin"] == 0.0
     assert report["use_ema"] is False
     assert report["ema_decay"] is None
+    assert report["early_stopping"]["enabled"] is False
+    assert report["stopped_epoch"] is None
     assert len(report["epoch_reports"]) == 1
 
 

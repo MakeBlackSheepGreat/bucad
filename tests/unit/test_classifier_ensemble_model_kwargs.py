@@ -17,7 +17,7 @@ def test_classifier_ensemble_includes_top_level_model_kwargs_in_fallback_members
     ensemble = ClassifierEnsemble(
         RuntimeConfig.from_mapping(
             {
-                "classifier_model": "sonoglore_convnext_tiny",
+                "classifier_model": "convnext_tiny",
                 "classifier_checkpoints": ["./artifacts/checkpoints/demo.pt"],
                 "classifier_model_kwargs": {"proj_dim": 192},
             }
@@ -28,7 +28,7 @@ def test_classifier_ensemble_includes_top_level_model_kwargs_in_fallback_members
 
     assert members == [
         {
-            "model": "sonoglore_convnext_tiny",
+            "model": "convnext_tiny",
             "checkpoint": "./artifacts/checkpoints/demo.pt",
             "weight": 1.0,
             "model_kwargs": {"proj_dim": 192},
@@ -41,11 +41,11 @@ def test_classifier_ensemble_member_model_kwargs_override_top_level_defaults() -
     ensemble = ClassifierEnsemble(
         RuntimeConfig.from_mapping(
             {
-                "classifier_model": "sonoglore_convnext_tiny",
+                "classifier_model": "convnext_tiny",
                 "classifier_model_kwargs": {"proj_dim": 192, "attn_heads": 4},
                 "classifier_members": [
                     {
-                        "model": "sonoglore_convnext_tiny",
+                        "model": "convnext_tiny",
                         "checkpoint": "./artifacts/checkpoints/demo.pt",
                         "model_kwargs": {"proj_dim": 256},
                     }
@@ -173,3 +173,4 @@ def test_dualview_tta_variants_are_batched_for_one_forward() -> None:
     assert model.calls == 1
     assert probabilities.shape == (2,)
     assert np.isclose(float(probabilities.sum()), 1.0, atol=1e-6)
+

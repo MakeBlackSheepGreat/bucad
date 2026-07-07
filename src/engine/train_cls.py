@@ -468,18 +468,6 @@ def _supervised_contrastive_loss(embeddings, labels, *, temperature: float) -> A
     return loss
 
 
-def _moe_load_balance_loss(expert_weights, *, num_experts: int | None = None):
-    """Penalize collapsed MoE routing by matching the batch mean to uniform use."""
-    if expert_weights is None:
-        return None
-    if expert_weights.ndim != 2 or expert_weights.shape[0] <= 0:
-        return expert_weights.new_zeros(())
-    expert_count = int(num_experts or expert_weights.shape[1])
-    target = expert_weights.new_full((expert_count,), 1.0 / float(expert_count))
-    mean_weights = expert_weights.mean(dim=0)
-    return torch.nn.functional.mse_loss(mean_weights, target)
-
-
 def _mixed_classification_loss(
     logits,
     labels_a,
@@ -566,7 +554,6 @@ def _train_classifier_epoch(
     pairwise_auc_margin: float,
     supcon_weight: float,
     supcon_temperature: float,
-    moe_load_balance_weight: float,
     use_sam: bool,
 ) -> float:
     """Run one classifier epoch with optional sample weights and mix augmentations."""
@@ -630,14 +617,6 @@ def _train_classifier_epoch(
             )
             if supcon_loss is not None:
                 loss = loss + float(supcon_weight) * supcon_loss
-        if float(moe_load_balance_weight) > 0.0:
-            expert_weights = getattr(model, "last_expert_weights", None)
-            load_balance_loss = _moe_load_balance_loss(
-                expert_weights,
-                num_experts=getattr(model, "num_experts", None),
-            )
-            if load_balance_loss is not None:
-                loss = loss + float(moe_load_balance_weight) * load_balance_loss
         loss.backward()
         if bool(use_sam):
             optimizer.first_step()
@@ -671,14 +650,6 @@ def _train_classifier_epoch(
                 )
                 if supcon_loss_second is not None:
                     second_loss = second_loss + float(supcon_weight) * supcon_loss_second
-            if float(moe_load_balance_weight) > 0.0:
-                expert_weights_second = getattr(model, "last_expert_weights", None)
-                load_balance_loss_second = _moe_load_balance_loss(
-                    expert_weights_second,
-                    num_experts=getattr(model, "num_experts", None),
-                )
-                if load_balance_loss_second is not None:
-                    second_loss = second_loss + float(moe_load_balance_weight) * load_balance_loss_second
             second_loss.backward()
             optimizer.second_step()
         else:
@@ -716,6 +687,8 @@ def _score_checkpoint_candidate(
 
     if checkpoint_strategy in {"best_auc", "auc"}:
         score = float(score_metrics.get("auc") or 0.0)
+    elif checkpoint_strategy in {"best_f1", "f1"}:
+        score = float(score_metrics.get("f1_score") or 0.0)
     else:
         score = _constrained_score(
             score_metrics,
@@ -1093,7 +1066,6 @@ def _write_classifier_training_outputs(
     pairwise_auc_margin: float,
     supcon_weight: float,
     supcon_temperature: float,
-    moe_load_balance_weight: float,
     use_sam: bool,
     sam_rho: float,
     sam_adaptive: bool,
@@ -1104,6 +1076,8 @@ def _write_classifier_training_outputs(
     sample_weight_hit_count: int,
     min_specificity: float,
     epoch_reports: list[dict[str, Any]],
+    early_stopping_cfg: dict[str, Any],
+    stopped_epoch: int | None,
     train_manifest: pd.DataFrame,
     val_manifest: pd.DataFrame,
 ) -> dict[str, Any]:
@@ -1149,7 +1123,6 @@ def _write_classifier_training_outputs(
         pairwise_auc_margin=pairwise_auc_margin,
         supcon_weight=supcon_weight,
         supcon_temperature=supcon_temperature,
-        moe_load_balance_weight=moe_load_balance_weight,
         use_sam=use_sam,
         sam_rho=sam_rho,
         sam_adaptive=sam_adaptive,
@@ -1160,6 +1133,8 @@ def _write_classifier_training_outputs(
         sample_weight_hit_count=sample_weight_hit_count,
         min_specificity=min_specificity,
         epoch_reports=epoch_reports,
+        early_stopping_cfg=early_stopping_cfg,
+        stopped_epoch=stopped_epoch,
         train_manifest=train_manifest,
         val_manifest=val_manifest,
     )
@@ -1213,7 +1188,6 @@ def _classifier_training_report(
     pairwise_auc_margin: float,
     supcon_weight: float,
     supcon_temperature: float,
-    moe_load_balance_weight: float,
     use_sam: bool,
     sam_rho: float,
     sam_adaptive: bool,
@@ -1224,6 +1198,8 @@ def _classifier_training_report(
     sample_weight_hit_count: int,
     min_specificity: float,
     epoch_reports: list[dict[str, Any]],
+    early_stopping_cfg: dict[str, Any],
+    stopped_epoch: int | None,
     train_manifest: pd.DataFrame,
     val_manifest: pd.DataFrame,
 ) -> dict[str, Any]:
@@ -1253,7 +1229,6 @@ def _classifier_training_report(
         "pairwise_auc_margin": pairwise_auc_margin,
         "supcon_weight": supcon_weight,
         "supcon_temperature": supcon_temperature if supcon_weight > 0.0 else None,
-        "moe_load_balance_weight": moe_load_balance_weight,
         "optimizer": "sam" if use_sam else "adamw",
         "sam_rho": sam_rho if use_sam else None,
         "sam_adaptive": sam_adaptive if use_sam else None,
@@ -1264,6 +1239,8 @@ def _classifier_training_report(
         "sample_weight_hit_count": int(sample_weight_hit_count),
         "min_specificity": min_specificity,
         "epoch_reports": epoch_reports,
+        "early_stopping": early_stopping_cfg,
+        "stopped_epoch": stopped_epoch,
         "train_size": int(len(train_manifest)),
         "val_size": int(len(val_manifest)),
     }
@@ -1292,13 +1269,13 @@ class _TrainingLoopConfig:
     pairwise_auc_margin: float
     supcon_weight: float
     supcon_temperature: float
-    moe_load_balance_weight: float
     use_sam: bool
     sam_rho: float
     sam_adaptive: bool
     use_ema: bool
     ema_decay: float
     sample_weights: dict[str, float]
+    early_stopping_cfg: dict[str, Any]
 
 
 @dataclasses.dataclass(slots=True)
@@ -1310,6 +1287,7 @@ class _TrainingLoopResult:
     best_metrics: dict[str, Any] | None
     epoch_reports: list[dict[str, Any]]
     best_source: str
+    stopped_epoch: int | None
 
 
 @dataclasses.dataclass(slots=True)
@@ -1361,6 +1339,9 @@ def _build_training_loop_config(
     sample_weights: dict[str, float],
 ) -> _TrainingLoopConfig:
     """Normalize training config values needed inside the epoch loop."""
+    early_stopping_cfg = dict(training_cfg.get("early_stopping", {}) or {})
+    if "enabled" not in early_stopping_cfg:
+        early_stopping_cfg["enabled"] = False
     return _TrainingLoopConfig(
         epochs=int(epochs_override or training_cfg.get("epochs", 5)),
         scheduler_cfg=training_cfg.get("scheduler", {}) or {},
@@ -1381,13 +1362,13 @@ def _build_training_loop_config(
         pairwise_auc_margin=float(training_cfg.get("pairwise_auc_margin", 0.0)),
         supcon_weight=float(training_cfg.get("supcon_weight", 0.0)),
         supcon_temperature=float(training_cfg.get("supcon_temperature", 0.07)),
-        moe_load_balance_weight=float(training_cfg.get("moe_load_balance_weight", 0.0)),
         use_sam=str(training_cfg.get("optimizer", "adamw")).lower() == "sam",
         sam_rho=float(training_cfg.get("sam_rho", 0.05)),
         sam_adaptive=bool(training_cfg.get("sam_adaptive", False)),
         use_ema=bool(training_cfg.get("use_ema", False)),
         ema_decay=float(training_cfg.get("ema_decay", 0.9998)),
         sample_weights=sample_weights,
+        early_stopping_cfg=early_stopping_cfg,
     )
 
 
@@ -1513,6 +1494,14 @@ def _run_training_loop(
     best_score = float("-inf")
     epoch_reports: list[dict[str, Any]] = []
     best_source = "model"
+    early_cfg = cfg.early_stopping_cfg or {}
+    early_enabled = bool(early_cfg.get("enabled", False))
+    early_patience = max(1, int(early_cfg.get("patience", 5)))
+    early_min_delta = float(early_cfg.get("min_delta", 0.0))
+    early_monitor = str(early_cfg.get("monitor", "selection_score"))
+    early_best = float("-inf")
+    early_wait = 0
+    stopped_epoch = None
 
     for epoch in range(cfg.epochs):
         current_lr = _lr_for_epoch(
@@ -1542,7 +1531,6 @@ def _run_training_loop(
             pairwise_auc_margin=cfg.pairwise_auc_margin,
             supcon_weight=cfg.supcon_weight,
             supcon_temperature=cfg.supcon_temperature,
-            moe_load_balance_weight=cfg.moe_load_balance_weight,
             use_sam=cfg.use_sam,
         )
         val_y_true, val_malignant_probabilities = _collect_validation_probabilities(
@@ -1605,6 +1593,15 @@ def _run_training_loop(
             "ema_score_metrics": ema_score_metrics,
             "ema_selection_score": ema_score,
         })
+        current_report = epoch_reports[-1]
+        if early_monitor == "selection_score":
+            monitor_value = float(score)
+        elif early_monitor == "ema_selection_score" and ema_score is not None:
+            monitor_value = float(ema_score)
+        else:
+            monitor_value = float(epoch_metrics.get(early_monitor) or current_report.get(early_monitor) or score)
+        current_report["early_stopping_monitor"] = early_monitor
+        current_report["early_stopping_value"] = monitor_value
         logger.info(
             "fold=%s epoch=%s loss=%.4f auc=%.4f sens=%.4f score=%.4f%s",
             fold,
@@ -1620,12 +1617,31 @@ def _run_training_loop(
                 else ""
             ),
         )
+        if early_enabled:
+            if monitor_value > early_best + early_min_delta:
+                early_best = monitor_value
+                early_wait = 0
+            else:
+                early_wait += 1
+            current_report["early_stopping_wait"] = early_wait
+            if early_wait >= early_patience:
+                stopped_epoch = epoch + 1
+                logger.info(
+                    "fold=%s early stopping at epoch=%s monitor=%s best=%.4f patience=%s",
+                    fold,
+                    stopped_epoch,
+                    early_monitor,
+                    early_best,
+                    early_patience,
+                )
+                break
     return _TrainingLoopResult(
         best_state_dict=best_state_dict,
         best_epoch=best_epoch,
         best_metrics=best_metrics,
         epoch_reports=epoch_reports,
         best_source=best_source,
+        stopped_epoch=stopped_epoch,
     )
 
 
@@ -1688,7 +1704,6 @@ def _finish_classifier_training_run(
         pairwise_auc_margin=prepared.loop_config.pairwise_auc_margin,
         supcon_weight=prepared.loop_config.supcon_weight,
         supcon_temperature=prepared.loop_config.supcon_temperature,
-        moe_load_balance_weight=prepared.loop_config.moe_load_balance_weight,
         use_sam=prepared.loop_config.use_sam,
         sam_rho=prepared.loop_config.sam_rho,
         sam_adaptive=prepared.loop_config.sam_adaptive,
@@ -1699,6 +1714,8 @@ def _finish_classifier_training_run(
         sample_weight_hit_count=prepared.sample_weight_hit_count,
         min_specificity=prepared.loop_config.min_specificity,
         epoch_reports=loop_result.epoch_reports,
+        early_stopping_cfg=prepared.loop_config.early_stopping_cfg,
+        stopped_epoch=loop_result.stopped_epoch,
         train_manifest=prepared.train_manifest,
         val_manifest=prepared.val_manifest,
     )

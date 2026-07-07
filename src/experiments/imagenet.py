@@ -38,7 +38,7 @@ ARCHIVE_META = {
 def build_prepare_parser() -> argparse.ArgumentParser:
     """Build parser for ImageNet archive validation and preparation."""
     parser = argparse.ArgumentParser(description="Prepare authorized ImageNet-1K archives.")
-    parser.add_argument("--config", default="configs/imagenet/sonoglore_convnext_v1_eval.yml")
+    parser.add_argument("--config", default="configs/imagenet/convnext_tiny_eval.yml")
     parser.add_argument("--root", default=None, help="ImageNet root containing ILSVRC2012 archives.")
     parser.add_argument("--skip-md5", action="store_true", help="Skip archive MD5 checks.")
     parser.add_argument("--prepare-train", action="store_true", help="Prepare the train split.")
@@ -50,7 +50,7 @@ def build_prepare_parser() -> argparse.ArgumentParser:
 def build_eval_parser() -> argparse.ArgumentParser:
     """Build parser for one ImageNet model evaluation."""
     parser = argparse.ArgumentParser(description="Evaluate one configured model on ImageNet-1K.")
-    parser.add_argument("--config", default="configs/imagenet/sonoglore_convnext_v1_eval.yml")
+    parser.add_argument("--config", default="configs/imagenet/convnext_tiny_eval.yml")
     parser.add_argument("--root", default=None, help="Override ImageNet root.")
     parser.add_argument("--split", default=None, choices=["train", "val"], help="Override split.")
     parser.add_argument("--output", default=None, help="Override JSON report path.")
@@ -62,7 +62,7 @@ def build_eval_parser() -> argparse.ArgumentParser:
 def build_train_parser() -> argparse.ArgumentParser:
     """Build parser for ImageNet model training."""
     parser = argparse.ArgumentParser(description="Train one configured model on ImageNet-1K.")
-    parser.add_argument("--config", default="configs/imagenet/sonoglore_convnext_v1_train.yml")
+    parser.add_argument("--config", default="configs/imagenet/convnext_tiny_train.yml")
     parser.add_argument("--root", default=None, help="Override ImageNet root.")
     parser.add_argument("--output", default=None, help="Override JSON report path.")
     parser.add_argument("--checkpoint", default=None, help="Override checkpoint output path.")
@@ -76,7 +76,7 @@ def build_train_parser() -> argparse.ArgumentParser:
 def build_ablation_parser() -> argparse.ArgumentParser:
     """Build parser for multi-model ImageNet ablation evaluation."""
     parser = argparse.ArgumentParser(description="Run ImageNet model ablations.")
-    parser.add_argument("--config", default="configs/imagenet/sonoglore_convnext_v1_ablation.yml")
+    parser.add_argument("--config", default="configs/imagenet/convnext_tiny_eval.yml")
     parser.add_argument("--root", default=None, help="Override ImageNet root.")
     parser.add_argument("--output", default=None, help="Override JSON report path.")
     parser.add_argument("--markdown", default=None, help="Override Markdown report path.")
@@ -141,7 +141,7 @@ def prepare_imagenet_archives(
         "instructions": [
             "Download ImageNet-1K ILSVRC2012 archives from the official ImageNet site after accepting the terms.",
             "Place ILSVRC2012_img_train.tar, ILSVRC2012_img_val.tar, and ILSVRC2012_devkit_t12.tar.gz in the configured root.",
-            "Run scripts/prepare_imagenet.py --config configs/imagenet/sonoglore_convnext_v1_eval.yml --prepare-val.",
+            "Run scripts/prepare_imagenet.py --config configs/imagenet/convnext_tiny_eval.yml --prepare-val.",
         ],
     }
 
@@ -482,7 +482,7 @@ def _require_prepared_imagenet(root: Path, split: str) -> None:
         raise FileNotFoundError(
             f"ImageNet split {split!r} is not prepared under {root}. Missing: {missing_text}. "
             "Download the official ILSVRC2012 archives after accepting ImageNet terms, then run "
-            "`python scripts/prepare_imagenet.py --config configs/imagenet/sonoglore_convnext_v1_eval.yml "
+            "`python scripts/prepare_imagenet.py --config configs/imagenet/convnext_tiny_eval.yml "
             f"--prepare-{split}`."
         )
 
@@ -568,7 +568,9 @@ def _load_state_dict(model, checkpoint_path: Path) -> dict[str, Any]:
 def _requires_trained_checkpoint(model_cfg: dict[str, Any]) -> bool:
     """Return True when pretrained backbone weights alone are not a fair ImageNet result."""
     name = str(model_cfg.get("name", "")).lower()
-    return name.startswith("sonoglore_") or name.startswith("roi_dualview_")
+    return (
+        name.startswith("roi_dualview_")
+    )
 
 
 def _build_model(model_cfg: dict[str, Any], *, device: str, checkpoint_path: Path | None = None):
@@ -929,7 +931,7 @@ def _autocast_context(device: str, *, enabled: bool):
 def _ablation_markdown(report: dict[str, Any]) -> list[str]:
     """Render a compact ImageNet ablation report."""
     lines = [
-        "# ImageNet-1K SonoGloRe-ConvNeXt V1 Ablation",
+        "# ImageNet-1K Model Ablation",
         "",
         f"- Root: `{report.get('root')}`",
         f"- Split: `{report.get('split')}`",
@@ -954,3 +956,4 @@ def _ablation_markdown(report: dict[str, Any]) -> list[str]:
                 f"{int(row.get('parameter_count', 0))} |"
             )
     return lines
+

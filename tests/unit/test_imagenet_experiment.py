@@ -51,7 +51,7 @@ def test_ablation_markdown_renders_core_metrics() -> None:
             "rows": [
                 {
                     "id": "v1",
-                    "name": "SonoGloRe-ConvNeXt V1",
+                    "name": "ConvNeXt-Tiny",
                     "metrics": {
                         "top1": 0.81,
                         "top5": 0.95,
@@ -65,7 +65,7 @@ def test_ablation_markdown_renders_core_metrics() -> None:
 
     text = "\n".join(lines)
     assert "Top-1" in text
-    assert "SonoGloRe-ConvNeXt V1" in text
+    assert "ConvNeXt-Tiny" in text
     assert "0.8100" in text
 
 
@@ -80,7 +80,7 @@ def test_ablation_markdown_renders_requires_training_rows() -> None:
             "rows": [
                 {
                     "id": "v1",
-                    "name": "SonoGloRe-ConvNeXt V1",
+                    "name": "ConvNeXt-Tiny",
                     "status": "requires_training",
                     "metrics": None,
                     "parameter_count": None,
@@ -130,7 +130,7 @@ def test_build_model_supports_v1_imagenet_head() -> None:
         return
     model = imagenet._build_model(
         {
-            "name": "sonoglore_convnext_v1",
+            "name": "ConvNeXt-Tiny",
             "pretrained": False,
             "in_chans": 3,
             "num_classes": 1000,
@@ -170,6 +170,8 @@ def test_resolve_checkpoint_path_uses_project_relative_paths(tmp_path: Path) -> 
 
 def test_v1_fair_eval_requires_full_checkpoint(tmp_path: Path, monkeypatch) -> None:
     """Verify V1 eval refuses backbone-only pretrained evaluation."""
+    if imagenet.torch is None:
+        return
     class Paths:
         project_root = tmp_path
         imagenet_root = tmp_path / "imagenet"
@@ -184,7 +186,7 @@ def test_v1_fair_eval_requires_full_checkpoint(tmp_path: Path, monkeypatch) -> N
                 "device": "cpu",
                 "dataset": {"root": str(tmp_path / "imagenet"), "split": "val"},
                 "model": {
-                    "name": "sonoglore_convnext_v1",
+                    "name": "ConvNeXt-Tiny",
                     "pretrained": True,
                     "in_chans": 3,
                     "num_classes": 1000,
@@ -201,6 +203,8 @@ def test_v1_fair_eval_requires_full_checkpoint(tmp_path: Path, monkeypatch) -> N
 
 def test_run_ablation_marks_missing_checkpoints_requires_training(tmp_path: Path, monkeypatch) -> None:
     """Verify missing ablation checkpoints are reported instead of crashing."""
+    if imagenet.torch is None:
+        return
     class Paths:
         project_root = tmp_path
         imagenet_root = tmp_path / "imagenet"
@@ -217,9 +221,9 @@ def test_run_ablation_marks_missing_checkpoints_requires_training(tmp_path: Path
                 "models": [
                     {
                         "id": "v1",
-                        "name": "SonoGloRe-ConvNeXt V1",
+                        "name": "ConvNeXt-Tiny",
                         "model": {
-                            "name": "sonoglore_convnext_v1",
+                            "name": "ConvNeXt-Tiny",
                             "pretrained": False,
                             "in_chans": 3,
                             "num_classes": 1000,
@@ -328,3 +332,4 @@ def test_train_imagenet_smoke_writes_checkpoint_and_report(tmp_path: Path, monke
     assert Path(report["checkpoint_path"]).exists()
     assert Path(report["report_path"]).exists()
     assert report["epoch_reports"][0]["train"]["samples"] == 2
+

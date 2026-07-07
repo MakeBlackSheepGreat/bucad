@@ -1,4 +1,4 @@
-"""Run ImageNet-1K ablations for SonoGloRe-ConvNeXt V1."""
+"""Run ImageNet-1K ablations for configured models."""
 
 from __future__ import annotations
 
@@ -40,3 +40,4 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+

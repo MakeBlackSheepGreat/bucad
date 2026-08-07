@@ -1,0 +1,32 @@
+paths_config: configs/paths.local.yml
+task_type: segmentation_classification
+seed: 42
+device: auto
+model:
+  architecture: lesionext
+  in_channels: 3
+  classes: 1
+  num_classes: 2
+  widths: [32, 64, 128, 192]
+  embedding_dim: 128
+  dropout: 0.2
+data:
+  image_size: 256
+  batch_size: 4
+  num_workers: 0
+training:
+  epochs: 20
+  learning_rate: 0.0003
+  weight_decay: 0.0001
+  fold_count: 5
+  split_path: ./artifacts/reports/busbra_5fold_splits.csv
+output:
+  checkpoint_name: lesionext_fold{fold}.pt
+  report_name: train_lesionext_fold{fold}.json
+loss:
+  name: bce_dice_boundary_uncertainty
+  bce_weight: 1.0
+  dice_weight: 1.0
+  boundary_weight: 0.25
+  uncertainty_weight: 0.1
+  classification_weight: 1.0

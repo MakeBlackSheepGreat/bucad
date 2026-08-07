@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import ast
 from dataclasses import asdict
 from pathlib import Path
 from typing import Any, Callable
@@ -248,5 +249,75 @@ class BUSBRASegmentationDataset(DatasetBase):
         return {
             "image": prepare_classifier_input(image, self.image_size),
             "mask": prepare_mask_target(mask, self.image_size),
+            "label": LABEL_TO_INDEX[row["pathology_label"]],
             "sample_id": row["sample_id"],
+        }
+
+
+def _normalized_bbox(value: Any, *, width: int, height: int) -> tuple[float, float, float, float] | None:
+    """Convert a BUSBRA ``[x, y, width, height]`` box into normalized coordinates."""
+    if value is None or (isinstance(value, float) and np.isnan(value)):
+        return None
+    try:
+        parsed = ast.literal_eval(str(value)) if isinstance(value, str) else value
+        x, y, box_width, box_height = [float(item) for item in parsed[:4]]
+    except (ValueError, SyntaxError, TypeError, IndexError):
+        return None
+    if width <= 0 or height <= 0 or box_width <= 0 or box_height <= 0:
+        return None
+    x1 = min(max(x / float(width), 0.0), 1.0)
+    y1 = min(max(y / float(height), 0.0), 1.0)
+    x2 = min(max((x + box_width) / float(width), 0.0), 1.0)
+    y2 = min(max((y + box_height) / float(height), 0.0), 1.0)
+    if x2 <= x1 or y2 <= y1:
+        return None
+    return x1, y1, x2, y2
+
+
+class BUSBRAClassificationLENSDataSet(DatasetBase):
+    """BUSBRA classifier dataset with normalized weak lesion boxes for LENS training."""
+
+    def __init__(
+        self,
+        manifest: pd.DataFrame,
+        *,
+        image_size: int = 224,
+        transform: Callable[[np.ndarray], Any] | None = None,
+    ) -> None:
+        """Store manifest and preprocessing settings for lesion-evidence batches."""
+        self.manifest = manifest.reset_index(drop=True)
+        self.image_size = int(image_size)
+        self.transform = transform
+
+    def __len__(self) -> int:
+        """Return the number of manifest rows."""
+        return len(self.manifest)
+
+    def __getitem__(self, index: int) -> dict[str, Any]:
+        """Load one image, pathology label, and normalized BBOX evidence target."""
+        row = self.manifest.iloc[index]
+        image = read_image(row["image_path"], grayscale=True)
+        height, width = image.shape[:2]
+        data = (
+            self.transform(image)
+            if self.transform is not None
+            else prepare_classifier_input(image, self.image_size)
+        )
+        bbox = _normalized_bbox(row.get("bbox"), width=width, height=height)
+        if bbox is None:
+            bbox_values = np.zeros(4, dtype=np.float32)
+            bbox_valid = 0.0
+        else:
+            bbox_values = np.asarray(bbox, dtype=np.float32)
+            bbox_valid = 1.0
+        if torch is not None:
+            bbox_values = torch.from_numpy(bbox_values)
+            bbox_valid = torch.tensor(bbox_valid, dtype=torch.float32)
+        return {
+            "image": data,
+            "bbox": bbox_values,
+            "bbox_valid": bbox_valid,
+            "label": LABEL_TO_INDEX[row["pathology_label"]],
+            "sample_id": row["sample_id"],
+            "case_id": row["case_id"],
         }

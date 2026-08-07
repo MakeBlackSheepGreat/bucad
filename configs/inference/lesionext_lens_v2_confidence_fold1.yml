@@ -1,0 +1,29 @@
+paths_config: configs/paths.local.yml
+seed: 42
+device: auto
+runtime:
+  classifier_model: lesionext_lens_tiny
+  classifier_pretrained: false
+  classifier_model_kwargs:
+    backbone_name: convnext_tiny
+    evidence_alpha_init: 0.12
+    evidence_gate_mode: confidence
+    evidence_gate_gain_init: 2.0
+    head_dropout: 0.2
+  classifier_image_size: 224
+  classifier_apply_clahe: true
+  classifier_mean: null
+  classifier_std: null
+  classifier_interpolation: area
+  classifier_crop_pct: 1.0
+  classifier_tta_horizontal_flip: false
+  default_threshold: 0.5
+  borderline_margin: 0.08
+  classifier_checkpoint: ./artifacts/checkpoints/lesionext_lens_v2_confidence_fold1.pt
+  classifier_checkpoints: []
+  classifier_members: []
+  segmenter_checkpoint: null
+  segmenter_image_size: 256
+  gradcam_enabled: false
+  segmentation_enabled: false
+  allow_missing_visuals: true

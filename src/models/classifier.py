@@ -6,6 +6,14 @@ import math
 from pathlib import Path
 from typing import Any
 
+from src.models.attnres import DepthwiseBlockAttnResConvNeXtClassifier
+from src.models.lens import LesionEvidenceConvNeXtClassifier
+from src.models.dara import (
+    CrossStageDeltaHistoryFusion,
+    ReliabilityGatedSharedRoutedExpertHead,
+    SharedRoutedExpertHead,
+    StageAttentionResidualFusion,
+)
 from src.utils.runtime import optional_import, require_dependency
 
 
@@ -17,6 +25,12 @@ torchvision_models = optional_import("torchvision.models")
 
 
 if nn is not None:
+    VALID_LESIONEXT_STAGE_INDEX_GROUPS = {
+        (2, 3, 4),
+        (3, 4),
+        (4,),
+    }
+
     class TinyCNNClassifier(nn.Module):
         """Small CNN fallback used for smoke tests and missing heavy dependencies."""
 
@@ -604,6 +618,1218 @@ if nn is not None:
             return gated, weights
 
 
+    class LesioNeXtBaseClassifier(nn.Module):
+        """Base implementation for the LesioNeXt ConvNeXt-based single-model family."""
+
+        def __init__(
+            self,
+            *,
+            backbone_name: str = "convnext_tiny",
+            pretrained: bool = True,
+            in_chans: int = 3,
+            num_classes: int = 2,
+            proj_dim: int = 256,
+            attn_heads: int = 4,
+            attn_mlp_ratio: float = 2.0,
+            head_hidden_dim: int = 256,
+            attn_dropout: float = 0.1,
+            head_dropout: float = 0.2,
+            use_stage4_attention: bool = True,
+            stage4_attention_type: str = "mhsa",
+            stage4_coord_attention_reduction: int = 32,
+            stage4_gc_reduction: int = 16,
+            stage4_lka_kernel_size: int = 7,
+            stage4_lka_dilation: int = 3,
+            active_stage_indices: list[int] | tuple[int, ...] | None = None,
+            pool_activation: str = "gelu",
+            stage_proj_dims: list[int] | tuple[int, ...] | None = None,
+            stage_fusion_weights: list[float] | tuple[float, ...] | None = None,
+            use_projection_grn: bool = False,
+            use_projection_eca: bool = False,
+            projection_eca_kernel_size: int | None = None,
+            use_projection_spectral_gate: bool = False,
+            projection_spectral_gate_stages: list[int] | tuple[int, ...] | None = None,
+            projection_spectral_gate_freq_size: int = 4,
+            projection_spectral_gate_hidden_dim: int | None = None,
+            projection_spectral_gate_include_spatial: bool = True,
+            use_domain_invariant_norm: bool = False,
+            domain_norm_stages: list[int] | tuple[int, ...] | None = None,
+            use_mixstyle: bool = False,
+            mixstyle_stages: list[int] | tuple[int, ...] | None = None,
+            mixstyle_probability: float = 0.5,
+            mixstyle_alpha: float = 0.1,
+            use_stage_local_mixer: bool = False,
+            stage_local_mixer_stages: list[int] | tuple[int, ...] | None = None,
+            stage_local_mixer_square_kernel: int = 3,
+            stage_local_mixer_band_kernel_sizes: list[int] | tuple[int, ...] | None = None,
+            stage_local_mixer_reduction: int = 16,
+            stage_local_mixer_min_channels: int = 32,
+            stage_local_mixer_use_identity: bool = True,
+            use_scale_gate: bool = False,
+            scale_gate_mode: str = "concat",
+            scale_gate_hidden_dim: int | None = None,
+            scale_gate_temperature: float = 1.0,
+            scale_gate_delta: float = 0.15,
+            scale_gate_anchor_last: bool = True,
+            use_stage_attn_res: bool = False,
+            stage_attn_res_mode: str = "content",
+            stage_attn_res_attention_dim: int = 128,
+            stage_attn_res_temperature: float = 1.0,
+            stage_attn_res_strength: float = 1.0,
+            stage_attn_res_descriptor_dim: int = 0,
+            stage_attn_res_dropout: float = 0.0,
+            use_delta_history: bool = False,
+            delta_history_mode: str = "inject",
+            delta_history_dim: int = 128,
+            delta_history_temperature: float = 1.0,
+            delta_history_strength: float = 0.5,
+            delta_history_descriptor_dim: int = 0,
+            learnable_stage_fusion: bool = False,
+            fusion_weight_epsilon: float = 1e-4,
+            classifier_head_type: str = "linear",
+            classifier_head_scale: float = 16.0,
+            classifier_head_margin: float = 0.15,
+            classifier_head_easy_margin: bool = False,
+            **backbone_kwargs,
+        ) -> None:
+            """Build the LesioNeXt single-model family from a timm ConvNeXt backbone."""
+            super().__init__()
+            if timm is None:
+                raise RuntimeError("timm is required to construct LesioNeXt.")
+            self.backbone_name = str(backbone_name)
+            self.use_stage4_attention = bool(use_stage4_attention)
+            self.use_projection_grn = bool(use_projection_grn)
+            self.use_projection_eca = bool(use_projection_eca)
+            self.use_projection_spectral_gate = bool(use_projection_spectral_gate)
+            self.use_domain_invariant_norm = bool(use_domain_invariant_norm)
+            self.use_mixstyle = bool(use_mixstyle)
+            self.use_stage_local_mixer = bool(use_stage_local_mixer)
+            self.use_scale_gate = bool(use_scale_gate)
+            self.use_stage_attn_res = bool(use_stage_attn_res)
+            self.use_delta_history = bool(use_delta_history)
+            self.delta_history_mode = str(delta_history_mode).lower()
+            if self.delta_history_mode not in {"inject", "monitor"}:
+                raise ValueError("delta_history_mode must be inject or monitor.")
+            if (
+                self.use_stage_attn_res
+                and self.use_delta_history
+                and self.delta_history_mode != "monitor"
+            ):
+                raise ValueError(
+                    "Concurrent stage attention and delta history require delta_history_mode=monitor."
+                )
+            self.learnable_stage_fusion = bool(learnable_stage_fusion)
+            resolved_classifier_head_type = str(classifier_head_type).lower()
+            if resolved_classifier_head_type not in {"linear", "arc_margin"}:
+                resolved_classifier_head_type = "linear"
+            self.classifier_head_type = resolved_classifier_head_type
+            resolved_stage4_attention_type = str(stage4_attention_type).lower()
+            if resolved_stage4_attention_type not in {"mhsa", "coordatt", "gc", "lka"}:
+                resolved_stage4_attention_type = "mhsa"
+            self.stage4_attention_type = resolved_stage4_attention_type
+            resolved_scale_gate_mode = str(scale_gate_mode).lower()
+            if resolved_scale_gate_mode not in {"concat", "stage4", "stage4_residual"}:
+                resolved_scale_gate_mode = "concat"
+            self.scale_gate_mode = resolved_scale_gate_mode
+            self.backbone = timm.create_model(
+                self.backbone_name,
+                pretrained=pretrained,
+                features_only=True,
+                out_indices=(1, 2, 3),
+                in_chans=in_chans,
+                **backbone_kwargs,
+            )
+            channels = list(self.backbone.feature_info.channels())
+            if len(channels) != 3:
+                raise RuntimeError(
+                    f"LesioNeXt expects three feature stages, got {len(channels)} from {self.backbone_name!r}."
+                )
+            self._stage_numbers = (2, 3, 4)
+            self._stage_number_to_position = {
+                stage_number: position
+                for position, stage_number in enumerate(self._stage_numbers)
+            }
+            resolved_domain_norm_stages = tuple(
+                int(stage_number)
+                for stage_number in (domain_norm_stages if domain_norm_stages is not None else (2, 3, 4))
+            )
+            if any(stage_number not in self._stage_numbers for stage_number in resolved_domain_norm_stages):
+                raise ValueError("domain_norm_stages must be selected from stages [2, 3, 4].")
+            self.domain_norm_stages = resolved_domain_norm_stages if self.use_domain_invariant_norm else ()
+            self.domain_norm_layers = nn.ModuleDict(
+                {
+                    str(stage_number): nn.GroupNorm(
+                        num_groups=1,
+                        num_channels=int(channels[self._stage_number_to_position[stage_number]]),
+                        affine=True,
+                    )
+                    for stage_number in self.domain_norm_stages
+                }
+            )
+            self.active_stage_indices = self._normalize_active_stage_indices(active_stage_indices)
+            self.stage_proj_dims = self._normalize_stage_proj_dims(
+                stage_proj_dims,
+                default_dim=int(proj_dim),
+            )
+            self.stage_fusion_weights = self._normalize_stage_fusion_weights(stage_fusion_weights)
+            self.fusion_weight_epsilon = max(float(fusion_weight_epsilon), 1e-8)
+            self.stage_local_mixer_stages = self._normalize_stage_local_mixer_stages(
+                stage_local_mixer_stages,
+            )
+            self.projection_spectral_gate_stages = self._normalize_projection_spectral_gate_stages(
+                projection_spectral_gate_stages,
+            )
+            self.mixstyle_stages = self._normalize_mixstyle_stages(mixstyle_stages)
+            stage4_dim = int(channels[-1])
+            if self.use_stage4_attention and self.stage4_attention_type == "coordatt":
+                self.context_block = CoordinateAttention2d(
+                    stage4_dim,
+                    reduction=int(stage4_coord_attention_reduction),
+                )
+            elif self.use_stage4_attention and self.stage4_attention_type == "gc":
+                self.context_block = GlobalContextBlock2d(
+                    stage4_dim,
+                    reduction=int(stage4_gc_reduction),
+                )
+            elif self.use_stage4_attention and self.stage4_attention_type == "lka":
+                self.context_block = LargeKernelAttention2d(
+                    stage4_dim,
+                    kernel_size=int(stage4_lka_kernel_size),
+                    dilation=int(stage4_lka_dilation),
+                )
+            elif self.use_stage4_attention:
+                self.context_block = LightweightSelfAttention(
+                    stage4_dim,
+                    heads=int(attn_heads),
+                    dropout=float(attn_dropout),
+                    mlp_ratio=float(attn_mlp_ratio),
+                )
+            else:
+                self.context_block = None
+            activation_name = str(pool_activation).lower()
+
+            def _projection_activation():
+                if activation_name == "gelu":
+                    return nn.GELU()
+                if activation_name == "softplus":
+                    return nn.Softplus()
+                return nn.ReLU(inplace=True)
+
+            if activation_name not in {"gelu", "softplus", "relu"}:
+                activation_name = "gelu"
+            self.pool_activation = activation_name
+            self.stage_projections = nn.ModuleList(
+                [
+                    nn.Sequential(
+                        nn.Conv2d(int(channel), self.stage_proj_dims[position], kernel_size=1, bias=False),
+                        _projection_activation(),
+                        GlobalResponseNorm2d(self.stage_proj_dims[position]) if self.use_projection_grn else nn.Identity(),
+                        EfficientChannelAttention2d(
+                            self.stage_proj_dims[position],
+                            kernel_size=projection_eca_kernel_size,
+                        )
+                        if self.use_projection_eca
+                        else nn.Identity(),
+                    )
+                    for position, channel in enumerate(channels)
+                ]
+            )
+            self.projection_spectral_gates = nn.ModuleDict(
+                {
+                    str(stage_number): SpectralChannelGate2d(
+                        self.stage_proj_dims[self._stage_number_to_position[stage_number]],
+                        freq_size=int(projection_spectral_gate_freq_size),
+                        hidden_dim=projection_spectral_gate_hidden_dim,
+                        include_spatial=bool(projection_spectral_gate_include_spatial),
+                    )
+                    for stage_number in self.projection_spectral_gate_stages
+                }
+            )
+            self.mixstyle_layers = nn.ModuleDict(
+                {
+                    str(stage_number): MixStyle2d(
+                        p=float(mixstyle_probability),
+                        alpha=float(mixstyle_alpha),
+                    )
+                    for stage_number in self.mixstyle_stages
+                }
+            )
+            self.stage_local_mixers = nn.ModuleDict(
+                {
+                    str(stage_number): SelectiveReceptiveFieldMixer2d(
+                        int(channels[self._stage_number_to_position[stage_number]]),
+                        square_kernel=int(stage_local_mixer_square_kernel),
+                        band_kernel_sizes=stage_local_mixer_band_kernel_sizes,
+                        reduction=int(stage_local_mixer_reduction),
+                        min_channels=int(stage_local_mixer_min_channels),
+                        use_identity=bool(stage_local_mixer_use_identity),
+                    )
+                    for stage_number in self.stage_local_mixer_stages
+                }
+            )
+            self.stage_pools = nn.ModuleList([GeMPool2d(p=3.0, learnable=True) for _ in channels])
+            if self.learnable_stage_fusion:
+                self.stage_fusion_logits = nn.Parameter(
+                    torch.tensor(self.stage_fusion_weights, dtype=torch.float32)
+                )
+            else:
+                self.register_parameter("stage_fusion_logits", None)
+            active_scale_count = len(self.active_stage_indices)
+            active_scale_dims = [
+                self.stage_proj_dims[self._stage_number_to_position[stage_number]]
+                for stage_number in self.active_stage_indices
+            ]
+            self.scale_gate = (
+                (
+                    SemanticScaleGate(
+                        source_dim=self.stage_proj_dims[self._stage_number_to_position[4]],
+                        scale_dims=active_scale_dims,
+                        hidden_dim=scale_gate_hidden_dim,
+                        temperature=scale_gate_temperature,
+                    )
+                    if self.scale_gate_mode == "stage4"
+                    else ResidualSemanticScaleGate(
+                        source_dim=self.stage_proj_dims[self._stage_number_to_position[4]],
+                        scale_dims=active_scale_dims,
+                        hidden_dim=scale_gate_hidden_dim,
+                        delta=scale_gate_delta,
+                        anchor_last_scale=scale_gate_anchor_last,
+                    )
+                    if self.scale_gate_mode == "stage4_residual"
+                    else SelectiveScaleGate(
+                        active_scale_dims,
+                        hidden_dim=scale_gate_hidden_dim,
+                        temperature=scale_gate_temperature,
+                    )
+                )
+                if self.use_scale_gate and active_scale_count > 1
+                else None
+            )
+            active_initial_weights = [
+                self.stage_fusion_weights[self._stage_number_to_position[stage_number]]
+                for stage_number in self.active_stage_indices
+            ]
+            with torch.random.fork_rng(devices=[]):
+                self.stage_attn_res = (
+                    StageAttentionResidualFusion(
+                        active_scale_dims,
+                        attention_dim=int(stage_attn_res_attention_dim),
+                        temperature=float(stage_attn_res_temperature),
+                        residual_strength=float(stage_attn_res_strength),
+                        query_mode=str(stage_attn_res_mode),
+                        descriptor_dim=int(stage_attn_res_descriptor_dim),
+                        initial_weights=active_initial_weights,
+                        dropout=float(stage_attn_res_dropout),
+                    )
+                    if self.use_stage_attn_res and active_scale_count > 1
+                    else None
+                )
+            with torch.random.fork_rng(devices=[]):
+                self.delta_history = (
+                    CrossStageDeltaHistoryFusion(
+                        active_scale_dims,
+                        history_dim=int(delta_history_dim),
+                        temperature=float(delta_history_temperature),
+                        residual_strength=float(delta_history_strength),
+                        descriptor_dim=int(delta_history_descriptor_dim),
+                    )
+                    if self.use_delta_history and active_scale_count > 1
+                    else None
+                )
+            self.last_scale_gate_weights = None
+            self.last_stage_attn_res_weights = None
+            self.last_delta_history_weights = None
+            self.last_stage_fusion_weights = None
+            self.last_projection_spectral_gate_weights = None
+            fused_dim = int(sum(active_scale_dims))
+            self.head_norm = nn.LayerNorm(fused_dim)
+            self.head_dropout = nn.Dropout(float(head_dropout))
+            self.head_fc1 = nn.Linear(fused_dim, int(head_hidden_dim))
+            self.head_act = nn.GELU()
+            self.head_hidden_dropout = nn.Dropout(0.1)
+            if self.classifier_head_type == "arc_margin":
+                self.classifier = ArcMarginProduct(
+                    int(head_hidden_dim),
+                    num_classes,
+                    scale=float(classifier_head_scale),
+                    margin=float(classifier_head_margin),
+                    easy_margin=bool(classifier_head_easy_margin),
+                )
+            else:
+                self.classifier = nn.Linear(int(head_hidden_dim), num_classes)
+            self.gradcam_layer = self._resolve_gradcam_layer()
+            self.feature_info = getattr(self.backbone, "feature_info", None)
+            self.pretrained_cfg = dict(getattr(self.backbone, "pretrained_cfg", {}) or {})
+            self.default_cfg = dict(getattr(self.backbone, "default_cfg", {}) or {})
+
+        @staticmethod
+        def _normalize_active_stage_indices(
+            active_stage_indices: list[int] | tuple[int, ...] | None,
+        ) -> tuple[int, ...]:
+            """Validate and normalize active stage numbers used by the fusion head."""
+            if active_stage_indices is None:
+                normalized = (2, 3, 4)
+            else:
+                normalized = tuple(int(index) for index in active_stage_indices)
+            if normalized not in VALID_LESIONEXT_STAGE_INDEX_GROUPS:
+                raise ValueError(
+                    "active_stage_indices must be one of [2, 3, 4], [3, 4], or [4]."
+                )
+            return normalized
+
+        @staticmethod
+        def _normalize_stage_proj_dims(
+            stage_proj_dims: list[int] | tuple[int, ...] | None,
+            *,
+            default_dim: int,
+        ) -> tuple[int, int, int]:
+            """Return validated per-stage projection dimensions for stages 2, 3, and 4."""
+            if stage_proj_dims is None:
+                normalized = (int(default_dim), int(default_dim), int(default_dim))
+            else:
+                normalized = tuple(int(dim) for dim in stage_proj_dims)
+            if len(normalized) != 3 or any(dim <= 0 for dim in normalized):
+                raise ValueError("stage_proj_dims must contain three positive integers for stages [2, 3, 4].")
+            return normalized
+
+        @staticmethod
+        def _normalize_stage_fusion_weights(
+            stage_fusion_weights: list[float] | tuple[float, ...] | None,
+        ) -> tuple[float, float, float]:
+            """Return validated per-stage fusion weights for stages 2, 3, and 4."""
+            if stage_fusion_weights is None:
+                normalized = (1.0, 1.0, 1.0)
+            else:
+                normalized = tuple(float(weight) for weight in stage_fusion_weights)
+            if len(normalized) != 3 or any(weight < 0.0 for weight in normalized):
+                raise ValueError("stage_fusion_weights must contain three non-negative scalars for stages [2, 3, 4].")
+            return normalized
+
+        @staticmethod
+        def _normalize_stage_local_mixer_stages(
+            stage_local_mixer_stages: list[int] | tuple[int, ...] | None,
+        ) -> tuple[int, ...]:
+            """Return validated stage ids that receive selective local mixing."""
+            if stage_local_mixer_stages is None:
+                normalized = (2, 3)
+            else:
+                normalized = tuple(int(stage_number) for stage_number in stage_local_mixer_stages)
+            if len(normalized) == 0:
+                return ()
+            if len(set(normalized)) != len(normalized):
+                raise ValueError("stage_local_mixer_stages must not contain duplicate stage numbers.")
+            valid = {2, 3, 4}
+            if any(stage_number not in valid for stage_number in normalized):
+                raise ValueError("stage_local_mixer_stages must be selected from stages [2, 3, 4].")
+            return normalized
+
+        @staticmethod
+        def _normalize_projection_spectral_gate_stages(
+            projection_spectral_gate_stages: list[int] | tuple[int, ...] | None,
+        ) -> tuple[int, ...]:
+            """Return validated projected stage ids that receive spectral gating."""
+            if projection_spectral_gate_stages is None:
+                normalized = (2, 3, 4)
+            else:
+                normalized = tuple(int(stage_number) for stage_number in projection_spectral_gate_stages)
+            if len(normalized) == 0:
+                return ()
+            if len(set(normalized)) != len(normalized):
+                raise ValueError("projection_spectral_gate_stages must not contain duplicate stage numbers.")
+            valid = {2, 3, 4}
+            if any(stage_number not in valid for stage_number in normalized):
+                raise ValueError("projection_spectral_gate_stages must be selected from stages [2, 3, 4].")
+            return normalized
+
+        @staticmethod
+        def _normalize_mixstyle_stages(
+            mixstyle_stages: list[int] | tuple[int, ...] | None,
+        ) -> tuple[int, ...]:
+            """Return validated stage ids that receive MixStyle augmentation."""
+            if mixstyle_stages is None:
+                normalized = (2, 3)
+            else:
+                normalized = tuple(int(stage_number) for stage_number in mixstyle_stages)
+            if len(normalized) == 0:
+                return ()
+            if len(set(normalized)) != len(normalized):
+                raise ValueError("mixstyle_stages must not contain duplicate stage numbers.")
+            valid = {2, 3, 4}
+            if any(stage_number not in valid for stage_number in normalized):
+                raise ValueError("mixstyle_stages must be selected from stages [2, 3, 4].")
+            return normalized
+
+        def _resolve_gradcam_layer(self):
+            """Select the final projection layer used for Grad-CAM."""
+            target_stage = 4 if 4 in self.active_stage_indices else self.active_stage_indices[-1]
+            projection_position = self._stage_number_to_position[target_stage]
+            return self.stage_projections[projection_position][0]
+
+        def get_gradcam_target_layer(self):
+            """Return the preferred Grad-CAM target layer for this wrapper model."""
+            return self.gradcam_layer
+
+        def _active_stage_fusion_factors(self, *, device, dtype):
+            """Return one multiplicative fusion factor for each active stage."""
+            if self.learnable_stage_fusion and self.stage_fusion_logits is not None:
+                gathered = torch.stack(
+                    [
+                        self.stage_fusion_logits[self._stage_number_to_position[stage_number]]
+                        for stage_number in self.active_stage_indices
+                    ]
+                ).to(device=device, dtype=dtype)
+                positive = F.relu(gathered) + self.fusion_weight_epsilon
+                normalized = positive / positive.sum().clamp(min=self.fusion_weight_epsilon)
+                weights = normalized * float(len(self.active_stage_indices))
+            else:
+                weights = torch.tensor(
+                    [
+                        self.stage_fusion_weights[self._stage_number_to_position[stage_number]]
+                        for stage_number in self.active_stage_indices
+                    ],
+                    device=device,
+                    dtype=dtype,
+                )
+            self.last_stage_fusion_weights = weights.detach()
+            return weights
+
+        def _contextualize_stage4(self, x):
+            """Apply one lightweight self-attention block to the last feature stage."""
+            if self.context_block is None:
+                return x
+            if self.stage4_attention_type in {"coordatt", "gc", "lka"}:
+                return self.context_block(x)
+            batch_size, channels, height, width = x.shape
+            tokens = x.flatten(2).transpose(1, 2)
+            tokens = self.context_block(tokens)
+            return tokens.transpose(1, 2).reshape(batch_size, channels, height, width)
+
+        def _stage_embedding_bundle(self, x, context_descriptor=None):
+            """Return active projected stage embeddings before the final classifier head."""
+            stage_features = list(self.backbone(x))
+            if len(stage_features) != 3:
+                raise RuntimeError(f"LesioNeXt received {len(stage_features)} features, expected 3.")
+            if self.domain_norm_stages:
+                for stage_number in self.domain_norm_stages:
+                    position = self._stage_number_to_position[stage_number]
+                    stage_features[position] = self.domain_norm_layers[str(stage_number)](stage_features[position])
+            if self.use_stage4_attention and 4 in self.active_stage_indices and self.context_block is not None:
+                stage4_position = self._stage_number_to_position[4]
+                stage_features[stage4_position] = self._contextualize_stage4(stage_features[stage4_position])
+            if self.use_mixstyle and len(self.mixstyle_layers) > 0:
+                for stage_number in self.mixstyle_stages:
+                    position = self._stage_number_to_position[stage_number]
+                    stage_features[position] = self.mixstyle_layers[str(stage_number)](stage_features[position])
+            if self.use_stage_local_mixer and len(self.stage_local_mixers) > 0:
+                for stage_number in self.stage_local_mixer_stages:
+                    position = self._stage_number_to_position[stage_number]
+                    stage_features[position] = self.stage_local_mixers[str(stage_number)](stage_features[position])
+            pooled_embeddings = []
+            stage4_embedding = None
+            projection_spectral_gate_weights: dict[str, Any] = {}
+            fusion_factors = self._active_stage_fusion_factors(
+                device=stage_features[0].device,
+                dtype=stage_features[0].dtype,
+            )
+            for active_position, stage_number in enumerate(self.active_stage_indices):
+                position = self._stage_number_to_position[stage_number]
+                feature = stage_features[position]
+                projection = self.stage_projections[position]
+                pool = self.stage_pools[position]
+                projected = projection(feature)
+                if self.use_projection_spectral_gate and str(stage_number) in self.projection_spectral_gates:
+                    projected, gate_weights = self.projection_spectral_gates[str(stage_number)](projected)
+                    projection_spectral_gate_weights[str(stage_number)] = gate_weights.detach()
+                pooled = pool(projected).flatten(1)
+                if stage_number == 4:
+                    stage4_embedding = pooled
+                if self.stage_attn_res is None and self.delta_history is None:
+                    pooled = pooled * fusion_factors[active_position]
+                pooled_embeddings.append(pooled)
+            base_embeddings = pooled_embeddings
+            stage_attn_weights = None
+            history_weights = None
+            if self.stage_attn_res is not None:
+                pooled_embeddings, stage_attn_weights = self.stage_attn_res(
+                    pooled_embeddings,
+                    descriptor=context_descriptor,
+                )
+            if self.delta_history is not None:
+                delta_embeddings, history_weights = self.delta_history(
+                    base_embeddings if self.delta_history_mode == "monitor" else pooled_embeddings,
+                    descriptor=context_descriptor,
+                )
+                if self.delta_history_mode == "inject":
+                    pooled_embeddings = delta_embeddings
+            self.last_stage_attn_res_weights = (
+                stage_attn_weights.detach() if stage_attn_weights is not None else None
+            )
+            self.last_delta_history_weights = (
+                history_weights.detach() if history_weights is not None else None
+            )
+            if stage_attn_weights is not None:
+                self.last_stage_fusion_weights = stage_attn_weights.detach()
+            elif history_weights is not None:
+                self.last_stage_fusion_weights = history_weights.detach()
+            if self.scale_gate is not None:
+                if self.scale_gate_mode in {"stage4", "stage4_residual"}:
+                    if stage4_embedding is None:
+                        stage4_embedding = pooled_embeddings[-1]
+                    pooled_embeddings, scale_weights = self.scale_gate(pooled_embeddings, stage4_embedding)
+                else:
+                    pooled_embeddings, scale_weights = self.scale_gate(pooled_embeddings)
+                self.last_scale_gate_weights = scale_weights.detach()
+            else:
+                self.last_scale_gate_weights = None
+            self.last_projection_spectral_gate_weights = projection_spectral_gate_weights or None
+            stage_embeddings = {
+                stage_number: pooled_embeddings[position]
+                for position, stage_number in enumerate(self.active_stage_indices)
+            }
+            return pooled_embeddings, stage_embeddings
+
+        def _fused_embedding(self, x, context_descriptor=None):
+            """Return the fused representation before classifier-only dropout."""
+            pooled_embeddings, _stage_embeddings = self._stage_embedding_bundle(
+                x,
+                context_descriptor=context_descriptor,
+            )
+            fused = torch.cat(pooled_embeddings, dim=1)
+            fused = self.head_norm(fused)
+            fused = self.head_dropout(fused)
+            fused = self.head_fc1(fused)
+            fused = self.head_act(fused)
+            return fused
+
+        def forward_with_embedding(self, x, labels=None, context_descriptor=None):
+            """Return class logits together with the fused training embedding."""
+            fused = self._fused_embedding(x, context_descriptor=context_descriptor)
+            classifier_input = self.head_hidden_dropout(fused)
+            if self.classifier_head_type == "arc_margin":
+                logits = self.classifier(classifier_input, labels=labels)
+            else:
+                logits = self.classifier(classifier_input)
+            return logits, fused
+
+        def forward(self, x, labels=None, context_descriptor=None):
+            """Return class logits for one image batch."""
+            logits, _embedding = self.forward_with_embedding(
+                x,
+                labels=labels,
+                context_descriptor=context_descriptor,
+            )
+            return logits
+
+
+    class LesioNeXtClassifier(LesioNeXtBaseClassifier):
+        """Preferred public alias for the LesioNeXt single-model family."""
+
+
+    class DARAClassifier(LesioNeXtClassifier):
+        """Historical DARA implementation retained for checkpoint compatibility."""
+
+        def __init__(
+            self,
+            *,
+            num_classes: int = 2,
+            use_shared_routed_experts: bool = True,
+            shared_expert_hidden_dim: int = 256,
+            routed_expert_hidden_dim: int = 128,
+            routed_expert_count: int = 4,
+            routed_expert_top_k: int = 2,
+            routed_expert_router_hidden_dim: int = 128,
+            routed_expert_temperature: float = 1.0,
+            routed_expert_scale: float = 0.5,
+            routed_expert_dropout: float = 0.1,
+            use_reliability_gate: bool = False,
+            reliability_threshold: float = 0.15,
+            reliability_temperature: float = 0.1,
+            **model_kwargs,
+        ) -> None:
+            """Build the DARA base and configurable shared-routed expert head."""
+            model_kwargs = dict(model_kwargs)
+            model_kwargs.setdefault("use_stage_attn_res", True)
+            if use_reliability_gate:
+                model_kwargs.setdefault("use_delta_history", True)
+                model_kwargs.setdefault("delta_history_mode", "monitor")
+            model_kwargs.setdefault("classifier_head_type", "linear")
+            super().__init__(num_classes=num_classes, **model_kwargs)
+            self.use_shared_routed_experts = bool(use_shared_routed_experts)
+            self.use_reliability_gate = bool(use_reliability_gate)
+            self.last_expert_weights = None
+            self.last_dense_expert_weights = None
+            self.last_shared_logits = None
+            self.last_routed_logits = None
+            self.last_routing_confidence = None
+            self.last_history_confidence = None
+            self.last_combined_reliability = None
+            self.last_reliability_gate = None
+            if self.use_shared_routed_experts:
+                head_class = (
+                    ReliabilityGatedSharedRoutedExpertHead
+                    if self.use_reliability_gate
+                    else SharedRoutedExpertHead
+                )
+                head_kwargs = {}
+                if self.use_reliability_gate:
+                    head_kwargs = {
+                        "reliability_threshold": float(reliability_threshold),
+                        "reliability_temperature": float(reliability_temperature),
+                        "use_reliability_gate": True,
+                    }
+                self.classifier = head_class(
+                    self.head_fc1.out_features,
+                    num_classes,
+                    shared_hidden_dim=int(shared_expert_hidden_dim),
+                    expert_hidden_dim=int(routed_expert_hidden_dim),
+                    router_hidden_dim=int(routed_expert_router_hidden_dim),
+                    num_routed_experts=int(routed_expert_count),
+                    top_k=int(routed_expert_top_k),
+                    router_temperature=float(routed_expert_temperature),
+                    routed_scale=float(routed_expert_scale),
+                    dropout=float(routed_expert_dropout),
+                    **head_kwargs,
+                )
+
+        def _history_reliability(self, reference):
+            """Convert deepest-stage delta-history concentration into reliability."""
+            weights = self.last_delta_history_weights
+            if weights is None:
+                return reference.new_zeros((reference.shape[0],))
+            deepest = weights[:, -1, :].to(device=reference.device, dtype=reference.dtype)
+            entropy = -(deepest.clamp_min(1e-8) * deepest.clamp_min(1e-8).log()).sum(dim=1)
+            max_entropy = math.log(float(deepest.shape[1]))
+            return (1.0 - entropy / max(max_entropy, 1e-8)).clamp(0.0, 1.0)
+
+        def forward_with_embedding(self, x, labels=None, context_descriptor=None):
+            """Return DARA logits, embedding, and routing diagnostics."""
+            fused = self._fused_embedding(x, context_descriptor=context_descriptor)
+            classifier_input = self.head_hidden_dropout(fused)
+            if self.use_shared_routed_experts and self.use_reliability_gate:
+                history_reliability = self._history_reliability(classifier_input)
+                logits = self.classifier(
+                    classifier_input,
+                    external_reliability=history_reliability,
+                )
+                self.last_history_confidence = history_reliability.detach()
+            else:
+                logits = self.classifier(classifier_input)
+                self.last_history_confidence = None
+            if self.use_shared_routed_experts:
+                self.last_dense_expert_weights = getattr(
+                    self.classifier,
+                    "last_dense_expert_weights",
+                    None,
+                )
+                self.last_expert_weights = self.classifier.last_expert_weights
+                self.last_shared_logits = self.classifier.last_shared_logits
+                self.last_routed_logits = self.classifier.last_routed_logits
+                self.last_routing_confidence = getattr(
+                    self.classifier,
+                    "last_routing_confidence",
+                    None,
+                )
+                self.last_combined_reliability = getattr(
+                    self.classifier,
+                    "last_combined_reliability",
+                    None,
+                )
+                self.last_reliability_gate = getattr(
+                    self.classifier,
+                    "last_reliability_gate",
+                    None,
+                )
+            return logits, fused
+
+
+    class AERISClassifier(DARAClassifier):
+        """Official AERIS classifier with inter-stage selection and expert routing."""
+
+
+    class QDHEClassifier(DARAClassifier):
+        """Backward-compatible alias for the DARA delta-history gated ablation."""
+
+        def __init__(
+            self,
+            *,
+            num_classes: int = 2,
+            **model_kwargs,
+        ) -> None:
+            """Map the legacy name to the full DARA enhancement switches."""
+            model_kwargs = dict(model_kwargs)
+            model_kwargs.setdefault("use_stage_attn_res", True)
+            model_kwargs.setdefault("use_delta_history", True)
+            model_kwargs.setdefault("delta_history_mode", "monitor")
+            model_kwargs.setdefault("use_shared_routed_experts", True)
+            model_kwargs.setdefault("use_reliability_gate", True)
+            super().__init__(
+                num_classes=num_classes,
+                **model_kwargs,
+            )
+
+
+    class LesionScaleMoEConvNeXtClassifier(LesioNeXtClassifier):
+        """LesioNeXt-MoE classifier with soft lesion-scale expert routing."""
+
+        input_mode = "dual_view_roi"
+
+        def __init__(
+            self,
+            *,
+            num_classes: int = 2,
+            descriptor_dim: int = 14,
+            expert_hidden_dim: int = 256,
+            router_hidden_dim: int = 160,
+            router_temperature: float = 1.0,
+            fixed_equal_expert_weights: bool = False,
+            router_uses_descriptors: bool = True,
+            expert_dropout: float | None = None,
+            **model_kwargs,
+        ) -> None:
+            """Build a three-expert lesion-scale MoE on top of LesioNeXt stage embeddings."""
+            model_kwargs = dict(model_kwargs)
+            model_kwargs.setdefault("active_stage_indices", [2, 3, 4])
+            model_kwargs.setdefault("stage_proj_dims", [192, 256, 320])
+            model_kwargs.setdefault("stage_fusion_weights", [0.8, 1.0, 1.0])
+            model_kwargs.setdefault("use_stage4_attention", False)
+            model_kwargs.setdefault("use_projection_grn", True)
+            model_kwargs.setdefault("use_projection_eca", True)
+            super().__init__(num_classes=num_classes, **model_kwargs)
+            missing_stages = {2, 3, 4}.difference(self.active_stage_indices)
+            if missing_stages:
+                raise ValueError("LesionScaleMoE requires active_stage_indices to include [2, 3, 4].")
+            self.descriptor_dim = int(descriptor_dim)
+            self.num_experts = 3
+            self.fixed_equal_expert_weights = bool(fixed_equal_expert_weights)
+            self.router_uses_descriptors = bool(router_uses_descriptors)
+            self.router_temperature = max(float(router_temperature), 1e-4)
+            self.last_expert_weights = None
+            stage2_dim = self.stage_proj_dims[self._stage_number_to_position[2]]
+            stage3_dim = self.stage_proj_dims[self._stage_number_to_position[3]]
+            stage4_dim = self.stage_proj_dims[self._stage_number_to_position[4]]
+            self._moe_stage_dims = {2: stage2_dim, 3: stage3_dim, 4: stage4_dim}
+            fused_dim = int(stage2_dim + stage3_dim + stage4_dim)
+            dropout = float(self.head_dropout.p if expert_dropout is None else expert_dropout)
+            self.small_expert = self._make_expert_head(stage2_dim + stage3_dim, expert_hidden_dim, num_classes, dropout)
+            self.medium_expert = self._make_expert_head(fused_dim, expert_hidden_dim, num_classes, dropout)
+            self.large_expert = self._make_expert_head(stage4_dim, expert_hidden_dim, num_classes, dropout)
+            descriptor_router_dim = self.descriptor_dim if self.router_uses_descriptors else 0
+            router_input_dim = fused_dim * 2 + descriptor_router_dim
+            self.router = nn.Sequential(
+                nn.LayerNorm(router_input_dim),
+                nn.Linear(router_input_dim, int(router_hidden_dim)),
+                nn.GELU(),
+                nn.Dropout(dropout),
+                nn.Linear(int(router_hidden_dim), self.num_experts),
+            )
+
+        @staticmethod
+        def _make_expert_head(input_dim: int, hidden_dim: int, num_classes: int, dropout: float):
+            """Create one lightweight MLP expert classifier head."""
+            return nn.Sequential(
+                nn.LayerNorm(int(input_dim)),
+                nn.Linear(int(input_dim), int(hidden_dim)),
+                nn.GELU(),
+                nn.Dropout(float(dropout)),
+                nn.Linear(int(hidden_dim), int(num_classes)),
+            )
+
+        def _normalize_descriptors(self, descriptor, reference):
+            """Return ROI descriptors aligned to the current image batch."""
+            if not self.router_uses_descriptors:
+                return reference.new_zeros((reference.shape[0], 0))
+            if descriptor is None:
+                return reference.new_zeros((reference.shape[0], self.descriptor_dim))
+            descriptor = descriptor.to(device=reference.device, dtype=reference.dtype)
+            if descriptor.ndim == 1:
+                descriptor = descriptor.unsqueeze(0)
+            if descriptor.shape[0] == 1 and reference.shape[0] > 1:
+                descriptor = descriptor.expand(reference.shape[0], -1)
+            if descriptor.shape[1] != self.descriptor_dim:
+                raise ValueError(
+                    f"LesionScaleMoE expected {self.descriptor_dim} ROI descriptors, got {descriptor.shape[1]}."
+                )
+            return descriptor
+
+        def _stage_cat(self, stage_embeddings: dict[int, Any]):
+            """Concatenate stage 2, 3, and 4 embeddings in anatomical scale order."""
+            return torch.cat([stage_embeddings[2], stage_embeddings[3], stage_embeddings[4]], dim=1)
+
+        def _average_stage_embeddings(self, first: dict[int, Any], second: dict[int, Any]) -> dict[int, Any]:
+            """Average matching stage embeddings from full-image and ROI views."""
+            return {
+                stage_number: (first[stage_number] + second[stage_number]) * 0.5
+                for stage_number in (2, 3, 4)
+            }
+
+        def _resolve_inputs(self, image=None, image_full=None, image_roi=None, roi_descriptor=None, **batch):
+            """Normalize supported single-image and dual-view calling conventions."""
+            if isinstance(image, dict):
+                batch = {**image, **batch}
+                image = None
+            if image_full is None:
+                image_full = batch.get("image_full")
+            if image_roi is None:
+                image_roi = batch.get("image_roi")
+            if roi_descriptor is None:
+                roi_descriptor = batch.get("roi_descriptor")
+            if image is None:
+                image = batch.get("image")
+            if image_full is None:
+                image_full = image
+            if image_full is None:
+                raise ValueError("LesionScaleMoE requires image_full or image.")
+            return image_full, image_roi, roi_descriptor
+
+        def forward_with_embedding(
+            self,
+            image=None,
+            image_full=None,
+            image_roi=None,
+            roi_descriptor=None,
+            labels=None,
+            **batch,
+        ):
+            """Return logits and router embedding for lesion-scale MoE training."""
+            image_full, image_roi, roi_descriptor = self._resolve_inputs(
+                image=image,
+                image_full=image_full,
+                image_roi=image_roi,
+                roi_descriptor=roi_descriptor,
+                **batch,
+            )
+            _full_pooled, full_stages = self._stage_embedding_bundle(image_full)
+            if image_roi is None:
+                roi_stages = full_stages
+                full_roi_delta = self._stage_cat(full_stages).new_zeros(self._stage_cat(full_stages).shape)
+            else:
+                _roi_pooled, roi_stages = self._stage_embedding_bundle(image_roi)
+                full_roi_delta = torch.abs(self._stage_cat(full_stages) - self._stage_cat(roi_stages))
+            medium_stages = self._average_stage_embeddings(full_stages, roi_stages)
+            small_input = torch.cat([roi_stages[2], roi_stages[3]], dim=1)
+            medium_input = self._stage_cat(medium_stages)
+            large_input = full_stages[4]
+            expert_logits = torch.stack(
+                [
+                    self.small_expert(small_input),
+                    self.medium_expert(medium_input),
+                    self.large_expert(large_input),
+                ],
+                dim=1,
+            )
+            descriptor = self._normalize_descriptors(roi_descriptor, medium_input)
+            router_input = torch.cat([self._stage_cat(full_stages), full_roi_delta, descriptor], dim=1)
+            if self.fixed_equal_expert_weights:
+                expert_weights = router_input.new_full(
+                    (router_input.shape[0], self.num_experts),
+                    1.0 / float(self.num_experts),
+                )
+            else:
+                expert_weights = torch.softmax(self.router(router_input) / self.router_temperature, dim=1)
+            self.last_expert_weights = expert_weights.detach()
+            logits = (expert_logits * expert_weights.unsqueeze(-1)).sum(dim=1)
+            return logits, router_input
+
+        def forward(
+            self,
+            image=None,
+            image_full=None,
+            image_roi=None,
+            roi_descriptor=None,
+            labels=None,
+            **batch,
+        ):
+            """Return class logits from the lesion-scale MoE classifier."""
+            logits, _embedding = self.forward_with_embedding(
+                image=image,
+                image_full=image_full,
+                image_roi=image_roi,
+                roi_descriptor=roi_descriptor,
+                labels=labels,
+                **batch,
+            )
+            return logits
+
+
+    class LesionScaleMoEV2ConvNeXtClassifier(LesionScaleMoEConvNeXtClassifier):
+        """LesioNeXt-MoE v2 with area prior, spatial small expert, and residual logits."""
+
+        def __init__(
+            self,
+            *,
+            num_classes: int = 2,
+            area_prior_strength: float = 0.75,
+            area_prior_small_center: float = 0.12,
+            area_prior_medium_center: float = 0.32,
+            area_prior_large_center: float = 0.68,
+            area_prior_sigma: float = 0.22,
+            small_spatial_hidden_dim: int = 96,
+            residual_alpha: float = 0.15,
+            **model_kwargs,
+        ) -> None:
+            """Build the v2 MoE classifier while preserving the v1 call surface."""
+            super().__init__(num_classes=num_classes, **model_kwargs)
+            self.area_prior_strength = float(area_prior_strength)
+            self.area_prior_sigma = max(float(area_prior_sigma), 1e-4)
+            self.residual_alpha = float(residual_alpha)
+            self.register_buffer(
+                "area_prior_centers",
+                torch.tensor(
+                    [
+                        float(area_prior_small_center),
+                        float(area_prior_medium_center),
+                        float(area_prior_large_center),
+                    ],
+                    dtype=torch.float32,
+                ),
+                persistent=False,
+            )
+            stage2_dim = self._moe_stage_dims[2]
+            stage3_dim = self._moe_stage_dims[3]
+            spatial_hidden_dim = int(small_spatial_hidden_dim)
+            self.small_spatial_head = nn.Sequential(
+                nn.Conv2d(stage2_dim + stage3_dim, spatial_hidden_dim, kernel_size=3, padding=1, bias=False),
+                nn.GELU(),
+                nn.AdaptiveAvgPool2d(1),
+                nn.Flatten(),
+                nn.LayerNorm(spatial_hidden_dim),
+            )
+            self.small_spatial_logits = nn.Linear(spatial_hidden_dim, num_classes)
+            fused_dim = sum(self._moe_stage_dims.values())
+            self.baseline_residual_head = nn.Sequential(
+                nn.LayerNorm(fused_dim),
+                nn.Linear(fused_dim, int(num_classes)),
+            )
+            self.last_moe_logits = None
+            self.last_baseline_logits = None
+            self.last_router_area_prior_logits = None
+
+        def _projected_stage_feature_bundle(self, x):
+            """Return projected feature maps and pooled embeddings for stages 2, 3, and 4."""
+            stage_features = list(self.backbone(x))
+            if len(stage_features) != 3:
+                raise RuntimeError(f"LesionScaleMoEV2 received {len(stage_features)} features, expected 3.")
+            if self.use_stage4_attention and 4 in self.active_stage_indices and self.context_block is not None:
+                stage4_position = self._stage_number_to_position[4]
+                stage_features[stage4_position] = self._contextualize_stage4(stage_features[stage4_position])
+            projected_features = {}
+            pooled_embeddings = []
+            fusion_factors = self._active_stage_fusion_factors(
+                device=stage_features[0].device,
+                dtype=stage_features[0].dtype,
+            )
+            for active_position, stage_number in enumerate(self.active_stage_indices):
+                position = self._stage_number_to_position[stage_number]
+                projected = self.stage_projections[position](stage_features[position])
+                projected_features[stage_number] = projected
+                pooled = self.stage_pools[position](projected).flatten(1)
+                pooled_embeddings.append(pooled * fusion_factors[active_position])
+            stage_embeddings = {
+                stage_number: pooled_embeddings[position]
+                for position, stage_number in enumerate(self.active_stage_indices)
+            }
+            return projected_features, stage_embeddings
+
+        def _small_spatial_expert_logits(self, roi_projected_features: dict[int, Any]):
+            """Classify small-lesion local details from stage2/stage3 feature maps."""
+            stage2 = roi_projected_features[2]
+            stage3 = roi_projected_features[3]
+            if stage3.shape[-2:] != stage2.shape[-2:]:
+                stage3 = F.interpolate(stage3, size=stage2.shape[-2:], mode="bilinear", align_corners=False)
+            spatial_features = self.small_spatial_head(torch.cat([stage2, stage3], dim=1))
+            return self.small_spatial_logits(spatial_features)
+
+        def _router_area_prior_logits(self, descriptor, reference):
+            """Return geometry-derived router prior logits for small/medium/large experts."""
+            if self.area_prior_strength <= 0.0:
+                return reference.new_zeros((reference.shape[0], self.num_experts))
+            descriptor = self._normalize_descriptors(descriptor, reference)
+            if descriptor.shape[1] <= 1:
+                return reference.new_zeros((reference.shape[0], self.num_experts))
+            area_ratio = descriptor[:, 1].clamp(0.0, 1.0).unsqueeze(1)
+            centers = self.area_prior_centers.to(device=reference.device, dtype=reference.dtype).view(1, -1)
+            distances = (area_ratio - centers).pow(2)
+            prior_logits = -distances / (2.0 * self.area_prior_sigma * self.area_prior_sigma)
+            return prior_logits * float(self.area_prior_strength)
+
+        def forward_with_embedding(
+            self,
+            image=None,
+            image_full=None,
+            image_roi=None,
+            roi_descriptor=None,
+            labels=None,
+            **batch,
+        ):
+            """Return logits and router embedding for the optimized lesion-scale MoE."""
+            image_full, image_roi, roi_descriptor = self._resolve_inputs(
+                image=image,
+                image_full=image_full,
+                image_roi=image_roi,
+                roi_descriptor=roi_descriptor,
+                **batch,
+            )
+            _full_projected, full_stages = self._projected_stage_feature_bundle(image_full)
+            if image_roi is None:
+                roi_projected = _full_projected
+                roi_stages = full_stages
+                full_stage_cat = self._stage_cat(full_stages)
+                full_roi_delta = full_stage_cat.new_zeros(full_stage_cat.shape)
+            else:
+                roi_projected, roi_stages = self._projected_stage_feature_bundle(image_roi)
+                full_stage_cat = self._stage_cat(full_stages)
+                full_roi_delta = torch.abs(full_stage_cat - self._stage_cat(roi_stages))
+            medium_stages = self._average_stage_embeddings(full_stages, roi_stages)
+            small_input = torch.cat([roi_stages[2], roi_stages[3]], dim=1)
+            medium_input = self._stage_cat(medium_stages)
+            large_input = full_stages[4]
+            small_logits = self.small_expert(small_input) + self._small_spatial_expert_logits(roi_projected)
+            expert_logits = torch.stack(
+                [
+                    small_logits,
+                    self.medium_expert(medium_input),
+                    self.large_expert(large_input),
+                ],
+                dim=1,
+            )
+            descriptor = self._normalize_descriptors(roi_descriptor, medium_input)
+            router_input = torch.cat([full_stage_cat, full_roi_delta, descriptor], dim=1)
+            area_prior_logits = self._router_area_prior_logits(roi_descriptor, medium_input)
+            if self.fixed_equal_expert_weights:
+                expert_weights = router_input.new_full(
+                    (router_input.shape[0], self.num_experts),
+                    1.0 / float(self.num_experts),
+                )
+            else:
+                router_logits = self.router(router_input) + area_prior_logits
+                expert_weights = torch.softmax(router_logits / self.router_temperature, dim=1)
+            moe_logits = (expert_logits * expert_weights.unsqueeze(-1)).sum(dim=1)
+            baseline_logits = self.baseline_residual_head(self._stage_cat(medium_stages))
+            logits = moe_logits + float(self.residual_alpha) * baseline_logits
+            self.last_expert_weights = expert_weights.detach()
+            self.last_moe_logits = moe_logits.detach()
+            self.last_baseline_logits = baseline_logits.detach()
+            self.last_router_area_prior_logits = area_prior_logits.detach()
+            return logits, router_input
+
+
+    class LesionScaleMoEV3ConvNeXtClassifier(LesionScaleMoEV2ConvNeXtClassifier):
+        """LesioNeXt-MoE v3 with ROI-valid routing safeguards and anti-collapse expert mixing."""
+
+        def __init__(
+            self,
+            *,
+            num_classes: int = 2,
+            max_valid_area_ratio: float = 0.75,
+            expert_weight_floor: float = 0.05,
+            **model_kwargs,
+        ) -> None:
+            """Build the v3 MoE classifier while keeping the v2 feature path."""
+            super().__init__(num_classes=num_classes, **model_kwargs)
+            self.max_valid_area_ratio = float(max_valid_area_ratio)
+            floor = max(0.0, float(expert_weight_floor))
+            self.expert_weight_floor = min(floor, (1.0 / float(self.num_experts)) - 1e-6)
+            self.last_router_valid_mask = None
+
+        def _valid_roi_mask(self, descriptor, reference):
+            """Return a [B,1] mask for descriptors that should influence ROI routing."""
+            descriptor = self._normalize_descriptors(descriptor, reference)
+            if descriptor.shape[1] <= 1:
+                return reference.new_zeros((reference.shape[0], 1))
+            roi_valid = descriptor[:, 0:1] >= 0.5
+            area_valid = descriptor[:, 1:2] <= float(self.max_valid_area_ratio)
+            return (roi_valid & area_valid).to(dtype=reference.dtype)
+
+        def _router_descriptor(self, descriptor, reference):
+            """Zero geometry descriptors when ROI fallback made them unreliable."""
+            descriptor = self._normalize_descriptors(descriptor, reference)
+            valid_mask = self._valid_roi_mask(descriptor, reference)
+            return descriptor * valid_mask
+
+        def _router_area_prior_logits(self, descriptor, reference):
+            """Return area-prior logits only for valid ROI descriptors."""
+            prior_logits = super()._router_area_prior_logits(descriptor, reference)
+            valid_mask = self._valid_roi_mask(descriptor, reference)
+            return prior_logits * valid_mask
+
+        def _mix_expert_weights(self, expert_weights):
+            """Keep every expert lightly active to avoid near one-hot large-expert collapse."""
+            floor = float(self.expert_weight_floor)
+            if floor <= 0.0:
+                return expert_weights
+            scale = max(0.0, 1.0 - floor * float(self.num_experts))
+            return expert_weights * scale + floor
+
+        def forward_with_embedding(
+            self,
+            image=None,
+            image_full=None,
+            image_roi=None,
+            roi_descriptor=None,
+            labels=None,
+            **batch,
+        ):
+            """Return logits and router embedding for ROI-robust lesion-scale MoE."""
+            image_full, image_roi, roi_descriptor = self._resolve_inputs(
+                image=image,
+                image_full=image_full,
+                image_roi=image_roi,
+                roi_descriptor=roi_descriptor,
+                **batch,
+            )
+            full_projected, full_stages = self._projected_stage_feature_bundle(image_full)
+            full_stage_cat = self._stage_cat(full_stages)
+            if image_roi is None:
+                roi_projected = full_projected
+                roi_stages = full_stages
+                full_roi_delta = full_stage_cat.new_zeros(full_stage_cat.shape)
+            else:
+                roi_projected, roi_stages = self._projected_stage_feature_bundle(image_roi)
+                full_roi_delta = torch.abs(full_stage_cat - self._stage_cat(roi_stages))
+
+            medium_stages = self._average_stage_embeddings(full_stages, roi_stages)
+            small_input = torch.cat([roi_stages[2], roi_stages[3]], dim=1)
+            medium_input = self._stage_cat(medium_stages)
+            large_input = full_stages[4]
+
+            descriptor = self._normalize_descriptors(roi_descriptor, medium_input)
+            valid_mask = self._valid_roi_mask(descriptor, medium_input)
+            small_spatial_logits = self._small_spatial_expert_logits(roi_projected)
+            full_spatial_logits = self._small_spatial_expert_logits(full_projected)
+            small_spatial_logits = small_spatial_logits * valid_mask + full_spatial_logits * (1.0 - valid_mask)
+            small_logits = self.small_expert(small_input) + small_spatial_logits
+            expert_logits = torch.stack(
+                [
+                    small_logits,
+                    self.medium_expert(medium_input),
+                    self.large_expert(large_input),
+                ],
+                dim=1,
+            )
+
+            router_descriptor = self._router_descriptor(descriptor, medium_input)
+            router_input = torch.cat([full_stage_cat, full_roi_delta * valid_mask, router_descriptor], dim=1)
+            area_prior_logits = self._router_area_prior_logits(descriptor, medium_input)
+            if self.fixed_equal_expert_weights:
+                expert_weights = router_input.new_full(
+                    (router_input.shape[0], self.num_experts),
+                    1.0 / float(self.num_experts),
+                )
+            else:
+                router_logits = self.router(router_input) + area_prior_logits
+                expert_weights = torch.softmax(router_logits / self.router_temperature, dim=1)
+                expert_weights = self._mix_expert_weights(expert_weights)
+            moe_logits = (expert_logits * expert_weights.unsqueeze(-1)).sum(dim=1)
+            baseline_logits = self.baseline_residual_head(self._stage_cat(medium_stages))
+            logits = moe_logits + float(self.residual_alpha) * baseline_logits
+            self.last_expert_weights = expert_weights.detach()
+            self.last_moe_logits = moe_logits.detach()
+            self.last_baseline_logits = baseline_logits.detach()
+            self.last_router_area_prior_logits = area_prior_logits.detach()
+            self.last_router_valid_mask = valid_mask.detach()
+            return logits, router_input
+
+
     class DualViewConvNeXtClassifier(nn.Module):
         """Shared-backbone ConvNeXt classifier over full-image and ROI views."""
 
@@ -826,6 +2052,62 @@ else:  # pragma: no cover - torch missing
             raise RuntimeError("Torch is required to construct ResidualSemanticScaleGate.")
 
 
+    class LesioNeXtBaseClassifier:  # type: ignore[override]
+        """Placeholder base implementation for the LesioNeXt single-model family."""
+
+        def __init__(self, *args, **kwargs) -> None:
+            """Raise a dependency error on construction."""
+            raise RuntimeError("Torch is required to construct LesioNeXt.")
+
+
+    class LesioNeXtClassifier(LesioNeXtBaseClassifier):  # type: ignore[override]
+        """Preferred placeholder alias for the LesioNeXt single-model family."""
+
+
+    class DARAClassifier(LesioNeXtClassifier):  # type: ignore[override]
+        """Placeholder DARA classifier used when torch is unavailable."""
+
+        def __init__(self, *args, **kwargs) -> None:
+            """Raise a dependency error on construction."""
+            raise RuntimeError("Torch is required to construct DARAClassifier.")
+
+
+    class AERISClassifier(DARAClassifier):  # type: ignore[override]
+        """Placeholder AERIS classifier used when torch is unavailable."""
+
+
+    class QDHEClassifier(LesioNeXtClassifier):  # type: ignore[override]
+        """Placeholder QDHE classifier used when torch is unavailable."""
+
+        def __init__(self, *args, **kwargs) -> None:
+            """Raise a dependency error on construction."""
+            raise RuntimeError("Torch is required to construct QDHEClassifier.")
+
+
+    class LesionScaleMoEConvNeXtClassifier:  # type: ignore[override]
+        """Placeholder lesion-scale MoE used when torch is unavailable."""
+
+        def __init__(self, *args, **kwargs) -> None:
+            """Raise a dependency error on construction."""
+            raise RuntimeError("Torch is required to construct LesionScaleMoEConvNeXtClassifier.")
+
+
+    class LesionScaleMoEV2ConvNeXtClassifier:  # type: ignore[override]
+        """Placeholder lesion-scale MoE v2 used when torch is unavailable."""
+
+        def __init__(self, *args, **kwargs) -> None:
+            """Raise a dependency error on construction."""
+            raise RuntimeError("Torch is required to construct LesionScaleMoEV2ConvNeXtClassifier.")
+
+
+    class LesionScaleMoEV3ConvNeXtClassifier:  # type: ignore[override]
+        """Placeholder lesion-scale MoE v3 used when torch is unavailable."""
+
+        def __init__(self, *args, **kwargs) -> None:
+            """Raise a dependency error on construction."""
+            raise RuntimeError("Torch is required to construct LesionScaleMoEV3ConvNeXtClassifier.")
+
+
     class DualViewConvNeXtClassifier:  # type: ignore[override]
         """Placeholder dual-view ConvNeXt used when torch is unavailable."""
 
@@ -848,6 +2130,404 @@ def create_classifier(
     normalized_name = model_name.lower()
     if normalized_name in {"basic_cnn", "tiny_cnn"}:
         return TinyCNNClassifier(in_chans=in_chans, num_classes=num_classes)
+    if normalized_name in {
+        "lesionext_attnres_tiny",
+        "lesionext_v4_4_attnres_tiny",
+        "lesionext_block_attnres_tiny",
+    }:
+        model_kwargs = dict(model_kwargs)
+        attnres_defaults = {
+            "backbone_name": "convnext_tiny",
+            "attnres_stages": [3, 4],
+            "attnres_block_size": 2,
+            "attnres_inject_every": 1,
+            "attnres_temperature": 1.0,
+            "attnres_gate_init": 0.0,
+            "attnres_query_mode": "pseudo",
+            "attnres_fusion_mode": "add",
+            "attnres_history_mode": "delta",
+            "head_dropout": 0.2,
+        }
+        attnres_defaults.update(model_kwargs)
+        backbone_name = str(attnres_defaults.pop("backbone_name"))
+        return DepthwiseBlockAttnResConvNeXtClassifier(
+            backbone_name=backbone_name,
+            pretrained=pretrained,
+            in_chans=in_chans,
+            num_classes=num_classes,
+            **attnres_defaults,
+        )
+    if normalized_name in {
+        "lesionext_lens_tiny",
+        "lesionext_lesion_evidence_tiny",
+    }:
+        model_kwargs = dict(model_kwargs)
+        backbone_name = str(model_kwargs.pop("backbone_name", "convnext_tiny"))
+        return LesionEvidenceConvNeXtClassifier(
+            backbone_name=backbone_name,
+            pretrained=pretrained,
+            in_chans=in_chans,
+            num_classes=num_classes,
+            **model_kwargs,
+        )
+    full_dara_aliases = {
+        "dara_full_tiny",
+        "dara_dh_moe_tiny",
+        "dara_full_densenet121",
+        "dara_dh_moe_densenet121",
+    }
+    aeris_full_aliases = {
+        "aeris",
+        "aeris_t",
+        "aeris_full",
+        "aeris_full_t",
+        "aeris_cls",
+        "aeris_cls_t",
+        "aeris_densenet121",
+    }
+    legacy_qdhe_aliases = {"qdhe_tiny", "qdhe_moe_tiny", "qdhe", "qdhe_densenet121"}
+    if normalized_name in aeris_full_aliases | full_dara_aliases | legacy_qdhe_aliases:
+        model_kwargs = dict(model_kwargs)
+        is_densenet_variant = normalized_name in {
+            "qdhe_densenet121",
+            "dara_full_densenet121",
+            "dara_dh_moe_densenet121",
+            "aeris_densenet121",
+        }
+        full_dara_defaults = {
+            "stage_proj_dims": [96, 128, 160] if is_densenet_variant else [192, 256, 320],
+            "stage_fusion_weights": [0.8, 1.0, 1.0],
+            "head_hidden_dim": 192 if is_densenet_variant else 320,
+            "head_dropout": 0.2,
+            "active_stage_indices": [2, 3, 4],
+            "use_stage4_attention": False,
+            "use_projection_grn": True,
+            "use_projection_eca": True,
+            "use_stage_local_mixer": not is_densenet_variant,
+            "stage_local_mixer_stages": [2, 3],
+            "use_scale_gate": False,
+            "use_stage_attn_res": True,
+            "use_delta_history": True,
+            "delta_history_mode": "monitor",
+            "delta_history_dim": 128,
+            "delta_history_temperature": 0.8,
+            "delta_history_strength": 0.5,
+            "shared_expert_hidden_dim": 256,
+            "routed_expert_hidden_dim": 128,
+            "routed_expert_count": 4,
+            "routed_expert_top_k": 2,
+            "routed_expert_router_hidden_dim": 128,
+            "routed_expert_temperature": 1.0,
+            "routed_expert_scale": 0.5,
+            "reliability_threshold": 0.15,
+            "reliability_temperature": 0.1,
+            "use_reliability_gate": True,
+        }
+        full_dara_defaults.update(model_kwargs)
+        backbone_name = str(
+            full_dara_defaults.pop(
+                "backbone_name",
+                "densenet121" if is_densenet_variant else "convnext_tiny",
+            )
+        )
+        if normalized_name in legacy_qdhe_aliases:
+            classifier_type = QDHEClassifier
+        elif normalized_name in aeris_full_aliases:
+            classifier_type = AERISClassifier
+        else:
+            classifier_type = DARAClassifier
+        return classifier_type(
+            backbone_name=backbone_name,
+            pretrained=pretrained,
+            in_chans=in_chans,
+            num_classes=num_classes,
+            **full_dara_defaults,
+        )
+    if normalized_name in {"aeris_base", "aeris_base_t"}:
+        model_kwargs = dict(model_kwargs)
+        base_defaults = {
+            "stage_proj_dims": [192, 256, 320],
+            "stage_fusion_weights": [0.8, 1.0, 1.0],
+            "head_hidden_dim": 320,
+            "head_dropout": 0.2,
+            "active_stage_indices": [2, 3, 4],
+            "use_stage4_attention": False,
+            "use_projection_grn": True,
+            "use_projection_eca": True,
+            "use_stage_local_mixer": True,
+            "stage_local_mixer_stages": [2, 3],
+            "use_scale_gate": False,
+            "use_stage_attn_res": True,
+            "use_delta_history": False,
+            "use_shared_routed_experts": False,
+            "use_reliability_gate": False,
+        }
+        base_defaults.update(model_kwargs)
+        backbone_name = str(base_defaults.pop("backbone_name", "convnext_tiny"))
+        return AERISClassifier(
+            backbone_name=backbone_name,
+            pretrained=pretrained,
+            in_chans=in_chans,
+            num_classes=num_classes,
+            **base_defaults,
+        )
+    if normalized_name in {"dara_tiny", "dara_moe_tiny", "dara_stage_moe_tiny", "dara"}:
+        model_kwargs = dict(model_kwargs)
+        dara_defaults = {
+            "stage_proj_dims": [192, 256, 320],
+            "stage_fusion_weights": [0.8, 1.0, 1.0],
+            "head_hidden_dim": 320,
+            "head_dropout": 0.2,
+            "active_stage_indices": [2, 3, 4],
+            "use_stage4_attention": False,
+            "use_projection_grn": True,
+            "use_projection_eca": True,
+            "use_stage_local_mixer": True,
+            "stage_local_mixer_stages": [2, 3],
+            "use_scale_gate": False,
+            "use_stage_attn_res": True,
+            "stage_attn_res_mode": "content",
+            "stage_attn_res_attention_dim": 128,
+            "stage_attn_res_temperature": 1.0,
+            "stage_attn_res_strength": 0.75,
+            "use_shared_routed_experts": normalized_name != "dara_tiny",
+            "shared_expert_hidden_dim": 256,
+            "routed_expert_hidden_dim": 128,
+            "routed_expert_count": 4,
+            "routed_expert_top_k": 2,
+            "routed_expert_router_hidden_dim": 128,
+            "routed_expert_temperature": 1.0,
+            "routed_expert_scale": 0.5,
+        }
+        dara_defaults.update(model_kwargs)
+        backbone_name = str(dara_defaults.pop("backbone_name", "convnext_tiny"))
+        return DARAClassifier(
+            backbone_name=backbone_name,
+            pretrained=pretrained,
+            in_chans=in_chans,
+            num_classes=num_classes,
+            **dara_defaults,
+        )
+    if normalized_name in {
+        "lesionext_moe",
+        "lesionext_moe_tiny",
+        "lesionext_moe_v1_tiny",
+    }:
+        model_kwargs = dict(model_kwargs)
+        moe_defaults = {
+            "stage_proj_dims": [192, 256, 320],
+            "stage_fusion_weights": [0.8, 1.0, 1.0],
+            "attn_heads": 4,
+            "attn_mlp_ratio": 2.0,
+            "head_hidden_dim": 256,
+            "attn_dropout": 0.1,
+            "head_dropout": 0.2,
+            "active_stage_indices": [2, 3, 4],
+            "use_stage4_attention": False,
+            "use_projection_grn": True,
+            "use_projection_eca": True,
+            "use_scale_gate": False,
+            "descriptor_dim": 14,
+            "expert_hidden_dim": 256,
+            "router_hidden_dim": 160,
+            "router_temperature": 1.0,
+        }
+        moe_defaults.update(model_kwargs)
+        backbone_name = str(moe_defaults.pop("backbone_name", "convnext_tiny"))
+        return LesionScaleMoEConvNeXtClassifier(
+            backbone_name=backbone_name,
+            pretrained=pretrained,
+            in_chans=in_chans,
+            num_classes=num_classes,
+            **moe_defaults,
+        )
+    if normalized_name in {
+        "lesionext_moe_v2_tiny",
+    }:
+        model_kwargs = dict(model_kwargs)
+        moe_defaults = {
+            "stage_proj_dims": [192, 256, 320],
+            "stage_fusion_weights": [0.8, 1.0, 1.0],
+            "attn_heads": 4,
+            "attn_mlp_ratio": 2.0,
+            "head_hidden_dim": 256,
+            "attn_dropout": 0.1,
+            "head_dropout": 0.2,
+            "active_stage_indices": [2, 3, 4],
+            "use_stage4_attention": False,
+            "use_projection_grn": True,
+            "use_projection_eca": True,
+            "use_scale_gate": False,
+            "descriptor_dim": 14,
+            "expert_hidden_dim": 256,
+            "router_hidden_dim": 160,
+            "router_temperature": 1.0,
+            "area_prior_strength": 0.75,
+            "area_prior_sigma": 0.22,
+            "small_spatial_hidden_dim": 96,
+            "residual_alpha": 0.15,
+        }
+        moe_defaults.update(model_kwargs)
+        backbone_name = str(moe_defaults.pop("backbone_name", "convnext_tiny"))
+        return LesionScaleMoEV2ConvNeXtClassifier(
+            backbone_name=backbone_name,
+            pretrained=pretrained,
+            in_chans=in_chans,
+            num_classes=num_classes,
+            **moe_defaults,
+        )
+    if normalized_name in {
+        "lesionext_moe_v3_tiny",
+        "sonoglore_lesion_moe_v3_convnext_tiny",
+    }:
+        model_kwargs = dict(model_kwargs)
+        moe_defaults = {
+            "stage_proj_dims": [192, 256, 320],
+            "stage_fusion_weights": [0.8, 1.0, 1.0],
+            "attn_heads": 4,
+            "attn_mlp_ratio": 2.0,
+            "head_hidden_dim": 256,
+            "attn_dropout": 0.1,
+            "head_dropout": 0.2,
+            "active_stage_indices": [2, 3, 4],
+            "use_stage4_attention": False,
+            "use_projection_grn": True,
+            "use_projection_eca": True,
+            "use_scale_gate": False,
+            "descriptor_dim": 14,
+            "expert_hidden_dim": 256,
+            "router_hidden_dim": 160,
+            "router_temperature": 1.5,
+            "area_prior_strength": 0.3,
+            "area_prior_sigma": 0.22,
+            "small_spatial_hidden_dim": 96,
+            "residual_alpha": 0.15,
+            "max_valid_area_ratio": 0.75,
+            "expert_weight_floor": 0.05,
+        }
+        moe_defaults.update(model_kwargs)
+        backbone_name = str(moe_defaults.pop("backbone_name", "convnext_tiny"))
+        return LesionScaleMoEV3ConvNeXtClassifier(
+            backbone_name=backbone_name,
+            pretrained=pretrained,
+            in_chans=in_chans,
+            num_classes=num_classes,
+            **moe_defaults,
+        )
+    if normalized_name in {
+        "lesionext_moe_v4_tiny",
+        "lesionext_v4_tiny",
+    }:
+        model_kwargs = dict(model_kwargs)
+        moe_defaults = {
+            "stage_proj_dims": [192, 256, 320],
+            "stage_fusion_weights": [0.8, 1.0, 1.0],
+            "attn_heads": 4,
+            "attn_mlp_ratio": 2.0,
+            "head_hidden_dim": 256,
+            "attn_dropout": 0.1,
+            "head_dropout": 0.2,
+            "active_stage_indices": [2, 3, 4],
+            "use_stage4_attention": False,
+            "use_projection_grn": True,
+            "use_projection_eca": True,
+            "use_scale_gate": False,
+            "descriptor_dim": 14,
+            "expert_hidden_dim": 256,
+            "router_hidden_dim": 160,
+            "router_temperature": 1.5,
+            "area_prior_strength": 0.3,
+            "area_prior_sigma": 0.22,
+            "small_spatial_hidden_dim": 96,
+            "residual_alpha": 0.15,
+            "max_valid_area_ratio": 0.75,
+            "expert_weight_floor": 0.05,
+            "use_domain_invariant_norm": True,
+            "domain_norm_stages": [2, 3, 4],
+        }
+        moe_defaults.update(model_kwargs)
+        backbone_name = str(moe_defaults.pop("backbone_name", "convnext_tiny"))
+        return LesionScaleMoEV3ConvNeXtClassifier(
+            backbone_name=backbone_name,
+            pretrained=pretrained,
+            in_chans=in_chans,
+            num_classes=num_classes,
+            **moe_defaults,
+        )
+    if normalized_name == "lesionext_moe_v3_1_tiny":
+        model_kwargs = dict(model_kwargs)
+        moe_defaults = {
+            "stage_proj_dims": [192, 256, 320],
+            "stage_fusion_weights": [0.8, 1.0, 1.0],
+            "attn_heads": 4,
+            "attn_mlp_ratio": 2.0,
+            "head_hidden_dim": 256,
+            "attn_dropout": 0.1,
+            "head_dropout": 0.2,
+            "active_stage_indices": [2, 3, 4],
+            "use_stage4_attention": False,
+            "use_projection_grn": True,
+            "use_projection_eca": True,
+            "use_scale_gate": False,
+            "descriptor_dim": 14,
+            "expert_hidden_dim": 256,
+            "router_hidden_dim": 160,
+            "router_temperature": 1.2,
+            "area_prior_strength": 0.35,
+            "area_prior_sigma": 0.22,
+            "small_spatial_hidden_dim": 96,
+            "residual_alpha": 0.15,
+            "max_valid_area_ratio": 0.75,
+            "expert_weight_floor": 0.03,
+        }
+        moe_defaults.update(model_kwargs)
+        backbone_name = str(moe_defaults.pop("backbone_name", "convnext_tiny"))
+        return LesionScaleMoEV3ConvNeXtClassifier(
+            backbone_name=backbone_name,
+            pretrained=pretrained,
+            in_chans=in_chans,
+            num_classes=num_classes,
+            **moe_defaults,
+        )
+    if normalized_name in {
+        "lesionext_tiny",
+        "lesionext_small",
+        "lesionext",
+        "lesionext_v1",
+    }:
+        model_kwargs = dict(model_kwargs)
+        if normalized_name in {
+            "lesionext",
+            "lesionext_v1",
+        }:
+            default_backbone = "convnext_tiny"
+            v1_defaults = {
+                "proj_dim": 256,
+                "stage_proj_dims": [192, 256, 320],
+                "stage_fusion_weights": [0.8, 1.0, 1.0],
+                "attn_heads": 4,
+                "attn_mlp_ratio": 2.0,
+                "head_hidden_dim": 256,
+                "attn_dropout": 0.1,
+                "head_dropout": 0.2,
+                "active_stage_indices": [2, 3, 4],
+                "use_stage4_attention": False,
+                "use_projection_grn": True,
+                "use_projection_eca": True,
+                "use_scale_gate": False,
+            }
+            v1_defaults.update(model_kwargs)
+            model_kwargs = v1_defaults
+        else:
+            default_backbone = "convnext_tiny" if normalized_name.endswith("tiny") else "convnext_small"
+        backbone_name = str(model_kwargs.pop("backbone_name", default_backbone))
+        return LesioNeXtClassifier(
+            backbone_name=backbone_name,
+            pretrained=pretrained,
+            in_chans=in_chans,
+            num_classes=num_classes,
+            **model_kwargs,
+        )
     if normalized_name in {"roi_dualview_convnext_tiny", "dualview_convnext_tiny"}:
         backbone_name = str(model_kwargs.pop("backbone_name", "convnext_tiny"))
         return DualViewConvNeXtClassifier(
@@ -948,6 +2628,3 @@ def resolve_gradcam_target_layer(model) -> Any | None:
             except TypeError:
                 return layer
     return None
-
-
-

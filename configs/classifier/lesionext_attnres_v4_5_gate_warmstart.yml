@@ -1,0 +1,47 @@
+paths_config: configs/paths.local.yml
+task_type: classification
+seed: 42
+device: auto
+experiment:
+  family: LesioNeXt-AttnRes
+  version: v4.5
+  objective: single-factor residual gate warm-start for Block Attention Residual adapters
+  baseline_config: configs/classifier/lesionext_attnres_v4_4.yml
+model:
+  name: lesionext_attnres_tiny
+  pretrained: true
+  in_chans: 3
+  num_classes: 2
+  backbone_name: convnext_tiny
+  attnres_stages: [3, 4]
+  attnres_block_size: 2
+  attnres_temperature: 1.0
+  attnres_gate_init: 0.05
+  head_dropout: 0.2
+data:
+  input_mode: single_image
+  image_size: 224
+  batch_size: 8
+  num_workers: 0
+  preprocess:
+    clahe: true
+    use_timm_data_config: true
+  augmentation:
+    horizontal_flip: true
+    flip_probability: 0.5
+training:
+  epochs: 30
+  learning_rate: 0.00005
+  weight_decay: 0.05
+  class_weights: balanced
+  checkpoint_strategy: best_auc
+  scheduler:
+    name: warmup_cosine
+    warmup_epochs: 3
+    min_lr: 0.000001
+  fold_count: 5
+  split_path: ./artifacts/reports/busbra_5fold_splits.csv
+  positive_class: malignant
+output:
+  checkpoint_name: lesionext_attnres_v4_5_fold{fold}.pt
+  report_name: train_cls_lesionext_attnres_v4_5_fold{fold}.json

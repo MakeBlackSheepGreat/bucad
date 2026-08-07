@@ -17,6 +17,73 @@ BUCAD（Breast Ultrasound Computer-Aided Diagnosis）是一个面向乳腺超声
 
 该边界对本项目较为关键。乳腺超声图像存在设备、采集角度、病灶大小、背景组织和标注风格差异，仅依赖内部 OOF 提升容易高估泛化能力。因此 README 中区分三类结果：已部署主线、冻结外部验证通过但未合入的候选、内部提升但 BUSI 迁移不足的失败实验。
 
+## 最新 LesioNeXt 性能与创新
+
+LesioNeXt-LENS v1a 已冻结为当前论文主模型。训练期以 BUSBRA BBOX 进行 lesion evidence alignment，部署期只加载一个 ConvNeXt-Tiny 衍生分类器，分类输出只使用全局池化特征。五折训练配置为 [`configs/classifier/lesionext_lens_v1a_evidence_only.yml`](configs/classifier/lesionext_lens_v1a_evidence_only.yml)，锁定外部推理配置为 [`configs/inference/lesionext_lens_v1a_5fold_identity.yml`](configs/inference/lesionext_lens_v1a_5fold_identity.yml)。
+
+最新的严格单因素消融比较 LENS v1a 的训练期 BBOX evidence alignment 与无对齐对照。两者的 backbone、evidence head、部署 alpha、数据划分、增强、随机种子和训练规则一致，仅将 alignment weight 从 `0.25` 设为 `0.00`。无对齐对照在 BUSBRA fold1 取得 AUC `0.9358`、Sensitivity `0.7705`、F1 `0.7966`，高于 v1a 的 `0.9298`、`0.7295`、`0.7911`；v1a 的 Accuracy `0.8747`、Specificity `0.9447` 较高。v1a 将 BBOX evidence mass 提升至 `0.9873`，无对齐为 `0.2987`，证明弱定位监督生效。该单折对照尚未支持“evidence alignment 已带来稳定分类增益”的论文表述；五折阶段会保留这组消融，外部集仍冻结。详见 [`中文报告`](artifacts/reports/lesionext_lens_v1a_no_alignment_control_fold1_zh.md) 与 [`English report`](artifacts/reports/lesionext_lens_v1a_no_alignment_control_fold1_en.md)。
+
+v1a 的预注册五折训练已完成，pooled BUSBRA OOF 为 AUC `0.9150`、Accuracy `0.8709`、Sensitivity `0.7694`、Specificity `0.9196`、Precision `0.8207`、F1 `0.7942`。相对 ConvNeXt-Tiny identity OOF，AUC/Accuracy/Specificity/Precision/F1 分别提高 `0.0144`、`0.0208`、`0.0332`、`0.0552`、`0.0243`，Sensitivity 低 `0.0049`。预注册的 Sensitivity 门槛为 `0.7743`，因此当前结果不能支撑“全面超过 ConvNeXt-Tiny”的论文结论，四个外部数据集继续冻结。完整中英文报告见 [`中文`](artifacts/reports/lesionext_lens_v1a_5fold_oof_zh.md) 与 [`English`](artifacts/reports/lesionext_lens_v1a_5fold_oof_en.md)。
+
+本轮还修复了 OOF 评估器的 checkpoint 路径解析，并加入缺失 checkpoint 直接报错的保护。修复后已重跑上述 OOF，避免未加载权重的随机模型进入汇总指标。
+
+五折 v1a 在 BUSI / BUS-UCLM / BUSI-WHU / TCIA BrEaST 的 AUC 分别为 `0.9089` / `0.8847` / `0.8171` / `0.8617`。论文需同时保留内部 Sensitivity 差 `-0.0049` 与无对齐消融的限制。详见 [`中文外部报告`](artifacts/reports/lesionext_lens_v1a_v3_external_review_zh.md) 与 [`English external report`](artifacts/reports/lesionext_lens_v1a_v3_external_review_en.md)。
+
+全模型全数据集的完整指标表已经生成，覆盖 BUSBRA pooled OOF、BUSI、BUS-UCLM、BUSI-WHU、TCIA BrEaST，并列出 AUC、Accuracy、Sensitivity、Specificity、Precision、F1 与外部 AUC 95% CI。表中保留 LesioNeXt-MoE V3 作为历史比较行，当前论文方法为 LesioNeXt-LENS v1a。详见 [`中文全表`](artifacts/reports/fixed_classification_benchmark/all_model_comparison_v1a_zh.md)、[`English full table`](artifacts/reports/fixed_classification_benchmark/all_model_comparison_v1a_en.md) 和 [`CSV`](artifacts/reports/fixed_classification_benchmark/all_model_comparison_v1a.csv)。
+
+`LENS v1b Sensitivity Rank` 已完成 BUSBRA fold1 单因素筛选：保持 v1a 架构、BBOX alignment、数据划分、增强和部署路径不变，仅加入 `pairwise_auc_weight: 0.02` 与 `pairwise_auc_margin: 0.05`。v1b 取得 AUC `0.9262`、Accuracy `0.8587`、Sensitivity `0.7213`、Specificity `0.9249`、Precision `0.8224`、F1 `0.7686`，低于 v1a 的对应结果，因此停止 v1b，不执行五折。外部队列未读取。
+
+未通过晋级协议或已被 v1a 替代的 LesioNeXt 实验已归档到 [`artifacts/reports/lesionext_archive/README.md`](artifacts/reports/lesionext_archive/README.md)，包含 checkpoint、配置与报告副本及清单。原始文件保留在工作路径，便于复核。
+
+### 已归档：LesioNeXt-LENS v1
+
+| 数据集 | LENS AUC | ConvNeXt-Tiny 对照 AUC | 差值 | 状态 |
+| --- | ---: | ---: | ---: | --- |
+| BUSBRA fold1 | **0.9267** | 0.9141 | +0.0126 | 内部筛选通过 AUC 门槛 |
+| BUSI fold1 | **0.9091** | 0.8531 | +0.0560 | 单折锁定复核 |
+| BUS-UCLM fold1 | **0.8625** | 0.8492 | +0.0133 | 单折锁定复核 |
+| BUSI-WHU fold1 | **0.7671** | 0.7294 | +0.0377 | 单折锁定复核 |
+| TCIA BrEaST fold1 | **0.8390** | 0.7830 | +0.0560 | 单折锁定复核 |
+| BUSBRA 5-fold OOF | 0.8907 | **0.9006** | -0.0099 | 内部五折未超过对照 |
+| BUSI 5-fold external | **0.9098** | 0.8991 | +0.0107 | LENS AUC 更高 |
+| BUS-UCLM 5-fold external | 0.8939 | **0.8946** | -0.0007 | 基本持平 |
+| BUSI-WHU 5-fold external | **0.8050** | 0.7966 | +0.0084 | LENS AUC 更高 |
+| TCIA BrEaST 5-fold external | **0.8495** | 0.8382 | +0.0113 | LENS AUC 更高 |
+
+LENS 的主创新是 **lesion evidence alignment**：训练期用 BUSBRA BBOX 约束病灶证据图，分类头执行病灶证据加权池化；推理期只加载一个 ConvNeXt-Tiny 衍生模型，不读取 BBOX，不加载教师、分割器或融合器。五折外部复核显示 LENS 在 4 个数据集中的 3 个 AUC 更高，且在 4 个数据集上均提升 Sensitivity；Accuracy 与 Specificity 存在稳定回退，四组 AUC 95% CI 均有重叠。该结果支持保留为跨域高敏感性探索候选，论文主表仍以固定七模型协议为准。详细记录见 [`artifacts/reports/lesionext_lens_v1_5fold_external_comparison_zh.md`](artifacts/reports/lesionext_lens_v1_5fold_external_comparison_zh.md)，配置见 [`configs/classifier/lesionext_lens_v1.yml`](configs/classifier/lesionext_lens_v1.yml)。
+
+LENS v2 只将全局共享的 `evidence_alpha` 改为由证据集中度和局部/全局嵌入一致性决定的逐图 Evidence-Confidence Gate，新增参数仅 1 个。fold1 AUC 达到 `0.9238`，超过新设 AUC 门槛 `0.9191`；Accuracy `0.8133`、Sensitivity `0.5082` 未达到放行标准，Specificity 升至 `0.9605`。诊断显示 alpha 从 v1 的 `0.0206` 增至 `0.1961 ± 0.0134`，gate 已实际参与决策；该版本形成过度保守的高特异性偏置，停止五折与外部推理。详见 [`artifacts/reports/lesionext_lens_v2_confidence_fold1_screening_zh.md`](artifacts/reports/lesionext_lens_v2_confidence_fold1_screening_zh.md)。
+
+| 版本 | BUSBRA fold1 AUC | Accuracy | BUSI AUC | BUSI-WHU AUC | 状态 |
+| --- | ---: | ---: | ---: | ---: | --- |
+| LesioNeXt-MoE V3 | 0.9057* | — | — | — | 稳定旧版对照 |
+| LesioNeXt-LENS v2 Confidence Gate | 0.9238 | 0.8133 | 未执行 | 未执行 | gate 已学习，Accuracy/Sensitivity 未通过放行门槛 |
+| LesioNeXt-MoE V4.3 | 0.9117 | 0.8533 | 0.8786 | 0.7418 | 历史教师约束候选，暂不进入主表 |
+| LesioNeXt-AttnRes V4.4 | 0.9112 | 0.8427 | 未执行 | 未执行 | 与同协议 ConvNeXt-Tiny 对照相比未通过，停止外部筛选 |
+| LesioNeXt-AttnRes V4.5 | 0.9039 | 0.8107 | 未执行 | 未执行 | gate warm-start 未改善 AUC，不执行外部筛选 |
+| LesioNeXt-AttnRes V4.6 | 0.9056 | 0.8373 | 未执行 | 未执行 | state history + content query 形成选择性注意力，仍未超过匹配 ConvNeXt-Tiny |
+
+`*` V3 对照为当前固定种子、8 epoch 的筛选运行；历史五折 OOF 结果为 `0.9030`。
+
+### V4.3 的创新说明
+
+- **可靠教师蒸馏**：冻结 EfficientNetV2-S 与 Swin-Tiny，仅在两位教师同时高置信且预测一致的训练样本上施加 KL 软目标约束。
+- **单模型部署**：教师模型不进入推理图，不生成 EfficientNet/Swin 后验融合概率，部署仍只有一个 LesioNeXt 学生模型。
+- **跨域训练约束**：教师覆盖率按 epoch 记录，训练协议保持 BUSBRA 训练、外部集锁定复核的边界。
+- **实验纪律修正**：V4.3 修复了初版教师损失被 `torch.no_grad()` 包裹的问题，保证教师前向冻结且蒸馏损失能够回传到学生。
+
+V4.3 在 BUSI 与 BUSI-WHU 上未显示稳定外部优势，因此未扩展五折。完整消融记录见 [`artifacts/reports/lesionext_teacher_ablation_zh.md`](artifacts/reports/lesionext_teacher_ablation_zh.md)，训练配置见 [`configs/classifier/lesionext_moe_v4_3.yml`](configs/classifier/lesionext_moe_v4_3.yml)。
+
+### V4.4 Block Attention Residual 筛选
+
+V4.4 将 LesioNeXt 收缩为单一 ConvNeXt-Tiny 分类干线，移除 ROI MoE、专家路由、stage gate、delta-history、频域 gate 和教师约束。新模块在 ConvNeXt 第 3/4 stage 的内部 residual block 中加入基于 RMSNorm、零初始 pseudo-query 与 softmax 深度注意力的 Block Attention Residual Adapter。
+
+在完全一致的 BUSBRA fold1、种子、输入、增强、优化器、训练 30 epoch 和 best-AUC checkpoint 协议下，V4.4 AUC 为 `0.9112`，低于 ConvNeXt-Tiny 对照的 `0.9141`；Accuracy 为 `0.8427`，低于对照的 `0.8587`。诊断显示 residual gate 仍维持在 `-0.0019` 至 `0.0019` 的很小范围，深度注意力接近均匀分布，模块在本次筛选中没有形成有效的历史选择。按固定协议不执行 BUSI/BUSI-WHU 外部测试，不进入论文主表。详见 [`artifacts/reports/lesionext_attnres_v4_4_screening_zh.md`](artifacts/reports/lesionext_attnres_v4_4_screening_zh.md) 和 [`configs/classifier/lesionext_attnres_v4_4.yml`](configs/classifier/lesionext_attnres_v4_4.yml)。
+
+V4.5 仅将 gate 初始值调整为 `0.05`，让深度注意力在训练初期获得梯度。BUSBRA fold1 AUC 为 `0.9039`，仍低于 V4.4 与 ConvNeXt-Tiny 对照，说明 gate 开启后注意力仍没有形成有效的深度历史选择。不执行外部测试和五折训练，完整记录见 [`artifacts/reports/lesionext_attnres_v4_5_gate_warmstart_zh.md`](artifacts/reports/lesionext_attnres_v4_5_gate_warmstart_zh.md)。
+
+V4.6 将注入范围收缩至 stage 4，每两个 block 注入一次；历史改为同尺度的 block state，并由当前 block 内容生成 query，以插值方式融合历史上下文。gate 稳定在约 `0.05`，注意力在两个注入点分别偏向近期历史（`[0.2354, 0.7646]` 与 `[0.1235, 0.3469, 0.5296]`），说明机制已实际工作。BUSBRA fold1 AUC 为 `0.9056`、Accuracy 为 `0.8373`，仍低于同协议 ConvNeXt-Tiny 的 `0.9141` / `0.8587`，不执行外部测试和五折训练。完整记录见 [`artifacts/reports/lesionext_attnres_v4_6_state_content_zh.md`](artifacts/reports/lesionext_attnres_v4_6_state_content_zh.md)。
+
 ## 当前主线配置
 
 当前可复现推理配置位于 `configs/inference/demo.yml`。
@@ -61,7 +128,7 @@ BUCAD（Breast Ultrasound Computer-Aided Diagnosis）是一个面向乳腺超声
 
 混淆矩阵：TN 370 / FP 67 / FN 28 / TP 182。
 
-该结果来自 `artifacts/reports/busi_demo_current_external.json`。报告内 threshold analysis 的 Youden J 最优点同为 `0.51`，README 以当前 `demo.yml` 的默认阈值为准。
+该结果对应冻结的 `configs/inference/demo.yml` 主线配置；默认阈值为 `0.51`。内部评估原始记录已移出项目目录并保持本地归档。
 
 ## 系统运行流程
 
@@ -169,7 +236,7 @@ CLAHE 的作用不是简单提高亮度，而是限制局部直方图均衡的�
 
 timm-aware 预处理是 ConvNeXt 系列模型有效迁移预训练权重的前提条件。在项目系统测试过的早期非 timm-aware 配方下，ConvNeXt-Tiny 在 BUSI 上 AUC 仅为 0.5996（Sensitivity=0，近似随机）。引入 timm-aware 配方后 AUC 提升至 0.8943（+0.2947）。Swin-Tiny 同样受益，非 timm 配方 AUC 0.8242，timm 配方提升至 0.8729（+0.0487）。
 
-详细消融数据见 `artifacts/reports/Chinese reports/01_baseline_model_screening/native_single_model_retest.md`。
+原始消融记录已本地归档，不随项目仓库分发。
 
 ## 优化技术与消融实验
 
@@ -209,7 +276,7 @@ timm-aware 预处理是 ConvNeXt 系列模型有效迁移预训练权重的前�
 
 从外部验证看，EfficientNetV2-S 的五折收益最大（+0.0388），说明该模型单折波动较强；ConvNeXt-Tiny 的单折已经较稳，但五折仍带来 +0.0111 AUC。该结果支持主线使用“五折模型族内平均”作为基础，而不是只选择某一个表现较好的 fold。
 
-详细数据见 `artifacts/reports/Chinese reports/01_baseline_model_screening/fivefold_single_model_comparison.md`。
+原始五折对比记录已本地归档，不随项目仓库分发。
 
 ### 2. Crop-Sweep 测试时增强
 
@@ -233,7 +300,7 @@ crop-sweep 在 AUC（+0.0063）、Sensitivity（+0.0333）和 F1（+0.0262）上
 
 旋转 ±5° 在部分阈值点提高 Specificity，但没有超过 crop-sweep 的综合收益。考虑到超声探头角度和病灶方向本身具有临床意义，过强旋转也可能改变局部纹理和形态表达，因此默认主线采用 crop-sweep，而不使用旋转 TTA。
 
-详细数据见 `artifacts/reports/Chinese reports/04_tta_threshold_external_eval/convnext_tta_optimization.md`。
+原始 TTA 筛选记录已本地归档，不随项目仓库分发。
 
 ### 3. ROI 分割引导
 
@@ -269,7 +336,7 @@ ROI 引导在 AUC 上带来 +0.0057 的稳定提升。最大连通域（LCC）�
 
 该结果说明，ROI 的收益来自可部署的预测 mask，而不是借助人工标注 mask 的信息泄漏。Oracle ROI 没有显著高于预测 ROI，也提示当前分类性能瓶颈不完全由分割重叠度决定，而与 ROI 裁剪尺度、分类器视角和概率校准共同相关。
 
-详细数据见 `artifacts/reports/Chinese reports/02_roi_segmentation/roi_oof_experiment.md`、`artifacts/reports/Chinese reports/02_roi_segmentation/roi_oof_lcc_optimization.md` 和 `artifacts/reports/Chinese reports/08_segmenter_recalibrated_roi/segmenter_recalibrated_roi_all_methods_summary.md`。
+原始 ROI 筛选记录已本地归档，不随项目仓库分发。
 
 ### 4. ROI 面积质量门控
 
@@ -289,7 +356,7 @@ ROI 引导在 AUC 上带来 +0.0057 的稳定提升。最大连通域（LCC）�
 
 面积门控的关键收益在于识别异常 ROI 并回退到完整图分支。对于良恶性辅助诊断任务，这比单独移动阈值更有价值，因为门控改变的是分支选择和证据来源，而不是只改变判别点。
 
-详细数据见 `artifacts/reports/Chinese reports/02_roi_segmentation/roi_precision_f1_study.md`。
+原始面积门控分析记录已本地归档，不随项目仓库分发。
 
 ### 5. OOF Logistic Stacking
 
@@ -309,7 +376,7 @@ OOF stacking 在内部验证中提供了更规范的融合器训练口径，但�
 
 因此，stacking 在项目中的定位是“规范融合流程”和“支持 ROI/full 概率校准”，不是单独追求大幅 AUC 提升的模块。它与 ROI 面积门控结合后，才能形成完整的 ROI-aware 推理路径。
 
-详细数据见 `artifacts/reports/Chinese reports/03_ensemble_oof_stacking/oof_two_model_stacking.md`。
+原始 OOF 融合记录已本地归档，不随项目仓库分发。
 
 ### 6. 集成成员选择
 
@@ -346,7 +413,7 @@ OOF stacking 在内部验证中提供了更规范的融合器训练口径，但�
 
 这一选择体现了项目的合并原则：AUC 的微小提升不足以抵消恶性召回下降和部署复杂度增加。对于比赛 demo 和医学影像辅助诊断场景，模型结构需要在性能、稳定性和可解释的工程复杂度之间平衡。
 
-详细数据见 `artifacts/reports/Chinese reports/03_ensemble_oof_stacking/formal_best_ensemble_external_eval.md`。
+原始集成筛选记录已本地归档，不随项目仓库分发。
 
 ### 7. ConvNeXt-Small 升级评估
 
@@ -365,7 +432,7 @@ ConvNeXt-Small 是合理的升级候选，但还不是可以直接进入默认�
 
 内部 AUC 下降 0.0141 与外部 AUC 提升 0.0038 的矛盾表明 ConvNeXt-Small 在当前训练配置下泛化不稳定。Youden J 几乎相同（0.6671 vs 0.6665），未达到主线合并标准。
 
-详细数据见 `artifacts/reports/Chinese reports/01_baseline_model_screening/convnext_small_upgrade_experiment.md`。
+原始升级候选记录已本地归档，不随项目仓库分发。
 
 ### 8. 阈值选择与指标权衡
 
@@ -399,7 +466,7 @@ ConvNeXt-Small 是合理的升级候选，但还不是可以直接进入默认�
 | EfficientNet TTA          | AUC 0.9190       | 未进入 BUSI   | 内部增益过小且增加推理延迟                                               |
 | YOLO26x-cls 单折分类      | AUC 0.8216       | AUC 0.8189    | 作为旁路分类候选未超过既有 ConvNeXt/Swin/DenseNet 单折基线               |
 
-详细记录见 `artifacts/reports/Chinese reports/` 下各分类子目录中的对应协议文件。
+完整内部协议与失败候选记录均已本地归档，项目目录只保留可运行主线。
 
 这些失败实验的共同特征是：内部 OOF 或单折指标可以局部改善，但外部验证没有形成稳定收益。项目因此采用较严格的合并条件，避免把复杂但不可迁移的方案写入默认 demo。该策略也解释了为什么主线保持相对克制：在 BUSI 外部复核中，简单、稳定、可解释的 ROI area gate 比更复杂的后验融合更可靠。
 
@@ -458,13 +525,10 @@ BUCAD/
 ├── tests/                            # 单元/集成/smoke 测试
 └── artifacts/
     ├── checkpoints/                  # 模型权重（通过 Git LFS 或本地资产管理）
-    └── reports/                      # 实验报告与评估结果
-        ├── Chinese reports/          # 中文实验报告（按实验主题分类，190 份）
-        ├── English reports/          # 英文实验报告（按实验主题分类，140 份）
-        └── README.md                 # 报告目录分类说明
+    └── reports/                      # 本地运行时生成，默认不纳入版本控制
 ```
 
-`artifacts/reports/Chinese reports/` 和 `artifacts/reports/English reports/` 按实验主题分类保存报告，便于从模型筛选、ROI 分割、OOF 融合、TTA/阈值、错误分析、demo 发布等方向追溯证据。默认 README 只列出主线相关的关键报告；更细的失败实验和旁路候选保留在对应子目录中。
+内部实验、错误样本和竞赛材料已归档到项目外部的本地目录；仓库内保留冻结主线配置、推理代码、模型权重和可重复运行入口。
 
 `artifacts/checkpoints/` 中的 `.pt` 权重由 Git LFS 管理。首次 clone 后如果发现权重文件只有几 KB，通常说明尚未下载 LFS 实体，需要执行 `git lfs pull`。默认演示程序依赖 ConvNeXt-Tiny 五折、EfficientNetV2-S 五折和 `segmenter_fold1.pt` 分割器 checkpoint。
 
@@ -640,7 +704,7 @@ python scripts\eval_busi.py --config configs\inference\demo.yml --output artifac
 | `01_baseline_model_screening/yolo_cls_yolo26x-cls_fold1.md`                       | YOLO26x-cls fold1 旁路分类对比       |
 | `01_baseline_model_screening/six_model_comparison_report.md`                      | 六模型全面对比（BUSBRA + BUSI）      |
 
-完整报告目录见 `artifacts/reports/Chinese reports/`，分类说明见 `artifacts/reports/README.md`。
+内部报告已本地归档，默认不随仓库管理。
 
 ## 参考文献
 

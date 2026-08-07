@@ -1,0 +1,37 @@
+{
+  "archived_at": "2026-08-08T02:34:35",
+  "kept_mainline": [
+    "LesioNeXt-LENS v1a evidence-only five-fold checkpoints",
+    "configs/classifier/lesionext_lens_v1a_evidence_only.yml",
+    "configs/inference/lesionext_lens_v1a_5fold_identity.yml"
+  ],
+  "archived_checkpoint_count": 24,
+  "archived_config_count": 30,
+  "archived_report_count": 125,
+  "checkpoint_files": [
+    "lesionext_attnres_v4_4_fold1.pt",
+    "lesionext_attnres_v4_5_fold1.pt",
+    "lesionext_attnres_v4_6_fold1.pt",
+    "lesionext_fold1.pt",
+    "lesionext_lens_v1_fold1.pt",
+    "lesionext_lens_v1_fold2.pt",
+    "lesionext_lens_v1_fold3.pt",
+    "lesionext_lens_v1_fold4.pt",
+    "lesionext_lens_v1_fold5.pt",
+    "lesionext_lens_v1a_no_alignment_control_fold1.pt",
+    "lesionext_lens_v2_confidence_fold1.pt",
+    "lesionext_lens_v3_label_aware_fold1.pt",
+    "lesionext_moe_v3_1_fold1.pt",
+    "lesionext_moe_v3_fold1.pt",
+    "lesionext_moe_v3_fold2.pt",
+    "lesionext_moe_v3_fold3.pt",
+    "lesionext_moe_v3_fold4.pt",
+    "lesionext_moe_v3_fold5.pt",
+    "lesionext_moe_v3_tiny_fold1.pt",
+    "lesionext_moe_v4_1_fold1.pt",
+    "lesionext_moe_v4_2_fold1.pt",
+    "lesionext_moe_v4_3_fold1.pt",
+    "lesionext_moe_v4_fold1.pt",
+    "lesionext_lens_v1b_sensitivity_rank_fold1.pt"
+  ]
+}

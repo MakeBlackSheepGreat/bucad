@@ -1,0 +1,61 @@
+paths_config: configs/paths.local.yml
+seed: 42
+device: auto
+runtime:
+  classifier_model: lesionext_moe_v4_tiny
+  classifier_pretrained: false
+  classifier_device: auto
+  classifier_input_mode: dual_view_roi
+  classifier_model_kwargs:
+    descriptor_dim: 14
+    expert_hidden_dim: 256
+    router_hidden_dim: 160
+    router_temperature: 1.5
+    fixed_equal_expert_weights: false
+    area_prior_strength: 0.3
+    area_prior_small_center: 0.12
+    area_prior_medium_center: 0.32
+    area_prior_large_center: 0.68
+    area_prior_sigma: 0.22
+    small_spatial_hidden_dim: 96
+    residual_alpha: 0.15
+    max_valid_area_ratio: 0.75
+    expert_weight_floor: 0.05
+    stage_proj_dims: [192, 256, 320]
+    stage_fusion_weights: [0.8, 1.0, 1.0]
+    attn_heads: 4
+    attn_mlp_ratio: 2.0
+    head_hidden_dim: 256
+    attn_dropout: 0.1
+    head_dropout: 0.2
+    active_stage_indices: [2, 3, 4]
+    use_stage4_attention: false
+    use_projection_grn: true
+    use_projection_eca: true
+    use_scale_gate: false
+    use_domain_invariant_norm: false
+    use_mixstyle: false
+  classifier_image_size: 224
+  classifier_apply_clahe: true
+  classifier_mean: [0.485, 0.456, 0.406]
+  classifier_std: [0.229, 0.224, 0.225]
+  classifier_interpolation: bicubic
+  classifier_crop_pct: 0.95
+  classifier_tta_horizontal_flip: false
+  classifier_tta_variants:
+    - name: identity
+      crop_pct: 0.95
+  default_threshold: 0.5
+  borderline_margin: 0.08
+  classifier_checkpoint: null
+  classifier_checkpoints:
+    - ./artifacts/checkpoints/lesionext_moe_v4_3_fold1.pt
+  classifier_members:
+    - model: lesionext_moe_v4_tiny
+      checkpoint: ./artifacts/checkpoints/lesionext_moe_v4_3_fold1.pt
+      weight: 1.0
+  segmenter_checkpoint: ./artifacts/checkpoints/segmenter_fold1.pt
+  segmenter_image_size: 256
+  segmentation_enabled: true
+  gradcam_enabled: false
+  allow_missing_visuals: true

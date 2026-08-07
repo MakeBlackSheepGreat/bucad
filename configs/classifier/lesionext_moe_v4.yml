@@ -1,0 +1,118 @@
+paths_config: configs/paths.local.yml
+task_type: classification
+seed: 42
+device: auto
+experiment:
+  family: LesioNeXt
+  version: v4
+  objective: Cross-domain robust single-student LesioNeXt with frozen EfficientNetV2-S and Swin-Tiny teacher constraints
+  baseline_config: configs/classifier/lesionext_moe_v3.yml
+model:
+  name: lesionext_moe_v4_tiny
+  pretrained: true
+  in_chans: 3
+  num_classes: 2
+  descriptor_dim: 14
+  expert_hidden_dim: 256
+  router_hidden_dim: 160
+  router_temperature: 1.5
+  fixed_equal_expert_weights: false
+  area_prior_strength: 0.3
+  area_prior_small_center: 0.12
+  area_prior_medium_center: 0.32
+  area_prior_large_center: 0.68
+  area_prior_sigma: 0.22
+  small_spatial_hidden_dim: 96
+  residual_alpha: 0.15
+  max_valid_area_ratio: 0.75
+  expert_weight_floor: 0.05
+  stage_proj_dims: [192, 256, 320]
+  stage_fusion_weights: [0.8, 1.0, 1.0]
+  attn_heads: 4
+  attn_mlp_ratio: 2.0
+  head_hidden_dim: 256
+  attn_dropout: 0.1
+  head_dropout: 0.2
+  active_stage_indices: [2, 3, 4]
+  use_stage4_attention: false
+  use_projection_grn: true
+  use_projection_eca: true
+  use_scale_gate: false
+  use_domain_invariant_norm: true
+  domain_norm_stages: [2, 3, 4]
+data:
+  input_mode: dual_view_roi
+  image_size: 224
+  batch_size: 8
+  num_workers: 4
+  prefetch_factor: 2
+  roi:
+    mask_source: segmenter_oof
+    mask_cache_dir: artifacts/cache/segmenter_oof_masks_v2
+    segmenter_checkpoint_pattern: artifacts/checkpoints/segmenter_5fold_fold{fold}.pt
+    segmenter_image_size: 256
+    mask_threshold: 0.4
+    margin_ratio: 0.35
+    min_area_ratio: 0.08
+    max_area_ratio: 0.75
+    largest_component: true
+  preprocess:
+    clahe: true
+    use_timm_data_config: true
+  augmentation:
+    horizontal_flip: true
+    flip_probability: 0.5
+    rotation_degrees: 5.0
+    brightness: 0.12
+    contrast: 0.15
+    gamma_min: 0.85
+    gamma_max: 1.15
+    speckle_sigma: 0.04
+    low_resolution_min: 0.65
+    low_resolution_max: 0.95
+    scale_min: 0.92
+    scale_max: 1.05
+training:
+  epochs: 20
+  learning_rate: 0.00003
+  weight_decay: 0.05
+  class_weights: balanced
+  positive_class_weight: 1.7
+  moe_load_balance_weight: 0.008
+  checkpoint_strategy: best_auc
+  early_stopping:
+    enabled: true
+    patience: 5
+    min_delta: 0.001
+    monitor: selection_score
+  scheduler:
+    name: warmup_cosine
+    warmup_epochs: 3
+    min_lr: 0.000001
+  fold_count: 5
+  split_path: ./artifacts/reports/busbra_5fold_splits.csv
+  positive_class: malignant
+  teacher_constraint:
+    enabled: true
+    distill_weight: 0.08
+    temperature: 2.0
+    teachers:
+      - name: EfficientNetV2-S
+        weight: 0.5
+        model:
+          name: tf_efficientnetv2_s
+          pretrained: false
+          in_chans: 3
+          num_classes: 2
+        checkpoint_pattern: artifacts/checkpoints/efficientnetv2_s_fold{fold}.pt
+      - name: Swin-Tiny
+        weight: 0.5
+        model:
+          name: swin_tiny_patch4_window7_224
+          pretrained: false
+          in_chans: 3
+          num_classes: 2
+        checkpoint_pattern: artifacts/checkpoints/swin_tiny_patch4_window7_224_timm_recipe_fold{fold}.pt
+output:
+  checkpoint_name: lesionext_moe_v4_fold{fold}.pt
+  report_name: train_cls_lesionext_moe_v4_fold{fold}.json

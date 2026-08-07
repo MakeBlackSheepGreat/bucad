@@ -1,0 +1,48 @@
+paths_config: configs/paths.local.yml
+task_type: classification
+seed: 42
+device: auto
+experiment:
+  family: LesioNeXt-LENS
+  version: v1a-evidence-only
+  objective: exact-zero lesion pooling control with training-only BBOX evidence alignment
+  baseline_config: configs/classifier/lesionext_lens_v1.yml
+model:
+  name: lesionext_lens_tiny
+  pretrained: true
+  in_chans: 3
+  num_classes: 2
+  backbone_name: convnext_tiny
+  evidence_alpha_init: 0.02
+  evidence_gate_mode: disabled
+  head_dropout: 0.2
+data:
+  input_mode: lesion_evidence
+  image_size: 224
+  batch_size: 8
+  num_workers: 0
+  preprocess:
+    clahe: true
+    use_timm_data_config: true
+  augmentation:
+    horizontal_flip: true
+    flip_probability: 0.5
+training:
+  epochs: 30
+  learning_rate: 0.00005
+  weight_decay: 0.05
+  class_weights: balanced
+  checkpoint_strategy: best_auc
+  lesion_evidence:
+    alignment_weight: 0.25
+    bbox_margin: 0.08
+  scheduler:
+    name: warmup_cosine
+    warmup_epochs: 3
+    min_lr: 0.000001
+  fold_count: 5
+  split_path: ./artifacts/reports/busbra_5fold_splits.csv
+  positive_class: malignant
+output:
+  checkpoint_name: lesionext_lens_v1a_evidence_only_fold{fold}.pt
+  report_name: train_cls_lesionext_lens_v1a_evidence_only_fold{fold}.json

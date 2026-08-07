@@ -5,6 +5,7 @@ from __future__ import annotations
 import copy
 import dataclasses
 import math
+import random
 from pathlib import Path
 from typing import Any
 
@@ -14,11 +15,12 @@ import pandas as pd
 from src.datasets.busbra import (
     BUSBRAClassificationDataset,
     BUSBRAClassificationDualViewDataset,
+    BUSBRAClassificationLENSDataSet,
     generate_busbra_split_assignments,
     load_busbra_manifest,
 )
 from src.engine.checkpoints import atomic_torch_save
-from src.models.classifier import create_classifier
+from src.models.classifier import create_classifier, load_classifier
 from src.models.segmenter import load_segmenter
 from src.preprocess.io import read_image, save_image
 from src.preprocess.io import cv2
@@ -33,6 +35,14 @@ from src.utils.runtime import ensure_dir, optional_import, require_dependency, s
 torch = optional_import("torch")
 optim = optional_import("torch.optim")
 torch_utils_data = optional_import("torch.utils.data")
+
+
+def _seed_loader_worker(worker_id: int) -> None:
+    """Seed NumPy and Python RNG inside Windows DataLoader worker processes."""
+    require_dependency("torch", torch)
+    worker_seed = torch.initial_seed() % (2**32)
+    random.seed(worker_seed)
+    np.random.seed(worker_seed)
 
 
 def _load_or_create_splits(
@@ -399,6 +409,12 @@ def _prepare_classifier_batch(batch: dict[str, Any], sample_weights: dict[str, f
     """Move one training batch to device and attach optional sample weights."""
     if "image_full" in batch:
         images = _move_dual_view_batch(batch, device=device)
+    elif "bbox" in batch:
+        images = {
+            "image": batch["image"].to(device=device, dtype=torch.float32, non_blocking=True),
+            "bbox": batch["bbox"].to(device=device, dtype=torch.float32, non_blocking=True),
+            "bbox_valid": batch["bbox_valid"].to(device=device, dtype=torch.float32, non_blocking=True),
+        }
     else:
         images = batch["image"].to(device=device, dtype=torch.float32, non_blocking=True)
     labels = batch["label"].to(device=device, non_blocking=True)
@@ -408,6 +424,91 @@ def _prepare_classifier_batch(batch: dict[str, Any], sample_weights: dict[str, f
         device=device,
     )
     return images, labels, batch_weights
+
+
+def _lesion_evidence_alignment_loss(
+    model,
+    images: dict[str, Any],
+    *,
+    margin: float = 0.08,
+) -> tuple[Any | None, float]:
+    """Encourage the learned evidence map to retain mass inside the BBOX or its flip."""
+    evidence_logits = getattr(model, "last_evidence_map", None)
+    if evidence_logits is None or "bbox" not in images:
+        return None, 0.0
+    boxes = images["bbox"].to(device=evidence_logits.device, dtype=evidence_logits.dtype)
+    valid = images.get("bbox_valid")
+    if valid is None:
+        valid = torch.ones(boxes.shape[0], device=evidence_logits.device, dtype=evidence_logits.dtype)
+    valid = valid.to(device=evidence_logits.device, dtype=evidence_logits.dtype).view(-1)
+    height, width = evidence_logits.shape[-2:]
+    y_centers = (torch.arange(height, device=evidence_logits.device, dtype=evidence_logits.dtype) + 0.5) / float(height)
+    x_centers = (torch.arange(width, device=evidence_logits.device, dtype=evidence_logits.dtype) + 0.5) / float(width)
+    grid_y, grid_x = torch.meshgrid(y_centers, x_centers, indexing="ij")
+    grid_x = grid_x.unsqueeze(0)
+    grid_y = grid_y.unsqueeze(0)
+    x1, y1, x2, y2 = boxes.unbind(dim=1)
+    margin = float(max(0.0, margin))
+    original = (
+        (grid_x >= (x1 - margin).clamp(0.0, 1.0).view(-1, 1, 1))
+        & (grid_x <= (x2 + margin).clamp(0.0, 1.0).view(-1, 1, 1))
+        & (grid_y >= (y1 - margin).clamp(0.0, 1.0).view(-1, 1, 1))
+        & (grid_y <= (y2 + margin).clamp(0.0, 1.0).view(-1, 1, 1))
+    )
+    flipped = (
+        (grid_x >= (1.0 - x2 - margin).clamp(0.0, 1.0).view(-1, 1, 1))
+        & (grid_x <= (1.0 - x1 + margin).clamp(0.0, 1.0).view(-1, 1, 1))
+        & (grid_y >= (y1 - margin).clamp(0.0, 1.0).view(-1, 1, 1))
+        & (grid_y <= (y2 + margin).clamp(0.0, 1.0).view(-1, 1, 1))
+    )
+    target = (original | flipped).to(dtype=evidence_logits.dtype).unsqueeze(1)
+    weights = torch.softmax(evidence_logits.flatten(1), dim=1).reshape_as(evidence_logits)
+    target_mass = (weights * target).flatten(1).sum(dim=1).clamp_min(1e-6)
+    per_sample = -torch.log(target_mass)
+    active = valid > 0.5
+    if not bool(active.any()):
+        return None, 0.0
+    loss = per_sample[active].mean()
+    return loss, float(active.float().mean().detach().item())
+
+
+def _local_evidence_classification_loss(
+    model,
+    labels_a,
+    labels_b,
+    mix_lambda: float,
+    weights_a,
+    weights_b,
+    *,
+    class_weights,
+    class_priors,
+    label_smoothing: float,
+    loss_name: str,
+    focal_gamma: float,
+    balanced_softmax_tau: float,
+    pairwise_auc_weight: float,
+    pairwise_auc_margin: float,
+):
+    """Return the training-only classification loss for lesion-evidence features."""
+    local_logits = getattr(model, "last_local_evidence_logits", None)
+    if local_logits is None:
+        return None
+    return _mixed_classification_loss(
+        local_logits,
+        labels_a,
+        labels_b,
+        mix_lambda,
+        weights_a,
+        weights_b,
+        class_weights=class_weights,
+        class_priors=class_priors,
+        label_smoothing=label_smoothing,
+        loss_name=loss_name,
+        focal_gamma=focal_gamma,
+        balanced_softmax_tau=balanced_softmax_tau,
+        pairwise_auc_weight=pairwise_auc_weight,
+        pairwise_auc_margin=pairwise_auc_margin,
+    )
 
 
 def _model_logits(model, images, labels=None):
@@ -442,6 +543,100 @@ def _model_logits_and_embedding(model, images, labels=None):
     return _model_logits(model, images, labels=labels), None
 
 
+def _load_teacher_constraint_models(
+    *,
+    teacher_cfg: dict[str, Any] | None,
+    paths,
+    fold: int,
+    device: str,
+) -> tuple[list[Any], list[float], list[str]]:
+    """Load frozen same-fold teachers used only as a training regularizer."""
+    if not teacher_cfg or not bool(teacher_cfg.get("enabled", False)):
+        return [], [], []
+    teachers: list[Any] = []
+    weights: list[float] = []
+    names: list[str] = []
+    for item in teacher_cfg.get("teachers", []) or []:
+        if not isinstance(item, dict):
+            continue
+        name = str(item.get("name", item.get("model", {}).get("name", "teacher")))
+        model_cfg = dict(item.get("model", {}) or {})
+        if "name" not in model_cfg:
+            model_cfg["name"] = str(item.get("model_name", name))
+        model_cfg["pretrained"] = False
+        checkpoint_pattern = item.get("checkpoint_pattern")
+        if checkpoint_pattern is None:
+            raise ValueError(f"Teacher {name!r} requires checkpoint_pattern.")
+        checkpoint_path = _resolve_project_path(
+            str(checkpoint_pattern).format(fold=fold),
+            paths,
+        )
+        if not checkpoint_path.exists():
+            raise FileNotFoundError(
+                f"Teacher checkpoint for {name!r} was not found for fold {fold}: {checkpoint_path}"
+            )
+        teacher = load_classifier(model_cfg, checkpoint_path=checkpoint_path, map_location=device).to(device)
+        teacher.eval()
+        for parameter in teacher.parameters():
+            parameter.requires_grad_(False)
+        teachers.append(teacher)
+        weights.append(float(item.get("weight", 1.0)))
+        names.append(name)
+    if not teachers:
+        raise ValueError("teacher_constraint.enabled=true but no teacher models were configured.")
+    weight_sum = sum(max(0.0, value) for value in weights)
+    if weight_sum <= 0.0:
+        weights = [1.0 / len(teachers)] * len(teachers)
+    else:
+        weights = [max(0.0, value) / weight_sum for value in weights]
+    return teachers, weights, names
+
+
+def _teacher_constraint_loss(
+    student_logits,
+    images,
+    teachers: list[Any],
+    teacher_weights: list[float],
+    *,
+    temperature: float,
+    min_confidence: float = 0.0,
+    max_disagreement: float = 1.0,
+) -> tuple[Any, Any]:
+    """Match the student distribution to frozen teachers without deployment-time fusion."""
+    if not teachers:
+        return student_logits.new_zeros(()), student_logits.new_zeros(())
+    teacher_input = images["image_full"] if isinstance(images, dict) else images
+    temperature = max(float(temperature), 1e-3)
+    student_log_probs = torch.log_softmax(student_logits / temperature, dim=1)
+    teacher_probabilities = []
+    with torch.no_grad():
+        for teacher in teachers:
+            teacher_logits = teacher(teacher_input)
+            teacher_probs = torch.softmax(teacher_logits / temperature, dim=1)
+            teacher_probabilities.append(teacher_probs)
+    per_sample_loss = student_logits.new_zeros((student_logits.shape[0],))
+    for teacher_probs, weight in zip(teacher_probabilities, teacher_weights):
+        per_sample_loss = per_sample_loss + float(weight) * torch.nn.functional.kl_div(
+            student_log_probs,
+            teacher_probs,
+            reduction="none",
+        ).sum(dim=1)
+    stacked_probs = torch.stack(teacher_probabilities, dim=0)
+    weight_tensor = student_logits.new_tensor(teacher_weights).view(-1, 1, 1)
+    mean_teacher_probs = (stacked_probs * weight_tensor).sum(dim=0)
+    confidence = mean_teacher_probs.max(dim=1).values
+    disagreement = (stacked_probs[:, :, 1] - mean_teacher_probs[:, 1]).abs().mean(dim=0)
+    valid_mask = (
+        (confidence >= float(min_confidence))
+        & (disagreement <= float(max_disagreement))
+    ).to(dtype=student_logits.dtype)
+    coverage = valid_mask.mean()
+    if float(valid_mask.sum().item()) <= 0.0:
+        return student_logits.new_zeros(()), coverage
+    loss = (per_sample_loss * valid_mask).sum() / valid_mask.sum().clamp_min(1.0)
+    return loss * (temperature * temperature), coverage
+
+
 def _supervised_contrastive_loss(embeddings, labels, *, temperature: float) -> Any:
     """Compute a simple supervised contrastive loss over one batch embedding tensor."""
     require_dependency("torch", torch)
@@ -466,6 +661,18 @@ def _supervised_contrastive_loss(embeddings, labels, *, temperature: float) -> A
     mean_log_prob_pos = (log_prob * positive_mask).sum(dim=1) / positive_counts.clamp_min(1)
     loss = -mean_log_prob_pos[valid].mean()
     return loss
+
+
+def _moe_load_balance_loss(expert_weights, *, num_experts: int | None = None):
+    """Penalize collapsed MoE routing by matching the batch mean to uniform use."""
+    if expert_weights is None:
+        return None
+    if expert_weights.ndim != 2 or expert_weights.shape[0] <= 0:
+        return expert_weights.new_zeros(())
+    expert_count = int(num_experts or expert_weights.shape[1])
+    target = expert_weights.new_full((expert_count,), 1.0 / float(expert_count))
+    mean_weights = expert_weights.mean(dim=0)
+    return torch.nn.functional.mse_loss(mean_weights, target)
 
 
 def _mixed_classification_loss(
@@ -554,11 +761,23 @@ def _train_classifier_epoch(
     pairwise_auc_margin: float,
     supcon_weight: float,
     supcon_temperature: float,
+    moe_load_balance_weight: float,
     use_sam: bool,
-) -> float:
+    teacher_models: list[Any],
+    teacher_weights: list[float],
+    teacher_distill_weight: float,
+    teacher_temperature: float,
+    teacher_min_confidence: float,
+    teacher_max_disagreement: float,
+    lesion_evidence_weight: float,
+    lesion_evidence_margin: float,
+    local_evidence_classification_weight: float,
+) -> tuple[float, float, float]:
     """Run one classifier epoch with optional sample weights and mix augmentations."""
     model.train()
     losses: list[float] = []
+    teacher_losses: list[float] = []
+    teacher_coverages: list[float] = []
     for batch in train_loader:
         images, labels, batch_weights = _prepare_classifier_batch(
             batch,
@@ -605,6 +824,42 @@ def _train_classifier_epoch(
             pairwise_auc_weight=pairwise_auc_weight,
             pairwise_auc_margin=pairwise_auc_margin,
         )
+        lesion_loss, _lesion_coverage = _lesion_evidence_alignment_loss(
+            model,
+            images,
+            margin=float(lesion_evidence_margin),
+        )
+        if lesion_loss is not None and float(lesion_evidence_weight) > 0.0:
+            loss = loss + float(lesion_evidence_weight) * lesion_loss
+        local_evidence_loss = _local_evidence_classification_loss(
+            model,
+            labels_a,
+            labels_b,
+            mix_lambda,
+            weights_a,
+            weights_b,
+            class_weights=class_weights,
+            class_priors=class_priors,
+            label_smoothing=label_smoothing,
+            loss_name=loss_name,
+            focal_gamma=focal_gamma,
+            balanced_softmax_tau=balanced_softmax_tau,
+            pairwise_auc_weight=pairwise_auc_weight,
+            pairwise_auc_margin=pairwise_auc_margin,
+        )
+        if local_evidence_loss is not None and float(local_evidence_classification_weight) > 0.0:
+            loss = loss + float(local_evidence_classification_weight) * local_evidence_loss
+        distill_loss, teacher_coverage = _teacher_constraint_loss(
+            logits,
+            images,
+            teacher_models,
+            teacher_weights,
+            temperature=teacher_temperature,
+            min_confidence=teacher_min_confidence,
+            max_disagreement=teacher_max_disagreement,
+        )
+        if float(teacher_distill_weight) > 0.0:
+            loss = loss + float(teacher_distill_weight) * distill_loss
         if (
             float(supcon_weight) > 0.0
             and labels_b is None
@@ -617,6 +872,14 @@ def _train_classifier_epoch(
             )
             if supcon_loss is not None:
                 loss = loss + float(supcon_weight) * supcon_loss
+        if float(moe_load_balance_weight) > 0.0:
+            expert_weights = getattr(model, "last_expert_weights", None)
+            load_balance_loss = _moe_load_balance_loss(
+                expert_weights,
+                num_experts=getattr(model, "num_experts", None),
+            )
+            if load_balance_loss is not None:
+                loss = loss + float(moe_load_balance_weight) * load_balance_loss
         loss.backward()
         if bool(use_sam):
             optimizer.first_step()
@@ -638,6 +901,42 @@ def _train_classifier_epoch(
                 pairwise_auc_weight=pairwise_auc_weight,
                 pairwise_auc_margin=pairwise_auc_margin,
             )
+            second_lesion_loss, _second_lesion_coverage = _lesion_evidence_alignment_loss(
+                model,
+                images,
+                margin=float(lesion_evidence_margin),
+            )
+            if second_lesion_loss is not None and float(lesion_evidence_weight) > 0.0:
+                second_loss = second_loss + float(lesion_evidence_weight) * second_lesion_loss
+            second_local_evidence_loss = _local_evidence_classification_loss(
+                model,
+                labels_a,
+                labels_b,
+                mix_lambda,
+                weights_a,
+                weights_b,
+                class_weights=class_weights,
+                class_priors=class_priors,
+                label_smoothing=label_smoothing,
+                loss_name=loss_name,
+                focal_gamma=focal_gamma,
+                balanced_softmax_tau=balanced_softmax_tau,
+                pairwise_auc_weight=pairwise_auc_weight,
+                pairwise_auc_margin=pairwise_auc_margin,
+            )
+            if second_local_evidence_loss is not None and float(local_evidence_classification_weight) > 0.0:
+                second_loss = second_loss + float(local_evidence_classification_weight) * second_local_evidence_loss
+            second_distill_loss, _second_teacher_coverage = _teacher_constraint_loss(
+                logits_second,
+                images,
+                teacher_models,
+                teacher_weights,
+                temperature=teacher_temperature,
+                min_confidence=teacher_min_confidence,
+                max_disagreement=teacher_max_disagreement,
+            )
+            if float(teacher_distill_weight) > 0.0:
+                second_loss = second_loss + float(teacher_distill_weight) * second_distill_loss
             if (
                 float(supcon_weight) > 0.0
                 and labels_b is None
@@ -650,6 +949,14 @@ def _train_classifier_epoch(
                 )
                 if supcon_loss_second is not None:
                     second_loss = second_loss + float(supcon_weight) * supcon_loss_second
+            if float(moe_load_balance_weight) > 0.0:
+                expert_weights_second = getattr(model, "last_expert_weights", None)
+                load_balance_loss_second = _moe_load_balance_loss(
+                    expert_weights_second,
+                    num_experts=getattr(model, "num_experts", None),
+                )
+                if load_balance_loss_second is not None:
+                    second_loss = second_loss + float(moe_load_balance_weight) * load_balance_loss_second
             second_loss.backward()
             optimizer.second_step()
         else:
@@ -657,7 +964,13 @@ def _train_classifier_epoch(
         if model_ema is not None:
             model_ema.update(model)
         losses.append(float(loss.item()))
-    return float(np.mean(losses))
+        teacher_losses.append(float(distill_loss.detach().item()))
+        teacher_coverages.append(float(teacher_coverage.detach().item()))
+    return (
+        float(np.mean(losses)),
+        float(np.mean(teacher_losses) if teacher_losses else 0.0),
+        float(np.mean(teacher_coverages) if teacher_coverages else 0.0),
+    )
 
 
 def _score_checkpoint_candidate(
@@ -922,6 +1235,11 @@ def _build_classifier_model_and_transforms(
         rotation_degrees=float(augmentation_cfg.get("rotation_degrees", 0.0)),
         brightness=float(augmentation_cfg.get("brightness", 0.0)),
         contrast=float(augmentation_cfg.get("contrast", 0.0)),
+        gamma_min=float(augmentation_cfg.get("gamma_min", 1.0)),
+        gamma_max=float(augmentation_cfg.get("gamma_max", 1.0)),
+        speckle_sigma=float(augmentation_cfg.get("speckle_sigma", 0.0)),
+        low_resolution_min=float(augmentation_cfg.get("low_resolution_min", 1.0)),
+        low_resolution_max=float(augmentation_cfg.get("low_resolution_max", 1.0)),
         scale_min=float(augmentation_cfg.get("scale_min", 1.0)),
         scale_max=float(augmentation_cfg.get("scale_max", 1.0)),
         mean=preprocess_settings["mean"],
@@ -949,6 +1267,7 @@ def _build_classifier_loaders(
     eval_transform,
     data_cfg: dict[str, Any],
     device: str,
+    seed: int,
 ):
     """Create train/validation DataLoaders with Windows-safe worker defaults."""
     input_mode = str(data_cfg.get("input_mode", "single_image")).lower()
@@ -975,6 +1294,17 @@ def _build_classifier_loaders(
             roi_transform=eval_transform,
             **roi_kwargs,
         )
+    elif input_mode == "lesion_evidence":
+        train_dataset = BUSBRAClassificationLENSDataSet(
+            train_manifest,
+            image_size=image_size,
+            transform=train_transform,
+        )
+        val_dataset = BUSBRAClassificationLENSDataSet(
+            val_manifest,
+            image_size=image_size,
+            transform=eval_transform,
+        )
     else:
         train_dataset = BUSBRAClassificationDataset(
             train_manifest, image_size=image_size, transform=train_transform
@@ -993,6 +1323,11 @@ def _build_classifier_loaders(
     if num_workers > 0:
         loader_kwargs["persistent_workers"] = True
         loader_kwargs["prefetch_factor"] = int(data_cfg.get("prefetch_factor", 2))
+    generator = torch.Generator()
+    generator.manual_seed(int(seed))
+
+    loader_kwargs["generator"] = generator
+    loader_kwargs["worker_init_fn"] = _seed_loader_worker
     train_loader = torch_utils_data.DataLoader(
         train_dataset,
         shuffle=True,
@@ -1066,6 +1401,7 @@ def _write_classifier_training_outputs(
     pairwise_auc_margin: float,
     supcon_weight: float,
     supcon_temperature: float,
+    moe_load_balance_weight: float,
     use_sam: bool,
     sam_rho: float,
     sam_adaptive: bool,
@@ -1104,6 +1440,7 @@ def _write_classifier_training_outputs(
         checkpoint_path=checkpoint_path,
         model_config=copy.deepcopy(config.get("model", {})),
         data_config=copy.deepcopy(config.get("data", {})),
+        training_config=copy.deepcopy(config.get("training", {})),
         experiment=copy.deepcopy(config.get("experiment", {})),
         metrics=metrics,
         best_epoch=best_epoch,
@@ -1123,6 +1460,7 @@ def _write_classifier_training_outputs(
         pairwise_auc_margin=pairwise_auc_margin,
         supcon_weight=supcon_weight,
         supcon_temperature=supcon_temperature,
+        moe_load_balance_weight=moe_load_balance_weight,
         use_sam=use_sam,
         sam_rho=sam_rho,
         sam_adaptive=sam_adaptive,
@@ -1155,6 +1493,7 @@ def _classifier_checkpoint_payload(
     return {
         "state_dict": model.state_dict(),
         "model_config": config.get("model", {}),
+        "training_config": config.get("training", {}),
         "fold": fold,
         "metrics": metrics,
         "best_epoch": best_epoch,
@@ -1169,6 +1508,7 @@ def _classifier_training_report(
     checkpoint_path: Path,
     model_config: dict[str, Any],
     data_config: dict[str, Any],
+    training_config: dict[str, Any],
     experiment: dict[str, Any],
     metrics: dict[str, Any],
     best_epoch: int,
@@ -1188,6 +1528,7 @@ def _classifier_training_report(
     pairwise_auc_margin: float,
     supcon_weight: float,
     supcon_temperature: float,
+    moe_load_balance_weight: float,
     use_sam: bool,
     sam_rho: float,
     sam_adaptive: bool,
@@ -1210,6 +1551,7 @@ def _classifier_training_report(
         "checkpoint_path": str(checkpoint_path),
         "model_config": model_config,
         "data_config": data_config,
+        "training_config": training_config,
         "experiment": experiment,
         "metrics": metrics,
         "best_epoch": best_epoch,
@@ -1229,6 +1571,7 @@ def _classifier_training_report(
         "pairwise_auc_margin": pairwise_auc_margin,
         "supcon_weight": supcon_weight,
         "supcon_temperature": supcon_temperature if supcon_weight > 0.0 else None,
+        "moe_load_balance_weight": moe_load_balance_weight,
         "optimizer": "sam" if use_sam else "adamw",
         "sam_rho": sam_rho if use_sam else None,
         "sam_adaptive": sam_adaptive if use_sam else None,
@@ -1269,6 +1612,7 @@ class _TrainingLoopConfig:
     pairwise_auc_margin: float
     supcon_weight: float
     supcon_temperature: float
+    moe_load_balance_weight: float
     use_sam: bool
     sam_rho: float
     sam_adaptive: bool
@@ -1276,6 +1620,13 @@ class _TrainingLoopConfig:
     ema_decay: float
     sample_weights: dict[str, float]
     early_stopping_cfg: dict[str, Any]
+    teacher_distill_weight: float
+    teacher_temperature: float
+    teacher_min_confidence: float
+    teacher_max_disagreement: float
+    lesion_evidence_weight: float
+    lesion_evidence_margin: float
+    local_evidence_classification_weight: float
 
 
 @dataclasses.dataclass(slots=True)
@@ -1308,6 +1659,9 @@ class _PreparedTrainingRun:
     base_learning_rate: float
     optimizer: Any
     model_ema: Any
+    teacher_models: list[Any]
+    teacher_weights: list[float]
+    teacher_names: list[str]
 
 
 def _build_classifier_optimizer(model, training_cfg: dict[str, Any], *, learning_rate: float):
@@ -1362,6 +1716,7 @@ def _build_training_loop_config(
         pairwise_auc_margin=float(training_cfg.get("pairwise_auc_margin", 0.0)),
         supcon_weight=float(training_cfg.get("supcon_weight", 0.0)),
         supcon_temperature=float(training_cfg.get("supcon_temperature", 0.07)),
+        moe_load_balance_weight=float(training_cfg.get("moe_load_balance_weight", 0.0)),
         use_sam=str(training_cfg.get("optimizer", "adamw")).lower() == "sam",
         sam_rho=float(training_cfg.get("sam_rho", 0.05)),
         sam_adaptive=bool(training_cfg.get("sam_adaptive", False)),
@@ -1369,6 +1724,15 @@ def _build_training_loop_config(
         ema_decay=float(training_cfg.get("ema_decay", 0.9998)),
         sample_weights=sample_weights,
         early_stopping_cfg=early_stopping_cfg,
+        teacher_distill_weight=float(training_cfg.get("teacher_constraint", {}).get("distill_weight", 0.0)),
+        teacher_temperature=float(training_cfg.get("teacher_constraint", {}).get("temperature", 2.0)),
+        teacher_min_confidence=float(training_cfg.get("teacher_constraint", {}).get("min_confidence", 0.0)),
+        teacher_max_disagreement=float(training_cfg.get("teacher_constraint", {}).get("max_disagreement", 1.0)),
+        lesion_evidence_weight=float(training_cfg.get("lesion_evidence", {}).get("alignment_weight", 0.0)),
+        lesion_evidence_margin=float(training_cfg.get("lesion_evidence", {}).get("bbox_margin", 0.08)),
+        local_evidence_classification_weight=float(
+            training_cfg.get("lesion_evidence", {}).get("local_classification_weight", 0.0)
+        ),
     )
 
 
@@ -1419,6 +1783,13 @@ def _prepare_classifier_training_run(
             device=device,
         )
     )
+    teacher_cfg = training_cfg.get("teacher_constraint", {}) or {}
+    teacher_models, teacher_weights, teacher_names = _load_teacher_constraint_models(
+        teacher_cfg=teacher_cfg,
+        paths=paths,
+        fold=fold,
+        device=device,
+    )
     train_loader, val_loader = _build_classifier_loaders(
         train_manifest=train_manifest,
         val_manifest=val_manifest,
@@ -1427,6 +1798,7 @@ def _prepare_classifier_training_run(
         eval_transform=eval_transform,
         data_cfg=data_cfg,
         device=device,
+        seed=seed,
     )
 
     base_learning_rate = float(training_cfg.get("learning_rate", 3e-4))
@@ -1470,6 +1842,9 @@ def _prepare_classifier_training_run(
         base_learning_rate=base_learning_rate,
         optimizer=optimizer,
         model_ema=model_ema,
+        teacher_models=teacher_models,
+        teacher_weights=teacher_weights,
+        teacher_names=teacher_names,
     )
 
 
@@ -1484,6 +1859,8 @@ def _run_training_loop(
     loop_config: _TrainingLoopConfig,
     base_learning_rate: float,
     model_ema,
+    teacher_models: list[Any],
+    teacher_weights: list[float],
     logger,
 ) -> _TrainingLoopResult:
     """Train epochs and return the selected checkpoint candidate plus reports."""
@@ -1511,7 +1888,7 @@ def _run_training_loop(
             scheduler_cfg=cfg.scheduler_cfg,
         )
         _set_optimizer_lr(optimizer, current_lr)
-        mean_loss = _train_classifier_epoch(
+        mean_loss, teacher_loss, teacher_coverage = _train_classifier_epoch(
             model,
             train_loader,
             optimizer,
@@ -1531,7 +1908,17 @@ def _run_training_loop(
             pairwise_auc_margin=cfg.pairwise_auc_margin,
             supcon_weight=cfg.supcon_weight,
             supcon_temperature=cfg.supcon_temperature,
+            moe_load_balance_weight=cfg.moe_load_balance_weight,
             use_sam=cfg.use_sam,
+            teacher_models=teacher_models,
+            teacher_weights=teacher_weights,
+            teacher_distill_weight=cfg.teacher_distill_weight,
+            teacher_temperature=cfg.teacher_temperature,
+            teacher_min_confidence=cfg.teacher_min_confidence,
+            teacher_max_disagreement=cfg.teacher_max_disagreement,
+            lesion_evidence_weight=cfg.lesion_evidence_weight,
+            lesion_evidence_margin=cfg.lesion_evidence_margin,
+            local_evidence_classification_weight=cfg.local_evidence_classification_weight,
         )
         val_y_true, val_malignant_probabilities = _collect_validation_probabilities(
             model, val_loader, device,
@@ -1586,6 +1973,8 @@ def _run_training_loop(
             "epoch": epoch + 1,
             "learning_rate": current_lr,
             "loss": mean_loss,
+            "teacher_distill_loss": teacher_loss,
+            "teacher_constraint_coverage": teacher_coverage,
             "metrics": epoch_metrics,
             "score_metrics": score_metrics,
             "selection_score": score,
@@ -1704,6 +2093,7 @@ def _finish_classifier_training_run(
         pairwise_auc_margin=prepared.loop_config.pairwise_auc_margin,
         supcon_weight=prepared.loop_config.supcon_weight,
         supcon_temperature=prepared.loop_config.supcon_temperature,
+        moe_load_balance_weight=prepared.loop_config.moe_load_balance_weight,
         use_sam=prepared.loop_config.use_sam,
         sam_rho=prepared.loop_config.sam_rho,
         sam_adaptive=prepared.loop_config.sam_adaptive,
@@ -1756,6 +2146,8 @@ def run_classifier_training(
         loop_config=prepared.loop_config,
         base_learning_rate=prepared.base_learning_rate,
         model_ema=prepared.model_ema,
+        teacher_models=prepared.teacher_models,
+        teacher_weights=prepared.teacher_weights,
         logger=logger,
     )
     return _finish_classifier_training_run(

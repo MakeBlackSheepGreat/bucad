@@ -1,0 +1,51 @@
+paths_config: configs/paths.local.yml
+task_type: classification
+seed: 42
+device: auto
+experiment:
+  family: LesioNeXt-AttnRes
+  version: v4.6
+  objective: stage4 block attention residual with state history, content-conditioned query, and bounded interpolation
+  baseline_config: configs/classifier/convnext_tiny_v4_4_control.yml
+model:
+  name: lesionext_attnres_tiny
+  pretrained: true
+  in_chans: 3
+  num_classes: 2
+  backbone_name: convnext_tiny
+  attnres_stages: [4]
+  attnres_block_size: 2
+  attnres_inject_every: 2
+  attnres_temperature: 0.25
+  attnres_gate_init: 0.05
+  attnres_query_mode: content
+  attnres_fusion_mode: interpolate
+  attnres_history_mode: state
+  head_dropout: 0.2
+data:
+  input_mode: single_image
+  image_size: 224
+  batch_size: 8
+  num_workers: 0
+  preprocess:
+    clahe: true
+    use_timm_data_config: true
+  augmentation:
+    horizontal_flip: true
+    flip_probability: 0.5
+training:
+  epochs: 30
+  learning_rate: 0.00005
+  weight_decay: 0.05
+  class_weights: balanced
+  checkpoint_strategy: best_auc
+  scheduler:
+    name: warmup_cosine
+    warmup_epochs: 3
+    min_lr: 0.000001
+  fold_count: 5
+  split_path: ./artifacts/reports/busbra_5fold_splits.csv
+  positive_class: malignant
+output:
+  checkpoint_name: lesionext_attnres_v4_6_fold{fold}.pt
+  report_name: train_cls_lesionext_attnres_v4_6_fold{fold}.json

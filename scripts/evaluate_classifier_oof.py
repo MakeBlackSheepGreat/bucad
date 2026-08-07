@@ -40,6 +40,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="Fold-specific inference config template such as configs/inference/model_fold{fold}.yml.",
     )
     parser.add_argument(
+        "--checkpoint-pattern",
+        default=None,
+        help="Optional checkpoint filename pattern such as model_fold{fold}.pt.",
+    )
+    parser.add_argument(
         "--output",
         required=True,
         help="Output JSON report path.",
@@ -63,6 +68,7 @@ def _resolve_project_path(project_root: Path, value: str | Path) -> Path:
 def _runtime_from_classifier_config(
     classifier_cfg: dict[str, Any],
     *,
+    project_root: Path,
     fold: int,
 ) -> dict[str, Any]:
     """Build one runtime config compatible with the inference stack."""
@@ -71,12 +77,16 @@ def _runtime_from_classifier_config(
     preprocess_cfg = dict(data_cfg.get("preprocess", {}))
     output_cfg = dict(classifier_cfg.get("output", {}))
 
+    checkpoint_name = str(output_cfg["checkpoint_name"]).format(fold=fold)
+    checkpoint_path = Path(checkpoint_name)
+    if not checkpoint_path.is_absolute():
+        checkpoint_path = project_root / "artifacts" / "checkpoints" / checkpoint_path
     runtime = {
         "classifier_model": str(model_cfg["name"]),
         "classifier_pretrained": False,
         "classifier_image_size": int(data_cfg.get("image_size", 224)),
         "classifier_apply_clahe": bool(preprocess_cfg.get("clahe", False)),
-        "classifier_checkpoint": str(output_cfg["checkpoint_name"]).format(fold=fold),
+        "classifier_checkpoint": str(checkpoint_path),
         "classifier_checkpoints": [],
         "classifier_members": [],
         "default_threshold": 0.5,
@@ -228,17 +238,30 @@ def main() -> int:
             fold_inference_path = inference_path
         if fold_inference_path is not None:
             runtime = _runtime_from_inference_config(fold_inference_path)
-            checkpoint_name = _checkpoint_name_from_classifier_config(classifier_cfg, fold=fold)
+            checkpoint_name = (
+                str(args.checkpoint_pattern).format(fold=fold)
+                if args.checkpoint_pattern
+                else _checkpoint_name_from_classifier_config(classifier_cfg, fold=fold)
+            )
             runtime = _override_runtime_checkpoint_for_fold(
                 runtime,
                 project_root=project_root,
                 checkpoint_name=checkpoint_name,
             )
         else:
-            runtime = _runtime_from_classifier_config(classifier_cfg, fold=fold)
+            runtime = _runtime_from_classifier_config(
+                classifier_cfg,
+                project_root=project_root,
+                fold=fold,
+            )
         checkpoint = runtime.get("classifier_checkpoint")
         if isinstance(checkpoint, str):
             runtime["classifier_checkpoint"] = str(_resolve_project_path(project_root, checkpoint))
+            if not Path(runtime["classifier_checkpoint"]).exists():
+                raise FileNotFoundError(
+                    f"Classifier checkpoint for fold {fold} was not found: "
+                    f"{runtime['classifier_checkpoint']}"
+                )
         members = runtime.get("classifier_members")
         if isinstance(members, list):
             resolved_members = []

@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+from src.models.lesionext import LesioNeXt
 from src.utils.runtime import optional_import, require_dependency
 from src.models.segmentation_components import CENetLite, TimmFeaturePyramidSegmenter
 
@@ -113,6 +114,15 @@ def _create_custom_segmenter(
             use_cfam=bool(model_kwargs.get("use_cfam", True)),
             use_nonlocal=bool(model_kwargs.get("use_nonlocal", True)),
             boundary_head=bool(model_kwargs.get("boundary_head", False)),
+        )
+    if architecture in {"lesionext", "lesionext_bus"}:
+        return LesioNeXt(
+            in_channels=in_channels,
+            classes=classes,
+            num_classes=int(model_kwargs.get("num_classes", 2)),
+            widths=model_kwargs.get("widths", (32, 64, 128, 192)),
+            embedding_dim=int(model_kwargs.get("embedding_dim", 128)),
+            dropout=float(model_kwargs.get("dropout", 0.2)),
         )
     return None
 

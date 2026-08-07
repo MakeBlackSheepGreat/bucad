@@ -167,11 +167,13 @@ def _model_to_dict(model: BaseModel) -> dict[str, Any]:
 class PatientCaseRepository:
     """Small repository around SQLite patient case records."""
 
-    def __init__(self, db_path: str | Path | None = None) -> None:
+    def __init__(self, db_path: str | Path | None = None, *, seed_samples: bool = False) -> None:
         """Create a repository and initialize the schema if needed."""
         self.db_path = Path(db_path) if db_path is not None else patient_database_path_from_env()
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         self._initialize()
+        if seed_samples:
+            self.seed_sample_cases()
 
     def _connect(self) -> sqlite3.Connection:
         """Open a SQLite connection with dict-like rows."""

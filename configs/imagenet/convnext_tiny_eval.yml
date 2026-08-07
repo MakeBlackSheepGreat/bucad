@@ -26,6 +26,8 @@ data:
     interpolation: null
     crop_pct: null
 evaluation:
+  # 官方 timm 权重含完整 ImageNet 分类头，可作为公开预训练基线。
+  allow_official_pretrained_baseline: true
   amp: true
   channels_last: false
 output:

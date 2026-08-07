@@ -1,0 +1,40 @@
+paths_config: configs/paths.local.yml
+task_type: classification
+seed: 42
+device: auto
+experiment:
+  family: ConvNeXt-Tiny
+  version: v4.4-control
+  objective: matched single-image control for LesioNeXt-AttnRes V4.4
+model:
+  name: convnext_tiny
+  pretrained: true
+  in_chans: 3
+  num_classes: 2
+data:
+  input_mode: single_image
+  image_size: 224
+  batch_size: 8
+  num_workers: 0
+  preprocess:
+    clahe: true
+    use_timm_data_config: true
+  augmentation:
+    horizontal_flip: true
+    flip_probability: 0.5
+training:
+  epochs: 30
+  learning_rate: 0.00005
+  weight_decay: 0.05
+  class_weights: balanced
+  checkpoint_strategy: best_auc
+  scheduler:
+    name: warmup_cosine
+    warmup_epochs: 3
+    min_lr: 0.000001
+  fold_count: 5
+  split_path: ./artifacts/reports/busbra_5fold_splits.csv
+  positive_class: malignant
+output:
+  checkpoint_name: convnext_tiny_v4_4_control_fold{fold}.pt
+  report_name: train_cls_convnext_tiny_v4_4_control_fold{fold}.json

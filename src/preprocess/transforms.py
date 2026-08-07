@@ -77,6 +77,45 @@ def _random_brightness_contrast(
     return np.clip(adjusted, 0, 255).astype(image.dtype)
 
 
+def _random_gamma(image: np.ndarray, gamma_min: float, gamma_max: float) -> np.ndarray:
+    """Apply a mild random gamma curve to model scanner/intensity style shifts."""
+    if gamma_min <= 0.0 or gamma_max <= 0.0:
+        return image
+    gamma = float(np.random.uniform(gamma_min, gamma_max))
+    array = image.astype(np.float32)
+    scale = 255.0 if array.max() > 1.0 else 1.0
+    normalized = np.clip(array / scale, 0.0, 1.0)
+    transformed = np.power(normalized, gamma) * scale
+    return np.clip(transformed, 0, scale).astype(image.dtype)
+
+
+def _random_speckle(image: np.ndarray, sigma: float) -> np.ndarray:
+    """Inject multiplicative speckle noise that preserves ultrasound texture statistics."""
+    if sigma <= 0.0:
+        return image
+    array = image.astype(np.float32)
+    scale = 255.0 if array.max() > 1.0 else 1.0
+    noise = np.random.normal(0.0, float(sigma), size=array.shape).astype(np.float32)
+    transformed = (array / scale) * (1.0 + noise) * scale
+    return np.clip(transformed, 0, scale).astype(image.dtype)
+
+
+def _random_low_resolution(image: np.ndarray, scale_min: float, scale_max: float) -> np.ndarray:
+    """Downsample and restore an image to mimic scanner/export resolution changes."""
+    if cv2 is None or scale_min >= 0.999 and scale_max >= 0.999:
+        return image
+    scale = float(np.random.uniform(scale_min, scale_max))
+    if scale >= 0.999:
+        return image
+    height, width = image.shape[:2]
+    small = cv2.resize(
+        image,
+        (max(2, int(round(width * scale))), max(2, int(round(height * scale)))),
+        interpolation=cv2.INTER_AREA,
+    )
+    return cv2.resize(small, (width, height), interpolation=cv2.INTER_CUBIC)
+
+
 def _cv2_interpolation(name: str):
     """Map a readable interpolation name to an OpenCV interpolation code."""
     if cv2 is None:
@@ -253,6 +292,11 @@ class ClassifierTransform:
     rotation_degrees: float = 0.0
     brightness: float = 0.0
     contrast: float = 0.0
+    gamma_min: float = 1.0
+    gamma_max: float = 1.0
+    speckle_sigma: float = 0.0
+    low_resolution_min: float = 1.0
+    low_resolution_max: float = 1.0
     scale_min: float = 1.0
     scale_max: float = 1.0
     mean: Sequence[float] | None = None
@@ -279,6 +323,20 @@ class ClassifierTransform:
                 brightness=float(self.brightness),
                 contrast=float(self.contrast),
             )
+        if self.gamma_min != 1.0 or self.gamma_max != 1.0:
+            processed = _random_gamma(
+                processed,
+                gamma_min=float(self.gamma_min),
+                gamma_max=float(self.gamma_max),
+            )
+        if self.speckle_sigma > 0.0:
+            processed = _random_speckle(processed, sigma=float(self.speckle_sigma))
+        if self.low_resolution_min < 0.999 or self.low_resolution_max < 0.999:
+            processed = _random_low_resolution(
+                processed,
+                scale_min=float(self.low_resolution_min),
+                scale_max=float(self.low_resolution_max),
+            )
         return prepare_classifier_input(
             processed,
             self.image_size,
@@ -299,6 +357,11 @@ def build_classifier_transform(
     rotation_degrees: float = 0.0,
     brightness: float = 0.0,
     contrast: float = 0.0,
+    gamma_min: float = 1.0,
+    gamma_max: float = 1.0,
+    speckle_sigma: float = 0.0,
+    low_resolution_min: float = 1.0,
+    low_resolution_max: float = 1.0,
     scale_min: float = 1.0,
     scale_max: float = 1.0,
     mean: Sequence[float] | None = None,
@@ -315,6 +378,11 @@ def build_classifier_transform(
         rotation_degrees=rotation_degrees,
         brightness=brightness,
         contrast=contrast,
+        gamma_min=gamma_min,
+        gamma_max=gamma_max,
+        speckle_sigma=speckle_sigma,
+        low_resolution_min=low_resolution_min,
+        low_resolution_max=low_resolution_max,
         scale_min=scale_min,
         scale_max=scale_max,
         mean=mean,

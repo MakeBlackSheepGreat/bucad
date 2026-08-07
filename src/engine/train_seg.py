@@ -15,7 +15,13 @@ from src.engine.segmentation_losses import segmentation_loss
 from src.models.segmenter import create_segmenter
 from src.utils.config import load_project_config
 from src.utils.logging import get_logger
-from src.utils.metrics import boundary_f1_score, dice_score, hd95_score, iou_score
+from src.utils.metrics import (
+    boundary_f1_score,
+    classification_metrics,
+    dice_score,
+    hd95_score,
+    iou_score,
+)
 from src.utils.reporting import write_json_report
 from src.utils.runtime import ensure_dir, optional_import, require_dependency, seed_everything, select_device
 
@@ -146,6 +152,8 @@ def _evaluate_model(model, loader, device: str, *, max_batches: int | None = Non
     iou_scores: list[float] = []
     boundary_scores: list[float] = []
     hd95_scores: list[float] = []
+    classification_labels: list[int] = []
+    malignant_probabilities: list[float] = []
     with torch.no_grad():
         for batch_index, batch in enumerate(loader, start=1):
             if max_batches is not None and batch_index > max_batches:
@@ -161,13 +169,26 @@ def _evaluate_model(model, loader, device: str, *, max_batches: int | None = Non
                 iou_scores.append(iou_score(pred[0], target[0]))
                 boundary_scores.append(boundary_f1_score(pred[0], target[0]))
                 hd95_scores.append(hd95_score(pred[0], target[0]))
+            if isinstance(outputs, dict) and outputs.get("class_logits") is not None and "label" in batch:
+                labels = batch["label"].to(device=device, dtype=torch.long)
+                probabilities = torch.softmax(outputs["class_logits"], dim=1)[:, 1]
+                classification_labels.extend(labels.cpu().tolist())
+                malignant_probabilities.extend(probabilities.cpu().tolist())
     finite_hd95 = [value for value in hd95_scores if np.isfinite(value)]
-    return {
+    metrics = {
         "dice": float(np.mean(dice_scores)) if dice_scores else 0.0,
         "iou": float(np.mean(iou_scores)) if iou_scores else 0.0,
         "boundary_f1": float(np.mean(boundary_scores)) if boundary_scores else 0.0,
         "hd95": float(np.mean(finite_hd95)) if finite_hd95 else float("inf"),
     }
+    if classification_labels:
+        classification = classification_metrics(
+            classification_labels,
+            malignant_probabilities,
+        )
+        metrics["classification"] = classification
+        metrics["classification_accuracy"] = classification["accuracy"]
+    return metrics
 
 
 def _train_segmentation_epoch(
@@ -183,6 +204,7 @@ def _train_segmentation_epoch(
     model.train()
     losses: list[float] = []
     component_losses: dict[str, list[float]] = {}
+    classification_weight = float(loss_cfg.get("classification_weight", 0.0))
     for batch_index, batch in enumerate(train_loader, start=1):
         if max_train_batches is not None and batch_index > max_train_batches:
             break
@@ -191,6 +213,11 @@ def _train_segmentation_epoch(
         optimizer.zero_grad()
         outputs = _model_forward_outputs(model, images)
         loss, components = segmentation_loss(outputs, masks, loss_cfg)
+        if classification_weight and isinstance(outputs, dict) and outputs.get("class_logits") is not None and "label" in batch:
+            labels = batch["label"].to(device=device, dtype=torch.long)
+            classification_loss = torch.nn.functional.cross_entropy(outputs["class_logits"], labels)
+            components["classification"] = classification_loss
+            loss = loss + classification_weight * classification_loss
         loss.backward()
         optimizer.step()
         losses.append(float(loss.item()))

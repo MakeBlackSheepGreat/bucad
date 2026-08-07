@@ -192,6 +192,22 @@ def test_build_training_loop_config_reads_supcon_settings() -> None:
     assert loop_config.supcon_temperature == 0.2
 
 
+def test_build_training_loop_config_reads_local_evidence_classification_weight() -> None:
+    """Verify label-aware lesion supervision weight is normalized for the epoch loop."""
+    loop_config = _build_training_loop_config(
+        training_cfg={
+            "epochs": 3,
+            "lesion_evidence": {"local_classification_weight": 0.1},
+        },
+        epochs_override=None,
+        class_weights=None,
+        class_priors=None,
+        sample_weights={},
+    )
+
+    assert loop_config.local_evidence_classification_weight == 0.1
+
+
 def test_build_training_loop_config_reads_sam_settings() -> None:
     """Verify SAM settings are normalized into the loop config."""
     loop_config = _build_training_loop_config(
@@ -522,3 +538,42 @@ def test_dualview_batch_routing_calls_model_with_named_inputs() -> None:
     assert weights is None
     assert tuple(logits.shape) == (2, 2)
     assert tuple(embeddings.shape) == (2, 14)
+
+
+def test_teacher_constraint_backpropagates_only_for_reliable_teacher_samples() -> None:
+    """Ensure frozen teachers constrain student logits without entering inference state."""
+    if train_cls.torch is None:
+        return
+    torch = train_cls.torch
+
+    class _Teacher(torch.nn.Module):
+        """Return fixed two-class logits for one reliability-gating test."""
+
+        def __init__(self, logits) -> None:
+            """Store fixed logits without trainable parameters."""
+            super().__init__()
+            self.register_buffer("fixed_logits", torch.tensor(logits, dtype=torch.float32))
+
+        def forward(self, images):
+            """Expand fixed logits to the current batch size."""
+            return self.fixed_logits[: images.shape[0]]
+
+    student_logits = torch.zeros((2, 2), dtype=torch.float32, requires_grad=True)
+    images = torch.zeros((2, 3, 8, 8), dtype=torch.float32)
+    first_teacher = _Teacher([[4.0, 0.0], [3.0, 0.0]])
+    second_teacher = _Teacher([[3.5, 0.0], [0.0, 3.0]])
+
+    loss, coverage = train_cls._teacher_constraint_loss(
+        student_logits,
+        images,
+        [first_teacher, second_teacher],
+        [0.5, 0.5],
+        temperature=2.0,
+        min_confidence=0.7,
+        max_disagreement=0.12,
+    )
+    loss.backward()
+
+    assert 0.45 <= float(coverage.item()) <= 0.55
+    assert float(student_logits.grad[0].abs().sum().item()) > 0.0
+    assert float(student_logits.grad[1].abs().sum().item()) == 0.0

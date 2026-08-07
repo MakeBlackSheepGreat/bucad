@@ -137,6 +137,7 @@ const highRiskCaseCount = computed(
 const activeNavigationItem = computed(
   () => navigationItems.find((item) => item.key === activeView.value) ?? navigationItems[0],
 );
+const apiOnline = computed(() => Boolean(runtime.value) && !runtimeLoading.value);
 const knowledgeCategories = computed(() => [
   "全部",
   ...Array.from(new Set(knowledgeEntries.value.map((entry) => entry.category))),
@@ -286,6 +287,11 @@ async function refreshPatientCases(): Promise<void> {
 }
 
 async function ensureSampleCasesVisible(): Promise<void> {
+  await refreshPatientCases();
+  if (patientCases.value.length) {
+    return;
+  }
+
   const samples = await seedSamplePatientCases();
   await refreshPatientCases();
   if (!selectedCaseId.value && samples.length) {
@@ -487,9 +493,9 @@ onBeforeUnmount(revokePreview);
       </nav>
 
       <div class="sidebar-status">
-        <span :class="{ pending: runtimeLoading }"></span>
+        <span :class="{ pending: runtimeLoading, offline: !runtimeLoading && !apiOnline }"></span>
         <div>
-          <strong>{{ runtimeLoading ? "服务连接中" : "本地服务就绪" }}</strong>
+          <strong>{{ runtimeLoading ? "服务连接中" : apiOnline ? "本地服务就绪" : "本地服务未连接" }}</strong>
           <small>{{ patientCases.length }} 份病例 · {{ highRiskCaseCount }} 份高风险</small>
         </div>
       </div>
@@ -500,10 +506,11 @@ onBeforeUnmount(revokePreview);
         <div class="title-group">
           <h1>{{ activeNavigationItem.label }}</h1>
         </div>
-        <div class="runtime-pill" :class="{ pending: runtimeLoading }">
+        <div class="runtime-pill" :class="{ pending: runtimeLoading, offline: !runtimeLoading && !apiOnline }">
           <LoaderCircle v-if="runtimeLoading" :size="16" class="spin" />
-          <CheckCircle2 v-else :size="16" />
-          <span>{{ runtimeLoading ? "连接中" : "API 已连接" }}</span>
+          <CheckCircle2 v-else-if="apiOnline" :size="16" />
+          <AlertCircle v-else :size="16" />
+          <span>{{ runtimeLoading ? "连接中" : apiOnline ? "API 已连接" : "API 未连接" }}</span>
         </div>
       </header>
 

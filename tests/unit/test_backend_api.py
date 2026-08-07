@@ -6,7 +6,7 @@ import numpy as np
 from fastapi.testclient import TestClient
 
 from backend.patients import PatientCaseRepository
-from backend.server import create_app
+from backend.server import _patient_repository, create_app
 from src.preprocess.io import cv2
 from src.utils.results import InferenceResponse, build_diagnostic_result
 
@@ -22,9 +22,11 @@ class StubInferenceService:
     }
 
     def _model_identifier(self) -> str:
+        """Return the stable identifier exposed by the stub runtime."""
         return "stub-model"
 
     def _resolved_classifier_member_configs(self) -> list[dict[str, str]]:
+        """Return one lightweight member for frontend metadata tests."""
         return [{"model": "stub", "checkpoint": "stub.pt"}]
 
     def diagnose(
@@ -36,6 +38,7 @@ class StubInferenceService:
         need_segmentation: bool = True,
         need_explanation: bool = True,
     ) -> InferenceResponse:
+        """Return a deterministic completed response without model loading."""
         del decision_threshold, need_segmentation, need_explanation
         image = np.asarray(image_input, dtype=np.uint8)
         visual = np.repeat(image[..., None], 3, axis=2)
@@ -54,6 +57,7 @@ class StubInferenceService:
 
 
 def _png_bytes() -> bytes:
+    """Encode a small grayscale PNG used by upload endpoint tests."""
     image = np.full((40, 40), 96, dtype=np.uint8)
     ok, encoded = cv2.imencode(".png", image)
     assert ok
@@ -61,6 +65,7 @@ def _png_bytes() -> bytes:
 
 
 def _client_with_patient_database(tmp_path) -> TestClient:
+    """Create an isolated API client backed by a temporary SQLite database."""
     repository = PatientCaseRepository(tmp_path / "patients.db")
     return TestClient(
         create_app(
@@ -71,6 +76,7 @@ def _client_with_patient_database(tmp_path) -> TestClient:
 
 
 def _patient_payload(patient_code: str = "BUCAD-2026-001") -> dict[str, object]:
+    """Return a valid patient record payload for backend endpoint tests."""
     return {
         "patient_code": patient_code,
         "name": "张三",
@@ -89,6 +95,7 @@ def _patient_payload(patient_code: str = "BUCAD-2026-001") -> dict[str, object]:
 
 
 def test_runtime_endpoint_returns_frontend_metadata() -> None:
+    """Verify the runtime endpoint exposes frontend initialization metadata."""
     client = TestClient(create_app(service_factory=StubInferenceService))
 
     response = client.get("/api/runtime")
@@ -101,6 +108,7 @@ def test_runtime_endpoint_returns_frontend_metadata() -> None:
 
 
 def test_ready_endpoint_reports_runtime_environment(tmp_path) -> None:
+    """Verify readiness includes runtime and database diagnostics."""
     client = _client_with_patient_database(tmp_path)
 
     response = client.get("/ready")
@@ -114,6 +122,7 @@ def test_ready_endpoint_reports_runtime_environment(tmp_path) -> None:
 
 
 def test_diagnose_endpoint_returns_json_safe_visuals() -> None:
+    """Verify image diagnosis serializes browser-ready visual data URLs."""
     client = TestClient(create_app(service_factory=StubInferenceService))
 
     response = client.post(
@@ -134,6 +143,7 @@ def test_diagnose_endpoint_returns_json_safe_visuals() -> None:
 
 
 def test_patient_case_create_list_and_detail(tmp_path) -> None:
+    """Verify a patient case can be created, listed, and retrieved."""
     client = _client_with_patient_database(tmp_path)
 
     created_response = client.post("/api/patients", json=_patient_payload())
@@ -156,6 +166,7 @@ def test_patient_case_create_list_and_detail(tmp_path) -> None:
 
 
 def test_patient_case_search_filters_records(tmp_path) -> None:
+    """Verify patient search limits results to matching records."""
     client = _client_with_patient_database(tmp_path)
     assert client.post("/api/patients", json=_patient_payload("BUCAD-2026-001")).status_code == 201
     second = _patient_payload("BUCAD-2026-002")
@@ -172,6 +183,7 @@ def test_patient_case_search_filters_records(tmp_path) -> None:
 
 
 def test_seed_sample_patient_cases_inserts_demo_records(tmp_path) -> None:
+    """Verify sample insertion is populated and idempotent."""
     client = _client_with_patient_database(tmp_path)
 
     response = client.post("/api/patients/seed-samples")
@@ -192,7 +204,43 @@ def test_seed_sample_patient_cases_inserts_demo_records(tmp_path) -> None:
     )
 
 
+def test_patient_repository_preloads_demo_cases_when_requested(tmp_path) -> None:
+    """Verify startup seeding keeps bundled cases available without duplicates."""
+    database_path = tmp_path / "patients.db"
+
+    first_repository = PatientCaseRepository(database_path, seed_samples=True)
+    first_cases = first_repository.list_cases()
+    second_repository = PatientCaseRepository(database_path, seed_samples=True)
+    second_cases = second_repository.list_cases()
+
+    assert len(first_cases) == 6
+    assert len(second_cases) == 6
+    assert {case.patient_code for case in second_cases} == {
+        "DEMO-ZS-001",
+        "DEMO-LS-002",
+        "DEMO-WF-003",
+        "DEMO-ZM-004",
+        "DEMO-CJ-005",
+        "DEMO-ZH-006",
+    }
+
+
+def test_default_api_preloads_demo_patient_cases(tmp_path, monkeypatch) -> None:
+    """Verify the production repository provides demo cases on first API request."""
+    monkeypatch.setenv("BUCAD_PATIENT_DB_PATH", str(tmp_path / "default-patients.db"))
+    _patient_repository.cache_clear()
+    try:
+        client = TestClient(create_app(service_factory=StubInferenceService))
+        response = client.get("/api/patients")
+    finally:
+        _patient_repository.cache_clear()
+
+    assert response.status_code == 200
+    assert len(response.json()) == 6
+
+
 def test_patient_case_not_found_returns_404(tmp_path) -> None:
+    """Verify an unknown patient identifier produces a 404 response."""
     client = _client_with_patient_database(tmp_path)
 
     response = client.get("/api/patients/999")
@@ -202,6 +250,7 @@ def test_patient_case_not_found_returns_404(tmp_path) -> None:
 
 
 def test_knowledge_endpoint_returns_curated_entries() -> None:
+    """Verify knowledge search returns relevant curated entries."""
     client = TestClient(create_app(service_factory=StubInferenceService))
 
     response = client.get("/api/knowledge", params={"q": "HER2 靶向治疗"})
@@ -213,6 +262,7 @@ def test_knowledge_endpoint_returns_curated_entries() -> None:
 
 
 def test_agent_endpoint_returns_structured_fallback_without_api_key(tmp_path, monkeypatch) -> None:
+    """Verify the non-streaming agent route redacts local fallback context."""
     monkeypatch.delenv("DEEPSEEK_API_KEY", raising=False)
     client = _client_with_patient_database(tmp_path)
     created = client.post("/api/patients", json=_patient_payload()).json()
@@ -248,6 +298,7 @@ def test_agent_endpoint_returns_structured_fallback_without_api_key(tmp_path, mo
 
 
 def test_agent_stream_endpoint_returns_sse_fallback_without_api_key(tmp_path, monkeypatch) -> None:
+    """Verify the streaming agent route emits a redacted fallback event."""
     monkeypatch.delenv("DEEPSEEK_API_KEY", raising=False)
     client = _client_with_patient_database(tmp_path)
     created = client.post("/api/patients", json=_patient_payload()).json()

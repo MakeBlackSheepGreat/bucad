@@ -165,7 +165,10 @@ def evaluate_imagenet_config(
     _require_prepared_imagenet(root_path, split_name)
     model_cfg = dict(config.get("model", {}))
     checkpoint_path = _resolve_checkpoint_path(config, paths, checkpoint)
-    if checkpoint_path is None and _requires_trained_checkpoint(model_cfg):
+    if checkpoint_path is None and _requires_trained_checkpoint(
+        model_cfg,
+        config.get("evaluation", {}),
+    ):
         raise ValueError(
             f"{model_cfg.get('name')} requires a full ImageNet-trained checkpoint for fair evaluation. "
             "Train it with scripts/train_imagenet.py or pass --checkpoint."
@@ -395,7 +398,10 @@ def run_imagenet_ablation(
                 }
             )
             continue
-        if checkpoint_path is None and _requires_trained_checkpoint(model_cfg):
+        if checkpoint_path is None and _requires_trained_checkpoint(
+            model_cfg,
+            entry.get("evaluation", {}),
+        ):
             rows.append(
                 {
                     "id": entry.get("id"),
@@ -565,12 +571,17 @@ def _load_state_dict(model, checkpoint_path: Path) -> dict[str, Any]:
     }
 
 
-def _requires_trained_checkpoint(model_cfg: dict[str, Any]) -> bool:
-    """Return True when pretrained backbone weights alone are not a fair ImageNet result."""
+def _requires_trained_checkpoint(
+    model_cfg: dict[str, Any],
+    evaluation_cfg: dict[str, Any] | None = None,
+) -> bool:
+    """Return whether ImageNet evaluation must receive a full trained checkpoint."""
     name = str(model_cfg.get("name", "")).lower()
-    return (
-        name.startswith("roi_dualview_")
-    )
+    if name.startswith("roi_dualview_"):
+        return True
+    # 公开预训练基线须在配置中显式声明，避免将仅有骨干权重的实验记为公平评估。
+    allow_official_baseline = bool((evaluation_cfg or {}).get("allow_official_pretrained_baseline", False))
+    return bool(model_cfg.get("pretrained", False)) and not allow_official_baseline
 
 
 def _build_model(model_cfg: dict[str, Any], *, device: str, checkpoint_path: Path | None = None):

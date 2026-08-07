@@ -6,9 +6,12 @@ from pathlib import Path
 from typing import Any, Callable
 
 import numpy as np
+import pandas as pd
 
 from src.datasets.busi import load_busi_manifest
+from src.datasets.external_bus import DATASET_REGISTRY, load_external_manifest
 from src.engine.classifier_ensemble import ClassifierEnsemble
+from src.engine.devices import resolve_torch_device
 from src.engine.errors import (
     BucadError,
     ClassificationUnavailableError,
@@ -22,11 +25,23 @@ from src.engine.runtime_config import (
     resolve_runtime_checkpoint_paths,
 )
 from src.engine.visual_evidence import VisualEvidenceService
-from src.preprocess.io import ensure_three_channels, read_image, validate_image_array
+from src.models.segmenter import load_segmenter
+from src.preprocess.io import ensure_three_channels, read_image, read_mask, validate_image_array
+from src.preprocess.transforms import prepare_classifier_input
 from src.utils.config import load_project_config
-from src.utils.metrics import best_threshold_by_youden, classification_metrics, threshold_sweep
+from src.utils.metrics import (
+    best_threshold_by_youden,
+    classification_metrics,
+    dice_score,
+    iou_score,
+    threshold_sweep,
+)
 from src.utils.reporting import write_json_report, write_markdown_report
 from src.utils.results import InferenceResponse, build_diagnostic_result
+from src.utils.runtime import optional_import
+
+
+torch = optional_import("torch")
 
 
 def _resolve_runtime_checkpoint_paths(
@@ -90,6 +105,55 @@ class BreastUltrasoundInferenceService:
             self.classifier_ensemble,
             paths=paths,
         )
+        self._lesionext_model = None
+        self._lesionext_device = None
+        self._last_lesionext_mask: np.ndarray | None = None
+        self._last_lesionext_router_weight: float | None = None
+
+    def _uses_lesionext(self) -> bool:
+        """Return whether the runtime selects the unified LesioNeXt path."""
+        return str(self.runtime_config.get("model_family", "")).lower() in {"lesionext", "lesionext_bus"}
+
+    def _lesionext_checkpoint(self) -> str | None:
+        """Return the unified-model checkpoint configured for LesioNeXt inference."""
+        checkpoint = self.runtime_config.get("lesionext_checkpoint")
+        return str(checkpoint) if checkpoint else None
+
+    def _ensure_lesionext_loaded(self):
+        """Load the unified LesioNeXt checkpoint once and move it on demand."""
+        if torch is None:
+            raise ClassificationUnavailableError("Torch is not available for LesioNeXt inference.")
+        checkpoint = self._lesionext_checkpoint()
+        if checkpoint is None or not Path(checkpoint).exists():
+            raise ClassificationUnavailableError("LesioNeXt checkpoint is not available.")
+        if self._lesionext_model is None:
+            model_config = dict(self.runtime_config.get("lesionext_model", {}))
+            model_config.setdefault("architecture", "lesionext")
+            model_config.setdefault("in_channels", 3)
+            model_config.setdefault("classes", 1)
+            self._lesionext_model = load_segmenter(model_config, checkpoint_path=checkpoint, map_location="cpu")
+            self._lesionext_model.eval()
+        requested = self.runtime_config.get("lesionext_device", self.runtime_config.get("device", "cpu"))
+        device = resolve_torch_device(str(requested), torch)
+        if self._lesionext_device != device:
+            self._lesionext_model.to(device)
+            self._lesionext_device = device
+        return self._lesionext_model, device
+
+    def _predict_lesionext(self, image: np.ndarray) -> tuple[float, float]:
+        """Run one unified LesioNeXt pass and cache mask plus reliability metadata."""
+        model, device = self._ensure_lesionext_loaded()
+        image_size = int(self.runtime_config.get("lesionext_image_size", 256))
+        tensor = prepare_classifier_input(image, image_size)
+        if not hasattr(tensor, "unsqueeze"):
+            raise ClassificationUnavailableError("Torch tensor conversion failed for LesioNeXt inference.")
+        inference_context = torch.inference_mode if hasattr(torch, "inference_mode") else torch.no_grad
+        with inference_context():
+            outputs = model.forward_with_aux(tensor.unsqueeze(0).to(device=device, dtype=torch.float32))
+            probabilities = torch.softmax(outputs["class_logits"], dim=1)[0].cpu().numpy()
+            self._last_lesionext_mask = torch.sigmoid(outputs["mask"])[0, 0].cpu().numpy()
+            self._last_lesionext_router_weight = float(outputs["roi_weight"][0, 0].detach().cpu().item())
+        return float(probabilities[0]), float(probabilities[1])
 
     @property
     def _classifier_model(self):
@@ -185,7 +249,7 @@ class BreastUltrasoundInferenceService:
 
     def _response_metadata(self, decision_threshold: float) -> dict[str, Any]:
         """Build the metadata dict attached to every completed response."""
-        return {
+        metadata = {
             "model_identifier": self._model_identifier(),
             "decision_threshold": decision_threshold,
             "primary_model": self.runtime_config.get(
@@ -195,6 +259,9 @@ class BreastUltrasoundInferenceService:
             "ensemble_display_name": self.runtime_config.get("ensemble_display_name"),
             "roi_fallback_reason": self._last_roi_fallback_reason,
         }
+        if self._uses_lesionext():
+            metadata["roi_reliability"] = self._last_lesionext_router_weight
+        return metadata
 
     def _build_completed_response(
         self,
@@ -244,6 +311,8 @@ class BreastUltrasoundInferenceService:
 
     def _model_identifier(self) -> str:
         """Return the active classifier ensemble identifier."""
+        if self._uses_lesionext():
+            return "LesioNeXt-BUS"
         return self.classifier_ensemble.model_identifier()
 
     def _member_config_value(
@@ -384,6 +453,10 @@ class BreastUltrasoundInferenceService:
     def _predict_classification(self, image: np.ndarray) -> tuple[float, float]:
         """Run full-image classification and optional ROI-enhanced refinement."""
         self._last_roi_fallback_reason = None
+        self._last_lesionext_mask = None
+        self._last_lesionext_router_weight = None
+        if self._uses_lesionext():
+            return self._predict_lesionext(image)
         if self.classifier_predictor is not None:
             benign, malignant = self.classifier_predictor(image)
             return float(benign), float(malignant)
@@ -430,17 +503,24 @@ class BreastUltrasoundInferenceService:
         need_explanation: bool,
     ) -> None:
         """Attach optional lesion and explanation views to a completed response."""
+        lesionext_segmenter = None
+        if self._uses_lesionext() and self._last_lesionext_mask is not None:
+            lesionext_segmenter = lambda _image: self._last_lesionext_mask
         self.visual_evidence.attach_optional_visuals(
             response,
             image,
             need_segmentation=need_segmentation,
             need_explanation=need_explanation,
-            segmenter_predictor=self.segmenter_predictor,
+            segmenter_predictor=lesionext_segmenter or self.segmenter_predictor,
             explanation_generator=self.explanation_generator,
         )
 
     def _predict_segmentation(self, image: np.ndarray) -> np.ndarray:
         """Predict a lesion mask through the visual evidence service."""
+        if self._uses_lesionext():
+            if self._last_lesionext_mask is None:
+                self._predict_lesionext(image)
+            return self._last_lesionext_mask
         return self.visual_evidence.predict_segmentation(image)
 
     def _predict_explanation(self, image: np.ndarray) -> np.ndarray:
@@ -453,6 +533,7 @@ def evaluate_busi_dataset(
     *,
     classifier_predictor: Callable[[np.ndarray], tuple[float, float]] | None = None,
     output_path: str | Path | None = None,
+    bootstrap_replicates: int = 2000,
 ) -> dict[str, Any]:
     """Evaluate the configured classifier path on BUSI benign/malignant samples."""
     service, paths = _inference_service_from_project_config(
@@ -468,9 +549,148 @@ def evaluate_busi_dataset(
         y_true=y_true,
         malignant_probabilities=malignant_probabilities,
         rows=rows,
+        auc_bootstrap_ci=_bootstrap_auc_ci(
+            y_true,
+            malignant_probabilities,
+            replicates=bootstrap_replicates,
+        ),
     )
     destination = Path(output_path) if output_path is not None else paths.reports_root / "busi_eval.json"
     _write_busi_report_outputs(report, destination, write_named_threshold_report=output_path is not None)
+    return report
+
+
+def _bootstrap_auc_ci(
+    y_true: list[int],
+    probabilities: list[float],
+    *,
+    replicates: int = 2000,
+    seed: int = 20260806,
+) -> dict[str, Any] | None:
+    """Estimate a percentile confidence interval without touching model selection."""
+    from sklearn.metrics import roc_auc_score
+
+    labels = np.asarray(y_true, dtype=np.int32)
+    scores = np.asarray(probabilities, dtype=np.float64)
+    if len(labels) < 2 or len(np.unique(labels)) < 2 or replicates <= 0:
+        return None
+    rng = np.random.default_rng(seed)
+    values: list[float] = []
+    for _ in range(int(replicates)):
+        indices = rng.integers(0, len(labels), size=len(labels))
+        sampled_labels = labels[indices]
+        if len(np.unique(sampled_labels)) < 2:
+            continue
+        values.append(float(roc_auc_score(sampled_labels, scores[indices])))
+    if not values:
+        return None
+    low, high = np.percentile(np.asarray(values), [2.5, 97.5])
+    return {"confidence": 0.95, "lower": float(low), "upper": float(high), "replicates": len(values)}
+
+
+def _resize_mask_for_eval(mask: np.ndarray, shape: tuple[int, int]) -> np.ndarray:
+    """Resize a ground-truth mask to the model output shape with nearest-neighbor semantics."""
+    if mask.shape[:2] == shape:
+        return mask
+    cv2_module = optional_import("cv2")
+    if cv2_module is not None:
+        return cv2_module.resize(mask.astype(np.uint8), (shape[1], shape[0]), interpolation=cv2_module.INTER_NEAREST)
+    y = np.linspace(0, mask.shape[0] - 1, shape[0]).astype(int)
+    x = np.linspace(0, mask.shape[1] - 1, shape[1]).astype(int)
+    return mask[np.ix_(y, x)]
+
+
+def evaluate_external_bus_dataset(
+    dataset_id: str,
+    root: str | Path,
+    *,
+    config_path: str | Path,
+    manifest_path: str | Path | None = None,
+    output_path: str | Path | None = None,
+    bootstrap_replicates: int = 2000,
+) -> dict[str, Any]:
+    """Evaluate a frozen config on an independent dataset with no external tuning."""
+    if dataset_id not in DATASET_REGISTRY:
+        raise KeyError(f"Unknown external dataset '{dataset_id}'.")
+    service, paths = _inference_service_from_project_config(config_path)
+    manifest = load_external_manifest(dataset_id, root, manifest_path=manifest_path)
+    y_true: list[int] = []
+    probabilities: list[float] = []
+    rows: list[dict[str, Any]] = []
+    dice_values: list[float] = []
+    iou_values: list[float] = []
+    skipped: list[dict[str, Any]] = []
+    for row in manifest.itertuples(index=False):
+        response = service.diagnose(
+            row.image_path,
+            input_filename=Path(row.image_path).name,
+            need_segmentation=False,
+            need_explanation=False,
+        )
+        if response.result is None:
+            skipped.append({"sample_id": row.sample_id, "reason": response.status})
+            continue
+        malignant_probability = float(response.result.malignant_probability)
+        label = 1 if row.pathology_label == "malignant" else 0
+        y_true.append(label)
+        probabilities.append(malignant_probability)
+        prediction_row = {
+            "sample_id": row.sample_id,
+            "case_id": row.case_id,
+            "dataset_name": dataset_id,
+            "image_path": row.image_path,
+            "mask_path": row.mask_path,
+            "pathology_label": row.pathology_label,
+            "malignant_probability": malignant_probability,
+            "final_label": response.result.final_label,
+            "status": response.status,
+        }
+        if row.mask_path:
+            try:
+                predicted_mask = service._predict_segmentation(read_image(row.image_path, grayscale=True))
+                true_mask = read_mask(row.mask_path)
+                if true_mask is None:
+                    raise ValueError("Ground-truth mask is unavailable.")
+                true_mask = _resize_mask_for_eval(true_mask, predicted_mask.shape[:2])
+                prediction_row["dice"] = dice_score(predicted_mask, true_mask)
+                prediction_row["iou"] = iou_score(predicted_mask, true_mask)
+                dice_values.append(prediction_row["dice"])
+                iou_values.append(prediction_row["iou"])
+            except Exception as exc:  # segmentation is an optional external metric
+                prediction_row["segmentation_error"] = str(exc)
+        rows.append(prediction_row)
+    threshold = float(service.runtime_config.get("default_threshold", 0.5))
+    metrics = classification_metrics(y_true, probabilities, threshold=threshold)
+    segmentation = None
+    if dice_values:
+        segmentation = {
+            "sample_count": len(dice_values),
+            "dice_mean": float(np.mean(dice_values)),
+            "iou_mean": float(np.mean(iou_values)),
+        }
+    report = {
+        "dataset_id": dataset_id,
+        "dataset_card": {"dataset_id": dataset_id, **DATASET_REGISTRY[dataset_id]},
+        "config_path": str(config_path),
+        "model_identifier": service._model_identifier(),
+        "sample_count": len(rows),
+        "case_count": int(manifest["case_id"].nunique()),
+        "label_counts": {
+            str(label): int(count)
+            for label, count in manifest["pathology_label"].value_counts().to_dict().items()
+        },
+        "skipped_count": len(skipped),
+        "skipped": skipped,
+        "threshold_source": "frozen_runtime_default; no external threshold tuning",
+        "metrics": metrics,
+        "auc_bootstrap_ci": _bootstrap_auc_ci(y_true, probabilities, replicates=bootstrap_replicates),
+        "segmentation": segmentation,
+        "rows": rows,
+    }
+    destination = Path(output_path) if output_path is not None else paths.reports_root / f"external_{dataset_id}.json"
+    write_json_report(destination, report)
+    prediction_path = destination.with_name(f"{destination.stem}_predictions.csv")
+    pd.DataFrame.from_records(rows).to_csv(prediction_path, index=False, encoding="utf-8-sig")
     return report
 
 
@@ -511,6 +731,7 @@ def _build_busi_report(
     y_true: list[int],
     malignant_probabilities: list[float],
     rows: list[dict[str, Any]],
+    auc_bootstrap_ci: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Build the BUSI report payload without touching the filesystem."""
     default_threshold = float(service.runtime_config.get("default_threshold", 0.5))
@@ -532,6 +753,7 @@ def _build_busi_report(
         },
         "sample_count": len(rows),
         "metrics": metrics,
+        "auc_bootstrap_ci": auc_bootstrap_ci,
         "threshold_analysis": {
             "best_by_youden": best_threshold,
             "rows": threshold_rows,

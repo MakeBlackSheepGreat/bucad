@@ -220,6 +220,10 @@ label:focus-within {
   background: var(--amber);
 }
 
+.sidebar-status > span.offline {
+  background: var(--rose);
+}
+
 .sidebar-status strong {
   display: block;
   color: var(--ink);
@@ -287,6 +291,11 @@ label:focus-within {
 .runtime-pill.pending {
   color: var(--amber);
   background: var(--amber-soft);
+}
+
+.runtime-pill.offline {
+  color: var(--rose);
+  background: var(--rose-soft);
 }
 
 .platform-kpi-strip {

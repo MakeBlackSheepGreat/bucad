@@ -153,8 +153,8 @@ def _cors_origins_from_env() -> list[str]:
 
 @lru_cache(maxsize=1)
 def _patient_repository() -> PatientCaseRepository:
-    """Return the local patient case repository."""
-    return PatientCaseRepository()
+    """Return the local patient repository with bundled demo cases ready."""
+    return PatientCaseRepository(seed_samples=True)
 
 
 @lru_cache(maxsize=1)

@@ -176,7 +176,8 @@ class VisualEvidenceService:
         inference_context = torch.inference_mode if hasattr(torch, "inference_mode") else torch.no_grad
         with inference_context():
             for model in self._segmenter_models:
-                logits = model(batch)
+                outputs = model(batch)
+                logits = outputs["mask"] if isinstance(outputs, dict) else outputs
                 masks.append(torch.sigmoid(logits)[0, 0].cpu().numpy())
         return self._average_masks(masks)
 

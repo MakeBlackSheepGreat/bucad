@@ -1,0 +1,26 @@
+external_datasets:
+  bus_uclm:
+    root: ./data/external/bus_uclm
+    manifest: ./data/external/bus_uclm/manifest.csv
+    role: classification+segmentation
+    exclude_labels: [normal]
+    source_doi: 10.17632/7fvgj4jsp7.1
+  busi_whu:
+    root: ./data/external/busi_whu
+    manifest: ./data/external/busi_whu/manifests/manifest_external_788.csv
+    role: classification+segmentation
+    exclude_labels: [normal]
+    source_doi: 10.17632/k6cpmwybk3.1
+  tcia_breast_us:
+    root: ./data/external/tcia_breast_us
+    manifest: ./data/external/tcia_breast_us/manifests/manifest.csv
+    role: classification+segmentation
+    source_collection: BREAST-LESIONS-USG
+  udiat:
+    root: ./data/external/udiat
+    manifest: ./data/external/udiat/manifest.csv
+    role: classification+segmentation
+  oasbud:
+    root: ./data/external/oasbud
+    manifest: ./data/external/oasbud/manifest.csv
+    role: domain-shift classification

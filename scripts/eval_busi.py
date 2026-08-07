@@ -17,13 +17,18 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Run BUSI external evaluation.")
     parser.add_argument("--config", required=True, help="Path to inference config YAML")
     parser.add_argument("--output", default=None, help="Optional output path for the report")
+    parser.add_argument("--bootstrap", type=int, default=2000, help="Bootstrap replicates for the AUC confidence interval")
     return parser
 
 
 def main() -> int:
     """Evaluate the frozen inference config and print headline metrics."""
     args = build_parser().parse_args()
-    report = evaluate_busi_dataset(args.config, output_path=args.output)
+    report = evaluate_busi_dataset(
+        args.config,
+        output_path=args.output,
+        bootstrap_replicates=args.bootstrap,
+    )
     print(report["metrics"])
     best = report.get("threshold_analysis", {}).get("best_by_youden", {})
     if best:

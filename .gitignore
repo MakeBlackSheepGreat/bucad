@@ -45,7 +45,8 @@ Release/
 dist/
 build/
 
-# Generated reports that should stay local
+# Generated reports and internal validation material that must stay local
+artifacts/reports/
 artifacts/reports/*.csv
 artifacts/reports/*.json
 artifacts/reports/*.xlsx
@@ -63,7 +64,6 @@ artifacts/reports/packaged_demo_*.txt
 artifacts/reports/defense_*.md
 artifacts/reports/demo_rehearsal.md
 artifacts/reports/final_*.md
-!artifacts/reports/final_validation.md
 artifacts/reports/six_model_comparison_report.md
 scripts/build_feishu_metrics_workbook.py
 scripts/build_competition_materials.py

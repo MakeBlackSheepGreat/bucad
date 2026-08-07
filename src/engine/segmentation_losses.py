@@ -55,6 +55,14 @@ def boundary_bce_loss(boundary_logits, targets):
     return F.binary_cross_entropy_with_logits(resized_logits, boundary_targets)
 
 
+def uncertainty_proxy_loss(uncertainty_logits, targets):
+    """Calibrate the uncertainty proxy toward ambiguous mask boundaries."""
+    require_dependency("torch.nn.functional", F)
+    resized_logits = _resize_like(uncertainty_logits, targets)
+    boundary_targets = boundary_target_from_mask(targets)
+    return F.binary_cross_entropy_with_logits(resized_logits, boundary_targets)
+
+
 def pixel_affinity_loss(mask_logits, targets, *, shifts: tuple[tuple[int, int], ...] | None = None):
     """Penalize neighboring pixel prediction inconsistency for mask refinement."""
     require_dependency("torch", torch)
@@ -142,11 +150,14 @@ def segmentation_loss(outputs: Any, targets, config: dict[str, Any] | None = Non
     bce_weight = float(cfg.get("bce_weight", 1.0 if "bce" in loss_name else 0.0))
     dice_weight = float(cfg.get("dice_weight", 1.0 if "dice" in loss_name else 0.0))
     boundary_weight = float(cfg.get("boundary_weight", 0.0))
+    uncertainty_weight = float(cfg.get("uncertainty_weight", 0.0))
     pal_weight = float(cfg.get("pal_weight", 0.0))
     foreground_prototype_weight = float(cfg.get("foreground_prototype_weight", 0.0))
     edge_prototype_weight = float(cfg.get("edge_prototype_weight", 0.0))
     if "boundary" in loss_name and boundary_weight == 0.0:
         boundary_weight = 1.0
+    if "uncertainty" in loss_name and uncertainty_weight == 0.0:
+        uncertainty_weight = 0.1
     if "pal" in loss_name and pal_weight == 0.0:
         pal_weight = 0.2
     if "prototype" in loss_name and foreground_prototype_weight == 0.0:
@@ -164,6 +175,9 @@ def segmentation_loss(outputs: Any, targets, config: dict[str, Any] | None = Non
         boundary_logits = outputs.get("boundary") if isinstance(outputs, dict) else mask_logits
         components["boundary"] = boundary_bce_loss(boundary_logits, targets)
         total = total + boundary_weight * components["boundary"]
+    if uncertainty_weight and isinstance(outputs, dict) and outputs.get("uncertainty") is not None:
+        components["uncertainty"] = uncertainty_proxy_loss(outputs["uncertainty"], targets)
+        total = total + uncertainty_weight * components["uncertainty"]
     if pal_weight:
         components["pal"] = pixel_affinity_loss(mask_logits, targets)
         total = total + pal_weight * components["pal"]

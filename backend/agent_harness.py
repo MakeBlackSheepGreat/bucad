@@ -326,6 +326,7 @@ class BreastTumorAgentHarness:
     """Retrieve local knowledge and ask DeepSeek for a structured interpretation."""
 
     def __init__(self, agent_prompt_path: Path = DEFAULT_AGENT_PROMPT_PATH) -> None:
+        """Store the prompt path used by each interpretation request."""
         self.agent_prompt_path = agent_prompt_path
 
     def interpret(self, request: AgentInterpretationRequest) -> AgentInterpretationResponse:

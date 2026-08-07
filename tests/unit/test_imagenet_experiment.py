@@ -158,6 +158,8 @@ def test_scaled_learning_rate_matches_convnext_recipe() -> None:
 def test_resolve_checkpoint_path_uses_project_relative_paths(tmp_path: Path) -> None:
     """Verify configured checkpoints resolve relative to the project root."""
     class Paths:
+        """Minimal project-path container for checkpoint resolution."""
+
         project_root = tmp_path
 
     resolved = imagenet._resolve_checkpoint_path(
@@ -173,6 +175,8 @@ def test_v1_fair_eval_requires_full_checkpoint(tmp_path: Path, monkeypatch) -> N
     if imagenet.torch is None:
         return
     class Paths:
+        """Minimal project-path container for ImageNet evaluation."""
+
         project_root = tmp_path
         imagenet_root = tmp_path / "imagenet"
         reports_root = tmp_path / "reports"
@@ -201,11 +205,24 @@ def test_v1_fair_eval_requires_full_checkpoint(tmp_path: Path, monkeypatch) -> N
         imagenet.evaluate_imagenet_config("dummy.yml")
 
 
+def test_official_pretrained_baseline_requires_explicit_opt_in() -> None:
+    """Verify official pretrained evaluation needs an explicit configuration flag."""
+    model_cfg = {"name": "convnext_tiny", "pretrained": True}
+
+    assert imagenet._requires_trained_checkpoint(model_cfg) is True
+    assert imagenet._requires_trained_checkpoint(
+        model_cfg,
+        {"allow_official_pretrained_baseline": True},
+    ) is False
+
+
 def test_run_ablation_marks_missing_checkpoints_requires_training(tmp_path: Path, monkeypatch) -> None:
     """Verify missing ablation checkpoints are reported instead of crashing."""
     if imagenet.torch is None:
         return
     class Paths:
+        """Minimal project-path container for ablation reports."""
+
         project_root = tmp_path
         imagenet_root = tmp_path / "imagenet"
         reports_root = tmp_path / "reports"
@@ -255,24 +272,32 @@ def test_train_imagenet_smoke_writes_checkpoint_and_report(tmp_path: Path, monke
     torch = imagenet.torch
 
     class Paths:
+        """Minimal project-path container for the synthetic training run."""
+
         project_root = tmp_path
         imagenet_root = tmp_path / "imagenet"
         checkpoints_root = tmp_path / "checkpoints"
         reports_root = tmp_path / "reports"
 
     class TinyImageNet(torch.utils.data.Dataset):
+        """Four-sample synthetic ImageNet-like dataset for the smoke test."""
+
         def __init__(self, split: str) -> None:
+            """Record the requested dataset split."""
             self.split = split
 
         def __len__(self) -> int:
+            """Return the fixed smoke-test sample count."""
             return 4
 
         def __getitem__(self, index: int):
+            """Return a random tiny image and deterministic binary label."""
             image = torch.rand(3, 8, 8)
             label = index % 2
             return image, label
 
     def fake_loader(*, config, model, root, split, is_training=False):
+        """Build the deterministic synthetic data loader used by this test."""
         return torch.utils.data.DataLoader(
             TinyImageNet(split),
             batch_size=2,

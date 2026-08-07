@@ -46,9 +46,28 @@ def classification_metrics(
     prob_arr = np.asarray(malignant_probabilities, dtype=np.float32)
     preds = (prob_arr >= threshold).astype(np.int32)
     confusion = confusion_summary(y_true_arr, preds)
+    return _classification_metrics_from_confusion(
+        confusion,
+        threshold=float(threshold),
+        auc=_binary_auc(y_true_arr, prob_arr),
+    )
+
+
+def _binary_auc(y_true: np.ndarray, probabilities: np.ndarray) -> float | None:
+    """Compute binary AUC once when both classes are present."""
     auc = None
-    if len(np.unique(y_true_arr)) > 1:
-        auc = float(roc_auc_score(y_true_arr, prob_arr))
+    if len(np.unique(y_true)) > 1:
+        auc = float(roc_auc_score(y_true, probabilities))
+    return auc
+
+
+def _classification_metrics_from_confusion(
+    confusion: dict[str, int],
+    *,
+    threshold: float,
+    auc: float | None,
+) -> dict[str, Any]:
+    """Build binary metrics from one confusion summary and a precomputed AUC."""
     sensitivity = safe_divide(confusion["tp"], confusion["tp"] + confusion["fn"])
     precision = safe_divide(confusion["tp"], confusion["tp"] + confusion["fp"])
     specificity = safe_divide(confusion["tn"], confusion["tn"] + confusion["fp"])
@@ -59,7 +78,7 @@ def classification_metrics(
     f1_score = safe_divide(2.0 * precision * sensitivity, precision + sensitivity)
     return {
         "auc": auc,
-        "threshold": float(threshold),
+        "threshold": threshold,
         "sensitivity": sensitivity,
         "recall": sensitivity,
         "precision": precision,
@@ -79,12 +98,39 @@ def threshold_sweep(
     """Evaluate binary classification metrics across a range of decision thresholds."""
     if thresholds is None:
         thresholds = np.round(np.arange(0.1, 0.9001, 0.01), 2)
+    y_true_arr = np.asarray(y_true, dtype=np.int32)
+    prob_arr = np.asarray(malignant_probabilities, dtype=np.float32)
+    auc = _binary_auc(y_true_arr, prob_arr)
+
+    # 概率排序后用前缀和查询各阈值，避免重复全量扫描和重复计算 AUC。
+    order = np.argsort(prob_arr, kind="stable")
+    sorted_probs = prob_arr[order]
+    sorted_labels = y_true_arr[order]
+    prefix_positive = np.concatenate(
+        (np.zeros(1, dtype=np.int64), np.cumsum(sorted_labels == 1, dtype=np.int64))
+    )
+    prefix_negative = np.concatenate(
+        (np.zeros(1, dtype=np.int64), np.cumsum(sorted_labels == 0, dtype=np.int64))
+    )
+    total_positive = int(prefix_positive[-1])
+    total_negative = int(prefix_negative[-1])
+
     rows: list[dict[str, Any]] = []
     for threshold in thresholds:
-        metrics = classification_metrics(
-            y_true,
-            malignant_probabilities,
-            threshold=float(threshold),
+        threshold_value = float(threshold)
+        split_index = int(
+            np.searchsorted(sorted_probs, np.float32(threshold_value), side="left")
+        )
+        confusion = {
+            "tn": int(prefix_negative[split_index]),
+            "fp": total_negative - int(prefix_negative[split_index]),
+            "fn": int(prefix_positive[split_index]),
+            "tp": total_positive - int(prefix_positive[split_index]),
+        }
+        metrics = _classification_metrics_from_confusion(
+            confusion,
+            threshold=threshold_value,
+            auc=auc,
         )
         rows.append(
             {

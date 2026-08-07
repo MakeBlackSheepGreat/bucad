@@ -41,6 +41,8 @@ def resolve_runtime_checkpoint_paths(
         resolved["classifier_members"] = members
     if "segmenter_checkpoint" in resolved:
         resolved["segmenter_checkpoint"] = resolve_checkpoint(resolved.get("segmenter_checkpoint"))
+    if "lesionext_checkpoint" in resolved:
+        resolved["lesionext_checkpoint"] = resolve_checkpoint(resolved.get("lesionext_checkpoint"))
     if isinstance(resolved.get("segmenter_checkpoints"), list):
         resolved["segmenter_checkpoints"] = [
             resolve_checkpoint(checkpoint)

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from functools import lru_cache
 from re import findall
 
 from pydantic import BaseModel, Field
@@ -27,6 +28,16 @@ class KnowledgeSearchResult:
 
     entry: KnowledgeEntry
     score: int
+
+
+@dataclass(frozen=True)
+class _KnowledgeSearchIndex:
+    """Precomputed lowercase text and tokens for one immutable knowledge entry."""
+
+    entry: KnowledgeEntry
+    searchable: str
+    tokens: frozenset[str]
+    keywords: tuple[str, ...]
 
 
 KNOWLEDGE_ENTRIES: list[KnowledgeEntry] = [
@@ -1563,14 +1574,10 @@ def list_knowledge_entries(category: str | None = None) -> list[KnowledgeEntry]:
     return [entry for entry in KNOWLEDGE_ENTRIES if entry.category == category]
 
 
-def search_knowledge(query: str, *, limit: int = 5) -> list[KnowledgeEntry]:
-    """Return knowledge entries ranked by keyword and text overlap."""
-    normalized_query = query.strip().lower()
-    if not normalized_query:
-        return KNOWLEDGE_ENTRIES[:limit]
-
-    query_tokens = _tokens(normalized_query)
-    results: list[KnowledgeSearchResult] = []
+@lru_cache(maxsize=1)
+def _knowledge_search_index() -> tuple[_KnowledgeSearchIndex, ...]:
+    """Build the reusable retrieval index for the bundled knowledge base."""
+    indexed_entries = []
     for entry in KNOWLEDGE_ENTRIES:
         searchable = " ".join(
             [
@@ -1582,18 +1589,41 @@ def search_knowledge(query: str, *, limit: int = 5) -> list[KnowledgeEntry]:
                 " ".join(entry.details),
             ]
         ).lower()
-        score = 0
-        for keyword in entry.keywords:
-            if keyword.lower() in normalized_query:
-                score += 8
-        if normalized_query in searchable:
+        indexed_entries.append(
+            _KnowledgeSearchIndex(
+                entry=entry,
+                searchable=searchable,
+                tokens=frozenset(_tokens(searchable)),
+                keywords=tuple(keyword.lower() for keyword in entry.keywords),
+            )
+        )
+    return tuple(indexed_entries)
+
+
+@lru_cache(maxsize=128)
+def _search_knowledge_cached(normalized_query: str, limit: int) -> tuple[KnowledgeEntry, ...]:
+    """Rank a normalized query against the cached knowledge index."""
+    query_tokens = _tokens(normalized_query)
+    results: list[KnowledgeSearchResult] = []
+    for indexed in _knowledge_search_index():
+        score = 8 * sum(keyword in normalized_query for keyword in indexed.keywords)
+        if normalized_query in indexed.searchable:
             score += 5
-        score += len(query_tokens.intersection(_tokens(searchable)))
+        score += len(query_tokens.intersection(indexed.tokens))
         if score > 0:
-            results.append(KnowledgeSearchResult(entry=entry, score=score))
+            results.append(KnowledgeSearchResult(entry=indexed.entry, score=score))
 
     ranked = sorted(results, key=lambda item: (-item.score, item.entry.category, item.entry.title))
-    return [item.entry for item in ranked[:limit]]
+    return tuple(item.entry for item in ranked[:limit])
+
+
+def search_knowledge(query: str, *, limit: int = 5) -> list[KnowledgeEntry]:
+    """Return knowledge entries ranked by keyword and text overlap."""
+    normalized_query = query.strip().lower()
+    if not normalized_query:
+        return KNOWLEDGE_ENTRIES[:limit]
+    # 静态知识内容只在首次检索时分词，重复问题直接复用缓存结果。
+    return list(_search_knowledge_cached(normalized_query, limit))
 
 
 def build_knowledge_context(entries: list[KnowledgeEntry]) -> str:

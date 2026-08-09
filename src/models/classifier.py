@@ -2127,7 +2127,7 @@ def create_classifier(
     """Create a classifier from local aliases, torchvision, timm, or a tiny fallback."""
     require_dependency("torch", torch)
     require_dependency("torch.nn", nn)
-    normalized_name = model_name.lower()
+    normalized_name = model_name.strip().lower().replace("-", "_")
     if normalized_name in {"basic_cnn", "tiny_cnn"}:
         return TinyCNNClassifier(in_chans=in_chans, num_classes=num_classes)
     if normalized_name in {
@@ -2552,7 +2552,7 @@ def create_classifier(
         return model
     if timm is not None:
         return timm.create_model(
-            model_name,
+            normalized_name,
             pretrained=pretrained,
             in_chans=in_chans,
             num_classes=num_classes,

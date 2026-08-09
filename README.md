@@ -10,7 +10,7 @@ BUCAD（Breast Ultrasound Computer-Aided Diagnosis）是一个面向乳腺超声
 
 ## 数据与验证
 
-- BUSBRA 用于模型训练、内部验证、out-of-fold 候选筛选和阈值选择。
+- BUSBRA 用于模型训练、内部验证与 out-of-fold 候选筛选；固定七模型基准的全部 headline 分类指标统一使用阈值 `0.50`。
 - 项目实验对比统一报告 AUC、Accuracy、Recall/Sensitivity、Precision、Specificity 和 F1-Score。
 
 项目采用“内部选择、外部复核”的实验边界。BUSBRA 内部划分采用病例级分组策略，记录中共有 1875 张图像、1064 个唯一病例、5 个 fold，泄漏检测结果为 false。BUSI 作为外部数据集，用于记录主线与候选配置在独立来源上的迁移表现。
@@ -29,7 +29,39 @@ v1a 的预注册五折训练已完成，pooled BUSBRA OOF 为 AUC `0.9150`、Acc
 
 五折 v1a 在 BUSI / BUS-UCLM / BUSI-WHU / TCIA BrEaST 的 AUC 分别为 `0.9089` / `0.8847` / `0.8171` / `0.8617`。论文需同时保留内部 Sensitivity 差 `-0.0049` 与无对齐消融的限制。详见 [`中文外部报告`](artifacts/reports/lesionext_lens_v1a_v3_external_review_zh.md) 与 [`English external report`](artifacts/reports/lesionext_lens_v1a_v3_external_review_en.md)。
 
-全模型全数据集的完整指标表已经生成，覆盖 BUSBRA pooled OOF、BUSI、BUS-UCLM、BUSI-WHU、TCIA BrEaST，并列出 AUC、Accuracy、Sensitivity、Specificity、Precision、F1 与外部 AUC 95% CI。表中保留 LesioNeXt-MoE V3 作为历史比较行，当前论文方法为 LesioNeXt-LENS v1a。详见 [`中文全表`](artifacts/reports/fixed_classification_benchmark/all_model_comparison_v1a_zh.md)、[`English full table`](artifacts/reports/fixed_classification_benchmark/all_model_comparison_v1a_en.md) 和 [`CSV`](artifacts/reports/fixed_classification_benchmark/all_model_comparison_v1a.csv)。
+下一轮候选实验已预注册，执行顺序为无对齐五折补齐、14x14+7x7 多分辨率证据监督、BBOX 质量感知 alignment 与 BBOX 外背景反事实一致性。每项实验只改变一个训练因素，在 BUSBRA fold1 的 AUC、Accuracy、Sensitivity、Specificity 与 F1 全部不低于 v1a fold1 后才补齐五折；BUSI、BUS-UCLM、BUSI-WHU 与 TCIA BrEaST 继续冻结。校准脚本仅分析内部 OOF，外部阈值固定为 `0.50`。
+
+`v1a-multires` 已完成 BUSBRA fold1 筛选：AUC `0.9266`、Accuracy `0.8373`、Sensitivity `0.9180`、Specificity `0.7984`、F1 `0.7860`。AUC、Accuracy、Specificity 和 F1 未达到 v1a fold1 门槛，路线停止并归档；未执行五折或外部测试。详见 [`中文筛选报告`](artifacts/reports/lesionext_lens_v1a_multires_fold1_zh.md) 与 [`English screening report`](artifacts/reports/lesionext_lens_v1a_multires_fold1_en.md)。
+
+`v1a-quality-align` 已完成 BUSBRA fold1 筛选：AUC `0.9192`、Accuracy `0.8480`、Sensitivity `0.7623`、Specificity `0.8893`、F1 `0.7654`。仅 Sensitivity 达到 v1a fold1 门槛，路线停止并归档；未执行五折或外部测试。详见 [`中文筛选报告`](artifacts/reports/lesionext_lens_v1a_quality_align_fold1_zh.md) 与 [`English screening report`](artifacts/reports/lesionext_lens_v1a_quality_align_fold1_en.md)。
+
+`v1a-bg-consistency` 已按用户批准完成五折扩展和四个外部冻结复核。BUSBRA pooled OOF 为 AUC `0.8982`、Accuracy `0.8400`、Sensitivity `0.7974`、Specificity `0.8604`、F1 `0.7634`；相对冻结 v1a 的 Sensitivity 提高 `0.0280`，AUC、Accuracy、Specificity 和 F1 分别下降 `0.0167`、`0.0309`、`0.0592` 和 `0.0308`。四个外部 AUC 为 BUSI `0.8985`、BUS-UCLM `0.8914`、BUSI-WHU `0.8123`、TCIA BrEaST `0.8387`。该候选保留为补充实验，不替代冻结 v1a，也不进入论文主表。详见 [`中文五折与外部报告`](artifacts/reports/lesionext_lens_v1a_bg_consistency_5fold_zh.md)、[`English five-fold and external report`](artifacts/reports/lesionext_lens_v1a_bg_consistency_5fold_en.md)、[`JSON`](artifacts/reports/lesionext_lens_v1a_bg_consistency_5fold_summary.json) 与 [`CSV`](artifacts/reports/lesionext_lens_v1a_bg_consistency_5fold_metrics.csv)。
+
+候选 fold1 指标已汇总到 [`候选筛选 CSV`](artifacts/reports/lesionext_v1a_candidate_fold1_screening.csv)。冻结 v1a 的 BUSBRA OOF 校准分析已生成 ECE `0.105586`、Brier `0.115689`、Youden 阈值比较；外部阈值仍固定为 `0.50`，详见 [`中文校准报告`](artifacts/reports/lesionext_lens_v1a_evidence_only_5fold_calibration_zh.md) 与 [`English calibration report`](artifacts/reports/lesionext_lens_v1a_evidence_only_5fold_calibration_en.md)。
+
+固定七模型全数据集指标表已经生成，覆盖 BUSBRA pooled OOF、BUSI、BUS-UCLM、BUSI-WHU、TCIA BrEaST，并列出 AUC、Accuracy、Sensitivity、Specificity、Precision、F1 与外部 AUC 95% CI。所有 headline Accuracy、Sensitivity、Specificity、Precision 与 F1 都固定按阈值 `0.50` 计算；Youden 阈值仅用于内部诊断，不进入主表。当前论文方法为 LesioNeXt-LENS v1a。详见 [`中文全表`](artifacts/reports/fixed_classification_benchmark/all_model_comparison_v1a_zh.md)、[`English full table`](artifacts/reports/fixed_classification_benchmark/all_model_comparison_v1a_en.md) 和 [`CSV`](artifacts/reports/fixed_classification_benchmark/all_model_comparison_v1a.csv)。
+
+`v1a-cal-bias` 已完成 BUSBRA-only 嵌套五折校准筛选。该候选只学习一个 logit bias，外部集和评估阈值均未读取或修改。固定阈值 `0.50` 下，BUSBRA pooled OOF 为 AUC `0.9122`、Accuracy `0.8720`、Sensitivity `0.8023`、Specificity `0.9054`、F1 `0.8023`；虽然 Sensitivity 上升，但 AUC 和 Specificity 低于冻结 v1a，因此路线停止，不执行 temperature+bias 或四个外部集复核。详见 [`中文报告`](artifacts/reports/lesionext_lens_v1a_cal_bias_zh.md) 与 [`English report`](artifacts/reports/lesionext_lens_v1a_cal_bias_en.md)。
+
+`v1a-soft-evidence` 已完成 BUSBRA fold1 单因素筛选。该候选只将训练期 BBOX 对齐目标加入有限病灶周边环带，固定阈值 `0.50` 下得到 AUC `0.9246`、Accuracy `0.8613`、Sensitivity `0.7295`、Specificity `0.9249`、F1 `0.7739`。AUC、Accuracy、Specificity、F1 未达到冻结 v1a fold1 门槛，路线停止，不补五折，也不执行外部集复核。详见 [`中文报告`](artifacts/reports/lesionext_lens_v1a_soft_evidence_fold1_zh.md) 与 [`English report`](artifacts/reports/lesionext_lens_v1a_soft_evidence_fold1_en.md)。
+
+`v1a-malignant-margin` 已完成 BUSBRA fold1 单因素筛选。该候选只对训练期恶性样本加入低权重 logit margin，固定阈值 `0.50` 下得到 AUC `0.9324`、Accuracy `0.8640`、Sensitivity `0.7623`、Specificity `0.9130`、F1 `0.7848`。AUC 和 Sensitivity 上升，Accuracy、Specificity、F1 低于 v1a fold1 门槛；路线停止，不补五折，也不执行外部集复核。详见 [`中文报告`](artifacts/reports/lesionext_lens_v1a_malignant_margin_fold1_zh.md) 与 [`English report`](artifacts/reports/lesionext_lens_v1a_malignant_margin_fold1_en.md)。
+
+### 已完成候选：v1a-error-aware-align
+
+`v1a-error-aware-align` 已登记为下一项独立 fold1 筛选。它只在训练期按同一次前向的真实标签概率 `p_true` 对 BBOX evidence alignment 加有限 hard-example 权重：`w=0.75+0.50*(1-p_true)`，有效样本 batch 内归一化并限制在 `[0.75,1.25]`。该权重同时覆盖高置信 FN/FP，分类损失、ConvNeXt-Tiny 全局推理 logits、`alpha=0`、identity-only 预处理和阈值 `0.50` 均保持不变。该候选用于检验“困难样本证据定位”能否同时改善 v1a 的 Sensitivity 与 BUS-UCLM 假阳性问题；外部数据集不参与选择。fold1 放行要求五项指标全部不低于 v1a fold1，未通过则归档并停止；通过后才补齐五折和申请外部冻结复核。配置见 [`configs/classifier/lesionext_lens_v1a_error_aware_align.yml`](configs/classifier/lesionext_lens_v1a_error_aware_align.yml)。
+
+该候选已完成 BUSBRA fold1，AUC `0.9335`、Accuracy `0.8693`、Sensitivity `0.8607`、Specificity `0.8735`、Precision `0.7664`、F1 `0.8108`。AUC、Sensitivity 和 F1 提高，但 Accuracy 与 Specificity 未达到 v1a fold1 门槛，确认了困难样本加权会把错误从 FN 推向 FP；路线停止，不执行五折或外部测试。中英文报告见 [`中文`](artifacts/reports/lesionext_lens_v1a_error_aware_align_fold1_zh.md) 与 [`English`](artifacts/reports/lesionext_lens_v1a_error_aware_align_fold1_en.md)，归档副本位于 [`lesionext_archive`](artifacts/reports/lesionext_archive/README.md)。
+
+`v1a-case-consistency` 已完成 BUSBRA fold1 单因素筛选。该候选只加入同一 `case_id` 多视图预测一致性损失，权重 `0.02`、温度 `0.5`；得到 AUC `0.9228`、Accuracy `0.8187`、Sensitivity `0.8689`、Specificity `0.7945`、Precision `0.6709`、F1 `0.7571`。Sensitivity 提升 `0.1394`，但 AUC、Accuracy、Specificity 和 F1 未达到冻结 v1a fold1 门槛，路线停止，不补五折或外部测试。checkpoint、配置、训练 JSON、CSV 及中英文报告已归档到 [`v1a_case_consistency_fold1`](artifacts/reports/lesionext_archive/v1a_case_consistency_fold1/)。
+
+`v1a-align-lite` 已完成 BUSBRA fold1 单因素筛选。该候选只将训练期 BBOX evidence alignment 权重从 `0.25` 降至 `0.10`，其余协议与冻结 v1a 完全一致；得到 AUC `0.9060`、Accuracy `0.8080`、Sensitivity `0.8689`、Specificity `0.7787`、Precision `0.6543`、F1 `0.7465`。Sensitivity 提升 `0.1393`，但 AUC、Accuracy、Specificity、Precision 和 F1 均下降，未达到五项放行门槛。路线停止，不补五折或外部测试，候选已归档到 [`v1a_align_lite_fold1`](artifacts/reports/lesionext_archive/v1a_align_lite_fold1/)。完整记录见 [`中文报告`](artifacts/reports/lesionext_lens_v1a_align_lite_fold1_zh.md)、[`English report`](artifacts/reports/lesionext_lens_v1a_align_lite_fold1_en.md)、[`JSON`](artifacts/reports/lesionext_lens_v1a_align_lite_fold1_summary.json) 与 [`CSV`](artifacts/reports/lesionext_lens_v1a_align_lite_fold1_metrics.csv)。
+
+`v1a-align-020` 已完成 BUSBRA fold1 单因素筛选。该候选只将 alignment 权重设为 `0.20`，得到 AUC `0.9226`、Accuracy `0.8373`、Sensitivity `0.7705`、Specificity `0.8696`、Precision `0.7402`、F1 `0.7550`。Sensitivity 提升 `0.0410`，其余主要指标低于 v1a，路线停止，不补五折或外部测试，候选已归档到 [`v1a_align_020_fold1`](artifacts/reports/lesionext_archive/v1a_align_020_fold1/)。完整记录见 [`中文报告`](artifacts/reports/lesionext_lens_v1a_align_020_fold1_zh.md)、[`English report`](artifacts/reports/lesionext_lens_v1a_align_020_fold1_en.md)、[`JSON`](artifacts/reports/lesionext_lens_v1a_align_020_fold1_summary.json) 与 [`CSV`](artifacts/reports/lesionext_lens_v1a_align_020_fold1_metrics.csv)。
+
+`v1a-align-030` 已完成 BUSBRA fold1 单因素筛选。该候选只将 alignment 权重设为 `0.30`，得到 AUC `0.9267`、Accuracy `0.7360`、Sensitivity `0.9426`、Specificity `0.6364`、Precision `0.5556`、F1 `0.6991`。Sensitivity 大幅提高，但良性假阳性明显增加，Accuracy、Specificity、Precision 和 F1 显著下降，路线停止，不补五折或外部测试，候选已归档到 [`v1a_align_030_fold1`](artifacts/reports/lesionext_archive/v1a_align_030_fold1/)。完整记录见 [`中文报告`](artifacts/reports/lesionext_lens_v1a_align_030_fold1_zh.md)、[`English report`](artifacts/reports/lesionext_lens_v1a_align_030_fold1_en.md)、[`JSON`](artifacts/reports/lesionext_lens_v1a_align_030_fold1_summary.json) 与 [`CSV`](artifacts/reports/lesionext_lens_v1a_align_030_fold1_metrics.csv)。
+
+相似研究核查已完成。Shin、Kim、Wang、Xu、Lu、Wei 等工作已经覆盖乳腺超声的弱监督定位、CAM 定位、ROI/refinement、区域感知及分割分类多任务；arXiv:2511.15968 还报告了 BI-RADS 形态到恶性度的一致性桥接和四数据集外部迁移。v1a 的论文表述应限定为“BUSBRA BBOX 训练期 evidence alignment + 单一 ConvNeXt-Tiny 衍生模型的无 BBOX 部署”，不得声称首次提出病灶引导分类或首次联合定位分类。核查报告见 [`中文文献报告`](artifacts/reports/literature_similarity_review_zh.md) 与 [`English literature report`](artifacts/reports/literature_similarity_review_en.md)。
 
 `LENS v1b Sensitivity Rank` 已完成 BUSBRA fold1 单因素筛选：保持 v1a 架构、BBOX alignment、数据划分、增强和部署路径不变，仅加入 `pairwise_auc_weight: 0.02` 与 `pairwise_auc_margin: 0.05`。v1b 取得 AUC `0.9262`、Accuracy `0.8587`、Sensitivity `0.7213`、Specificity `0.9249`、Precision `0.8224`、F1 `0.7686`，低于 v1a 的对应结果，因此停止 v1b，不执行五折。外部队列未读取。
 

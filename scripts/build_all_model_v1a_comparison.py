@@ -18,7 +18,6 @@ MODEL_NAMES = {
     "convnext_tiny": "ConvNeXt-Tiny",
     "convnext_small": "ConvNeXt-Small",
     "swin_tiny": "Swin-Tiny",
-    "lesionext_moe_v3": "LesioNeXt-MoE V3",
     "lesionext_lens_v1a": "LesioNeXt-LENS v1a",
 }
 MODEL_ORDER = list(MODEL_NAMES)
@@ -66,6 +65,12 @@ def _collect() -> list[dict]:
                 path = Path(match["output"])
             report = _load(path)
             metrics = report.get("metrics", {})
+            report_threshold = metrics.get("threshold")
+            if report_threshold is None or abs(float(report_threshold) - 0.50) > 1e-12:
+                raise ValueError(
+                    f"{path} must provide headline metrics at threshold 0.50; "
+                    f"found {report_threshold!r}."
+                )
             ci = report.get("auc_bootstrap_ci") or {}
             row = {
                 "model_id": model_id,
@@ -73,6 +78,9 @@ def _collect() -> list[dict]:
                 "dataset_id": dataset_id,
                 "dataset": DATASET_NAMES[dataset_id],
                 "sample_count": report.get("sample_count", "-"),
+                # Keep the displayed decision threshold explicit and frozen.
+                # Youden values remain diagnostic and never define headline metrics.
+                "threshold": 0.50,
                 "source": str(path),
                 "auc_ci": (
                     f"[{float(ci['lower']):.4f}, {float(ci['upper']):.4f}]"
@@ -91,7 +99,7 @@ def _fmt(value) -> str:
 
 def _write_csv(rows: list[dict]) -> Path:
     path = REPORT_ROOT / "all_model_comparison_v1a.csv"
-    fields = ["model_id", "model", "dataset_id", "dataset", "sample_count", *METRICS, "auc_ci", "source"]
+    fields = ["model_id", "model", "dataset_id", "dataset", "sample_count", "threshold", *METRICS, "auc_ci", "source"]
     with path.open("w", encoding="utf-8-sig", newline="") as handle:
         writer = csv.DictWriter(handle, fieldnames=fields)
         writer.writeheader()
@@ -105,27 +113,27 @@ def _write_markdown(rows: list[dict], *, english: bool) -> Path:
         lines = [
             "# All-Model, All-Dataset Classification Comparison",
             "",
-            "The table combines the fixed seven-model benchmark and the newly evaluated LesioNeXt-LENS v1a. BUSBRA uses pooled five-fold OOF; the four independent cohorts use frozen identity-only inference and fixed threshold 0.50. External AUC intervals are bootstrap 95% CIs.",
+            "The table reports the fixed seven-model benchmark, including LesioNeXt-LENS v1a. BUSBRA uses pooled five-fold OOF; the four independent cohorts use frozen identity-only inference and fixed threshold 0.50. External AUC intervals are bootstrap 95% CIs.",
             "",
         ]
-        header = "| Model | n | AUC | AUC 95% CI | Accuracy | Sensitivity | Specificity | Precision | F1 |"
+        header = "| Model | n | Threshold | AUC | AUC 95% CI | Accuracy | Sensitivity | Specificity | Precision | F1 |"
     else:
         path = REPORT_ROOT / "all_model_comparison_v1a_zh.md"
         lines = [
             "# 全模型全数据集分类性能对比",
             "",
-            "本表合并固定七模型基准与新增 LesioNeXt-LENS v1a。BUSBRA 使用 pooled 五折 OOF；四个独立队列使用冻结的 identity-only 推理和固定阈值 0.50。外部 AUC 区间为 bootstrap 95% CI。",
+            "本表报告包含 LesioNeXt-LENS v1a 在内的固定七模型基准。BUSBRA 使用 pooled 五折 OOF；四个独立队列使用冻结的 identity-only 推理和固定阈值 0.50。外部 AUC 区间为 bootstrap 95% CI。",
             "",
         ]
-        header = "| 模型 | n | AUC | AUC 95% CI | Accuracy | Sensitivity | Specificity | Precision | F1 |"
+        header = "| 模型 | n | 阈值 | AUC | AUC 95% CI | Accuracy | Sensitivity | Specificity | Precision | F1 |"
     for dataset_id in DATASET_NAMES:
         dataset = DATASET_NAMES[dataset_id]
-        lines.extend([f"## {dataset}", "", header, "|---|---:|---:|---|---:|---:|---:|---:|---:|"])
+        lines.extend([f"## {dataset}", "", header, "|---|---:|---:|---:|---|---:|---:|---:|---:|---:|"])
         for row in rows:
             if row["dataset_id"] != dataset_id:
                 continue
             lines.append(
-                f"| {row['model']} | {row['sample_count']} | {_fmt(row['auc'])} | {row['auc_ci']} | "
+                f"| {row['model']} | {row['sample_count']} | {_fmt(row['threshold'])} | {_fmt(row['auc'])} | {row['auc_ci']} | "
                 f"{_fmt(row['accuracy'])} | {_fmt(row['sensitivity'])} | {_fmt(row['specificity'])} | "
                 f"{_fmt(row['precision'])} | {_fmt(row['f1_score'])} |"
             )

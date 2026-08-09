@@ -1,13 +1,13 @@
 {
-  "archived_at": "2026-08-08T02:34:35",
+  "archived_at": "2026-08-09T16:10:00",
   "kept_mainline": [
     "LesioNeXt-LENS v1a evidence-only five-fold checkpoints",
     "configs/classifier/lesionext_lens_v1a_evidence_only.yml",
     "configs/inference/lesionext_lens_v1a_5fold_identity.yml"
   ],
-  "archived_checkpoint_count": 24,
-  "archived_config_count": 30,
-  "archived_report_count": 125,
+  "archived_checkpoint_count": 39,
+  "archived_config_count": 43,
+  "archived_report_count": 175,
   "checkpoint_files": [
     "lesionext_attnres_v4_4_fold1.pt",
     "lesionext_attnres_v4_5_fold1.pt",
@@ -19,6 +19,10 @@
     "lesionext_lens_v1_fold4.pt",
     "lesionext_lens_v1_fold5.pt",
     "lesionext_lens_v1a_no_alignment_control_fold1.pt",
+    "lesionext_lens_v1a_no_alignment_control_fold2.pt",
+    "lesionext_lens_v1a_no_alignment_control_fold3.pt",
+    "lesionext_lens_v1a_no_alignment_control_fold4.pt",
+    "lesionext_lens_v1a_no_alignment_control_fold5.pt",
     "lesionext_lens_v2_confidence_fold1.pt",
     "lesionext_lens_v3_label_aware_fold1.pt",
     "lesionext_moe_v3_1_fold1.pt",
@@ -32,6 +36,16 @@
     "lesionext_moe_v4_2_fold1.pt",
     "lesionext_moe_v4_3_fold1.pt",
     "lesionext_moe_v4_fold1.pt",
-    "lesionext_lens_v1b_sensitivity_rank_fold1.pt"
+    "lesionext_lens_v1b_sensitivity_rank_fold1.pt",
+    "lesionext_lens_v1a_multires_fold1.pt",
+    "lesionext_lens_v1a_quality_align_fold1.pt",
+    "lesionext_lens_v1a_bg_consistency_fold1.pt",
+    "lesionext_lens_v1a_soft_evidence_fold1.pt",
+    "lesionext_lens_v1a_malignant_margin_fold1.pt",
+    "lesionext_lens_v1a_error_aware_align_fold1.pt",
+    "lesionext_lens_v1a_case_consistency_fold1.pt",
+    "lesionext_lens_v1a_align_lite_fold1.pt",
+    "lesionext_lens_v1a_align_020_fold1.pt",
+    "lesionext_lens_v1a_align_030_fold1.pt"
   ]
 }

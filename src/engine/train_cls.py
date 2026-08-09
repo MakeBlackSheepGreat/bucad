@@ -6,6 +6,8 @@ import copy
 import dataclasses
 import math
 import random
+import time
+from collections import defaultdict
 from pathlib import Path
 from typing import Any
 
@@ -16,6 +18,7 @@ from src.datasets.busbra import (
     BUSBRAClassificationDataset,
     BUSBRAClassificationDualViewDataset,
     BUSBRAClassificationLENSDataSet,
+    _normalized_bbox,
     generate_busbra_split_assignments,
     load_busbra_manifest,
 )
@@ -35,6 +38,7 @@ from src.utils.runtime import ensure_dir, optional_import, require_dependency, s
 torch = optional_import("torch")
 optim = optional_import("torch.optim")
 torch_utils_data = optional_import("torch.utils.data")
+F = optional_import("torch.nn.functional")
 
 
 def _seed_loader_worker(worker_id: int) -> None:
@@ -43,6 +47,49 @@ def _seed_loader_worker(worker_id: int) -> None:
     worker_seed = torch.initial_seed() % (2**32)
     random.seed(worker_seed)
     np.random.seed(worker_seed)
+
+
+class _CaseGroupedBatchSampler:
+    """Yield batches that keep all views from one BUSBRA case together."""
+
+    def __init__(self, manifest: pd.DataFrame, *, batch_size: int, seed: int) -> None:
+        if int(batch_size) <= 0:
+            raise ValueError("batch_size must be positive")
+        self.batch_size = int(batch_size)
+        self.seed = int(seed)
+        self.epoch = 0
+        grouped: dict[str, list[int]] = defaultdict(list)
+        for index, case_id in enumerate(manifest["case_id"].astype(str).tolist()):
+            grouped[case_id].append(int(index))
+        self.groups = [indices for _case_id, indices in sorted(grouped.items())]
+        if any(len(indices) > self.batch_size for indices in self.groups):
+            raise ValueError("A case group is larger than the configured batch size")
+
+    def _batches(self, groups: list[list[int]]) -> list[list[int]]:
+        batches: list[list[int]] = []
+        current: list[int] = []
+        for group in groups:
+            if current and len(current) + len(group) > self.batch_size:
+                batches.append(current)
+                current = []
+            current.extend(group)
+        if current:
+            batches.append(current)
+        return batches
+
+    def __iter__(self):
+        """Yield one shuffled, case-contiguous batch sequence for the epoch."""
+        rng = random.Random(self.seed + self.epoch)
+        self.epoch += 1
+        groups = [list(indices) for indices in self.groups]
+        rng.shuffle(groups)
+        for batch in self._batches(groups):
+            rng.shuffle(batch)
+            yield batch
+
+    def __len__(self) -> int:
+        """Return the number of batches emitted without shuffling groups."""
+        return len(self._batches([list(indices) for indices in self.groups]))
 
 
 def _load_or_create_splits(
@@ -222,6 +269,40 @@ def _classification_loss(
         denominator = sample_weights.sum().clamp_min(1e-6)
         return per_sample_loss.sum() / denominator
     return per_sample_loss.mean()
+
+
+def _case_consistency_loss(
+    logits,
+    case_ids: list[str] | tuple[str, ...] | None,
+    *,
+    temperature: float = 0.5,
+) -> tuple[Any, float, int]:
+    """Match predictions for paired views from the same case during training."""
+    if case_ids is None or len(case_ids) != int(logits.shape[0]):
+        return logits.new_zeros(()), 0.0, 0
+    groups: dict[str, list[int]] = defaultdict(list)
+    for index, case_id in enumerate(case_ids):
+        groups[str(case_id)].append(int(index))
+    pairs: list[tuple[int, int]] = []
+    for indices in groups.values():
+        for left in range(len(indices)):
+            for right in range(left + 1, len(indices)):
+                pairs.append((indices[left], indices[right]))
+    if not pairs:
+        return logits.new_zeros(()), 0.0, 0
+    tau = max(float(temperature), 1e-3)
+    losses = []
+    for left, right in pairs:
+        left_log_prob = torch.log_softmax(logits[left] / tau, dim=0)
+        right_log_prob = torch.log_softmax(logits[right] / tau, dim=0)
+        left_prob = left_log_prob.exp()
+        right_prob = right_log_prob.exp()
+        forward = torch.nn.functional.kl_div(left_log_prob, right_prob, reduction="batchmean")
+        backward = torch.nn.functional.kl_div(right_log_prob, left_prob, reduction="batchmean")
+        losses.append(0.5 * (forward + backward) * (tau**2))
+    loss = torch.stack(losses).mean()
+    coverage = float(sum(len(indices) for indices in groups.values() if len(indices) > 1) / len(case_ids))
+    return loss, coverage, len(pairs)
 
 
 def _pairwise_auc_regularizer(
@@ -430,46 +511,218 @@ def _lesion_evidence_alignment_loss(
     model,
     images: dict[str, Any],
     *,
+    labels=None,
     margin: float = 0.08,
+    perilesional_context_weight: float = 0.0,
+    quality_weighting: bool = False,
+    quality_stats: dict[str, float] | None = None,
+    error_aware_weighting: bool = False,
+    error_weight_scale: float = 0.5,
 ) -> tuple[Any | None, float]:
-    """Encourage the learned evidence map to retain mass inside the BBOX or its flip."""
-    evidence_logits = getattr(model, "last_evidence_map", None)
-    if evidence_logits is None or "bbox" not in images:
+    """Encourage evidence mass inside BBOX, optionally emphasizing hard samples."""
+    evidence_maps = list(getattr(model, "last_evidence_maps", []) or [])
+    if not evidence_maps:
+        evidence_map = getattr(model, "last_evidence_map", None)
+        if evidence_map is not None:
+            evidence_maps = [evidence_map]
+    if not evidence_maps or "bbox" not in images:
         return None, 0.0
-    boxes = images["bbox"].to(device=evidence_logits.device, dtype=evidence_logits.dtype)
+    reference_map = evidence_maps[0]
+    boxes = images["bbox"].to(device=reference_map.device, dtype=reference_map.dtype)
     valid = images.get("bbox_valid")
     if valid is None:
-        valid = torch.ones(boxes.shape[0], device=evidence_logits.device, dtype=evidence_logits.dtype)
-    valid = valid.to(device=evidence_logits.device, dtype=evidence_logits.dtype).view(-1)
-    height, width = evidence_logits.shape[-2:]
-    y_centers = (torch.arange(height, device=evidence_logits.device, dtype=evidence_logits.dtype) + 0.5) / float(height)
-    x_centers = (torch.arange(width, device=evidence_logits.device, dtype=evidence_logits.dtype) + 0.5) / float(width)
-    grid_y, grid_x = torch.meshgrid(y_centers, x_centers, indexing="ij")
-    grid_x = grid_x.unsqueeze(0)
-    grid_y = grid_y.unsqueeze(0)
+        valid = torch.ones(boxes.shape[0], device=reference_map.device, dtype=reference_map.dtype)
+    valid = valid.to(device=reference_map.device, dtype=reference_map.dtype).view(-1)
     x1, y1, x2, y2 = boxes.unbind(dim=1)
     margin = float(max(0.0, margin))
-    original = (
-        (grid_x >= (x1 - margin).clamp(0.0, 1.0).view(-1, 1, 1))
-        & (grid_x <= (x2 + margin).clamp(0.0, 1.0).view(-1, 1, 1))
-        & (grid_y >= (y1 - margin).clamp(0.0, 1.0).view(-1, 1, 1))
-        & (grid_y <= (y2 + margin).clamp(0.0, 1.0).view(-1, 1, 1))
-    )
-    flipped = (
-        (grid_x >= (1.0 - x2 - margin).clamp(0.0, 1.0).view(-1, 1, 1))
-        & (grid_x <= (1.0 - x1 + margin).clamp(0.0, 1.0).view(-1, 1, 1))
-        & (grid_y >= (y1 - margin).clamp(0.0, 1.0).view(-1, 1, 1))
-        & (grid_y <= (y2 + margin).clamp(0.0, 1.0).view(-1, 1, 1))
-    )
-    target = (original | flipped).to(dtype=evidence_logits.dtype).unsqueeze(1)
-    weights = torch.softmax(evidence_logits.flatten(1), dim=1).reshape_as(evidence_logits)
-    target_mass = (weights * target).flatten(1).sum(dim=1).clamp_min(1e-6)
-    per_sample = -torch.log(target_mass)
     active = valid > 0.5
     if not bool(active.any()):
         return None, 0.0
-    loss = per_sample[active].mean()
+    sample_weights = torch.ones_like(valid)
+    if quality_weighting:
+        sample_weights = _bbox_quality_weights(
+            boxes,
+            valid,
+            quality_stats or {},
+        )
+    if error_aware_weighting:
+        logits = getattr(model, "last_logits", None)
+        if labels is None or logits is None:
+            raise ValueError(
+                "error_aware_weighting requires labels and model.last_logits from the same forward pass."
+            )
+        hard_weights = _error_aware_alignment_weights(
+            logits.detach(),
+            labels.to(device=reference_map.device, dtype=torch.long).view(-1),
+            valid,
+            scale=error_weight_scale,
+        )
+        sample_weights = sample_weights * hard_weights
+        model.last_alignment_error_weight = hard_weights.detach()
+    losses = []
+    for evidence_logits in evidence_maps:
+        height, width = evidence_logits.shape[-2:]
+        y_centers = (torch.arange(height, device=evidence_logits.device, dtype=evidence_logits.dtype) + 0.5) / float(height)
+        x_centers = (torch.arange(width, device=evidence_logits.device, dtype=evidence_logits.dtype) + 0.5) / float(width)
+        grid_y, grid_x = torch.meshgrid(y_centers, x_centers, indexing="ij")
+        grid_x = grid_x.unsqueeze(0)
+        grid_y = grid_y.unsqueeze(0)
+        original = (
+            (grid_x >= (x1 - margin).clamp(0.0, 1.0).view(-1, 1, 1))
+            & (grid_x <= (x2 + margin).clamp(0.0, 1.0).view(-1, 1, 1))
+            & (grid_y >= (y1 - margin).clamp(0.0, 1.0).view(-1, 1, 1))
+            & (grid_y <= (y2 + margin).clamp(0.0, 1.0).view(-1, 1, 1))
+        )
+        flipped = (
+            (grid_x >= (1.0 - x2 - margin).clamp(0.0, 1.0).view(-1, 1, 1))
+            & (grid_x <= (1.0 - x1 + margin).clamp(0.0, 1.0).view(-1, 1, 1))
+            & (grid_y >= (y1 - margin).clamp(0.0, 1.0).view(-1, 1, 1))
+            & (grid_y <= (y2 + margin).clamp(0.0, 1.0).view(-1, 1, 1))
+        )
+        core = (original | flipped).to(dtype=evidence_logits.dtype)
+        context_margin = 2.0 * margin
+        context = (
+            (
+                (grid_x >= (x1 - context_margin).clamp(0.0, 1.0).view(-1, 1, 1))
+                & (grid_x <= (x2 + context_margin).clamp(0.0, 1.0).view(-1, 1, 1))
+                & (grid_y >= (y1 - context_margin).clamp(0.0, 1.0).view(-1, 1, 1))
+                & (grid_y <= (y2 + context_margin).clamp(0.0, 1.0).view(-1, 1, 1))
+            )
+            | (
+                (grid_x >= (1.0 - x2 - context_margin).clamp(0.0, 1.0).view(-1, 1, 1))
+                & (grid_x <= (1.0 - x1 + context_margin).clamp(0.0, 1.0).view(-1, 1, 1))
+                & (grid_y >= (y1 - context_margin).clamp(0.0, 1.0).view(-1, 1, 1))
+                & (grid_y <= (y2 + context_margin).clamp(0.0, 1.0).view(-1, 1, 1))
+            )
+        ).to(dtype=evidence_logits.dtype)
+        ring_weight = float(max(0.0, min(1.0, perilesional_context_weight)))
+        target = (core + ring_weight * (context - core).clamp_min(0.0)).unsqueeze(1)
+        weights = torch.softmax(evidence_logits.flatten(1), dim=1).reshape_as(evidence_logits)
+        target_mass = (weights * target).flatten(1).sum(dim=1).clamp_min(1e-6)
+        per_sample = -torch.log(target_mass)
+        losses.append((per_sample[active] * sample_weights[active]).sum() / sample_weights[active].sum().clamp_min(1e-6))
+    loss = torch.stack(losses).mean()
+    model.last_alignment_quality_weight = sample_weights.detach()
     return loss, float(active.float().mean().detach().item())
+
+
+def _error_aware_alignment_weights(logits, labels, valid, *, scale: float = 0.5):
+    """Weight valid evidence targets by detached true-class error probability."""
+    probabilities = torch.softmax(logits.detach(), dim=1)
+    true_class_probability = probabilities.gather(1, labels.view(-1, 1)).squeeze(1)
+    bounded_scale = min(max(float(scale), 0.0), 0.5)
+    weights = 0.75 + bounded_scale * (1.0 - true_class_probability).clamp(0.0, 1.0)
+    active = valid > 0.5
+    normalized = torch.zeros_like(weights)
+    if bool(active.any()):
+        normalized[active] = (
+            weights[active] / weights[active].mean().clamp_min(1e-6)
+        ).clamp(0.75, 1.25)
+    return normalized
+
+
+def _bbox_quality_weights(boxes, valid, stats: dict[str, float]) -> Any:
+    """Return fixed train-fold BBOX quality weights bounded to [0.75, 1.25]."""
+    widths = (boxes[:, 2] - boxes[:, 0]).clamp_min(1e-6)
+    heights = (boxes[:, 3] - boxes[:, 1]).clamp_min(1e-6)
+    areas = widths * heights
+    log_aspect = torch.log((widths / heights).clamp_min(1e-6)).abs()
+    area_low = float(stats.get("area_q05", 0.0))
+    area_high = float(stats.get("area_q95", 1.0))
+    aspect_high = float(stats.get("log_aspect_q95", 2.0))
+    area_score = ((areas >= area_low) & (areas <= area_high)).to(dtype=boxes.dtype)
+    aspect_score = (log_aspect <= aspect_high).to(dtype=boxes.dtype)
+    quality = 0.5 * (area_score + aspect_score)
+    weights = (0.75 + 0.5 * quality).clamp(0.75, 1.25)
+    return torch.where(valid > 0.5, weights, torch.zeros_like(weights))
+
+
+def _bbox_quality_statistics(manifest: pd.DataFrame) -> dict[str, float]:
+    """Estimate robust BBOX area/aspect ranges from one training fold only."""
+    area_values: list[float] = []
+    log_aspect_values: list[float] = []
+    for row in manifest.itertuples(index=False):
+        image = read_image(row.image_path, grayscale=True)
+        height, width = image.shape[:2]
+        bbox = _normalized_bbox(getattr(row, "bbox", None), width=width, height=height)
+        if bbox is None:
+            continue
+        x1, y1, x2, y2 = bbox
+        box_width = max(x2 - x1, 1e-6)
+        box_height = max(y2 - y1, 1e-6)
+        area_values.append(box_width * box_height)
+        log_aspect_values.append(abs(math.log(box_width / box_height)))
+    if not area_values:
+        return {"area_q05": 0.0, "area_q95": 1.0, "log_aspect_q95": 2.0, "valid_count": 0.0}
+    return {
+        "area_q05": float(np.quantile(area_values, 0.05)),
+        "area_q95": float(np.quantile(area_values, 0.95)),
+        "log_aspect_q95": float(np.quantile(log_aspect_values, 0.95)),
+        "valid_count": float(len(area_values)),
+    }
+
+
+def _background_counterfactual_image(images: dict[str, Any], *, probability: float) -> tuple[Any | None, float]:
+    """Perturb only BBOX-external pixels for training-time counterfactual consistency."""
+    if not isinstance(images, dict) or "image" not in images or "bbox" not in images or probability <= 0.0:
+        return None, 0.0
+    image = images["image"]
+    valid = images.get("bbox_valid", torch.ones(image.shape[0], device=image.device))
+    valid = valid.to(device=image.device, dtype=image.dtype).view(-1)
+    if float(torch.rand((), device=image.device).item()) > float(probability):
+        return None, 0.0
+    boxes = images["bbox"].to(device=image.device, dtype=image.dtype)
+    batch, _, height, width = image.shape
+    yy = (torch.arange(height, device=image.device, dtype=image.dtype) + 0.5) / float(height)
+    xx = (torch.arange(width, device=image.device, dtype=image.dtype) + 0.5) / float(width)
+    grid_y, grid_x = torch.meshgrid(yy, xx, indexing="ij")
+    grid_x = grid_x.unsqueeze(0)
+    grid_y = grid_y.unsqueeze(0)
+    x1, y1, x2, y2 = boxes.unbind(dim=1)
+    lesion = (
+        ((grid_x >= x1.view(-1, 1, 1)) & (grid_x <= x2.view(-1, 1, 1))
+         & (grid_y >= y1.view(-1, 1, 1)) & (grid_y <= y2.view(-1, 1, 1)))
+        | ((grid_x >= (1.0 - x2).view(-1, 1, 1)) & (grid_x <= (1.0 - x1).view(-1, 1, 1))
+           & (grid_y >= y1.view(-1, 1, 1)) & (grid_y <= y2.view(-1, 1, 1)))
+    ).unsqueeze(1)
+    lesion = lesion | (valid.view(-1, 1, 1, 1) <= 0.5)
+    mode = int(torch.randint(0, 3, (), device=image.device).item())
+    if mode == 0:
+        gamma = 0.85 + 0.30 * torch.rand((batch, 1, 1, 1), device=image.device, dtype=image.dtype)
+        transformed = torch.sign(image) * image.abs().clamp_min(1e-4).pow(gamma)
+    elif mode == 1:
+        noise = torch.randn_like(image) * 0.03
+        transformed = image * (1.0 + noise)
+    else:
+        small_h = max(2, height // 2)
+        small_w = max(2, width // 2)
+        transformed = F.interpolate(
+            F.interpolate(image, size=(small_h, small_w), mode="bilinear", align_corners=False),
+            size=(height, width), mode="bilinear", align_corners=False,
+        )
+    return torch.where(lesion, image, transformed), float((~lesion).float().mean().detach().item())
+
+
+def _background_consistency_loss(model, images: dict[str, Any], *, probability: float) -> tuple[Any, float]:
+    """Match original and background-counterfactual class distributions."""
+    if not isinstance(images, dict):
+        return next(model.parameters()).new_zeros(()), 0.0
+    perturbed, coverage = _background_counterfactual_image(images, probability=probability)
+    if perturbed is None:
+        reference = getattr(model, "last_evidence_map", None)
+        zero = reference.new_zeros(()) if reference is not None else torch.tensor(0.0, device=images["image"].device)
+        return zero, 0.0
+    original_logits = getattr(model, "last_logits", None)
+    if original_logits is None:
+        return torch.tensor(0.0, device=perturbed.device), coverage
+    counterfactual_logits = model(image=perturbed)
+    target = torch.softmax(original_logits.detach(), dim=1)
+    loss = F.kl_div(
+        torch.log_softmax(counterfactual_logits, dim=1),
+        target,
+        reduction="batchmean",
+    )
+    return loss, coverage
 
 
 def _local_evidence_classification_loss(
@@ -509,6 +762,15 @@ def _local_evidence_classification_loss(
         pairwise_auc_weight=pairwise_auc_weight,
         pairwise_auc_margin=pairwise_auc_margin,
     )
+
+
+def _malignant_margin_loss(logits, labels, *, margin: float) -> Any:
+    """Encourage positive samples to maintain a minimum malignant logit gap."""
+    positive = labels == 1
+    if not bool(positive.any()):
+        return logits.new_zeros(())
+    logit_gap = logits[positive, 1] - logits[positive, 0]
+    return torch.relu(float(margin) - logit_gap).mean()
 
 
 def _model_logits(model, images, labels=None):
@@ -771,13 +1033,31 @@ def _train_classifier_epoch(
     teacher_max_disagreement: float,
     lesion_evidence_weight: float,
     lesion_evidence_margin: float,
+    lesion_evidence_context_weight: float,
+    lesion_evidence_quality_weighting: bool,
+    lesion_evidence_quality_stats: dict[str, float],
+    lesion_evidence_error_aware_weighting: bool,
+    lesion_evidence_error_weight_scale: float,
     local_evidence_classification_weight: float,
-) -> tuple[float, float, float]:
+    malignant_margin_weight: float,
+    malignant_margin: float,
+    background_consistency_weight: float,
+    background_consistency_probability: float,
+    case_consistency_weight: float,
+    case_consistency_temperature: float,
+    ) -> tuple[float, float, float, float, float, float, float, float, int]:
     """Run one classifier epoch with optional sample weights and mix augmentations."""
     model.train()
     losses: list[float] = []
+    classification_losses: list[float] = []
     teacher_losses: list[float] = []
     teacher_coverages: list[float] = []
+    background_losses: list[float] = []
+    background_coverages: list[float] = []
+    case_consistency_losses: list[float] = []
+    case_consistency_coverages: list[float] = []
+    case_consistency_pairs: list[int] = []
+    error_weight_batches: list[dict[str, float]] = []
     for batch in train_loader:
         images, labels, batch_weights = _prepare_classifier_batch(
             batch,
@@ -824,13 +1104,47 @@ def _train_classifier_epoch(
             pairwise_auc_weight=pairwise_auc_weight,
             pairwise_auc_margin=pairwise_auc_margin,
         )
+        case_loss = logits.new_zeros(())
+        case_coverage = 0.0
+        case_pair_count = 0
+        if float(case_consistency_weight) > 0.0 and labels_b is None:
+            case_loss, case_coverage, case_pair_count = _case_consistency_loss(
+                logits,
+                [str(value) for value in batch.get("case_id", [])],
+                temperature=float(case_consistency_temperature),
+            )
+            loss = loss + float(case_consistency_weight) * case_loss
+        classification_losses.append(float(loss.detach().item()))
+        if float(malignant_margin_weight) > 0.0 and labels_b is None:
+            loss = loss + float(malignant_margin_weight) * _malignant_margin_loss(
+                logits,
+                labels_a,
+                margin=float(malignant_margin),
+            )
         lesion_loss, _lesion_coverage = _lesion_evidence_alignment_loss(
             model,
             images,
+            labels=labels_a,
             margin=float(lesion_evidence_margin),
+            perilesional_context_weight=float(lesion_evidence_context_weight),
+            quality_weighting=bool(lesion_evidence_quality_weighting),
+            quality_stats=lesion_evidence_quality_stats,
+            error_aware_weighting=bool(lesion_evidence_error_aware_weighting),
+            error_weight_scale=float(lesion_evidence_error_weight_scale),
         )
         if lesion_loss is not None and float(lesion_evidence_weight) > 0.0:
             loss = loss + float(lesion_evidence_weight) * lesion_loss
+        error_weights = getattr(model, "last_alignment_error_weight", None)
+        if error_weights is not None and bool(lesion_evidence_error_aware_weighting):
+            active_error_weights = error_weights[error_weights > 0.0]
+            if active_error_weights.numel() > 0:
+                error_weight_batches.append(
+                    {
+                        "mean": float(active_error_weights.mean().detach().item()),
+                        "min": float(active_error_weights.min().detach().item()),
+                        "max": float(active_error_weights.max().detach().item()),
+                    }
+                )
         local_evidence_loss = _local_evidence_classification_loss(
             model,
             labels_a,
@@ -849,6 +1163,13 @@ def _train_classifier_epoch(
         )
         if local_evidence_loss is not None and float(local_evidence_classification_weight) > 0.0:
             loss = loss + float(local_evidence_classification_weight) * local_evidence_loss
+        background_loss, background_coverage = _background_consistency_loss(
+            model,
+            images,
+            probability=float(background_consistency_probability),
+        )
+        if float(background_consistency_weight) > 0.0:
+            loss = loss + float(background_consistency_weight) * background_loss
         distill_loss, teacher_coverage = _teacher_constraint_loss(
             logits,
             images,
@@ -901,10 +1222,23 @@ def _train_classifier_epoch(
                 pairwise_auc_weight=pairwise_auc_weight,
                 pairwise_auc_margin=pairwise_auc_margin,
             )
+            if float(case_consistency_weight) > 0.0 and labels_b is None:
+                second_case_loss, _second_case_coverage, _second_case_pairs = _case_consistency_loss(
+                    logits_second,
+                    [str(value) for value in batch.get("case_id", [])],
+                    temperature=float(case_consistency_temperature),
+                )
+                second_loss = second_loss + float(case_consistency_weight) * second_case_loss
             second_lesion_loss, _second_lesion_coverage = _lesion_evidence_alignment_loss(
                 model,
                 images,
+                labels=labels_a,
                 margin=float(lesion_evidence_margin),
+                perilesional_context_weight=float(lesion_evidence_context_weight),
+                quality_weighting=bool(lesion_evidence_quality_weighting),
+                quality_stats=lesion_evidence_quality_stats,
+                error_aware_weighting=bool(lesion_evidence_error_aware_weighting),
+                error_weight_scale=float(lesion_evidence_error_weight_scale),
             )
             if second_lesion_loss is not None and float(lesion_evidence_weight) > 0.0:
                 second_loss = second_loss + float(lesion_evidence_weight) * second_lesion_loss
@@ -926,6 +1260,13 @@ def _train_classifier_epoch(
             )
             if second_local_evidence_loss is not None and float(local_evidence_classification_weight) > 0.0:
                 second_loss = second_loss + float(local_evidence_classification_weight) * second_local_evidence_loss
+            second_background_loss, _second_background_coverage = _background_consistency_loss(
+                model,
+                images,
+                probability=float(background_consistency_probability),
+            )
+            if float(background_consistency_weight) > 0.0:
+                second_loss = second_loss + float(background_consistency_weight) * second_background_loss
             second_distill_loss, _second_teacher_coverage = _teacher_constraint_loss(
                 logits_second,
                 images,
@@ -966,10 +1307,30 @@ def _train_classifier_epoch(
         losses.append(float(loss.item()))
         teacher_losses.append(float(distill_loss.detach().item()))
         teacher_coverages.append(float(teacher_coverage.detach().item()))
+        background_losses.append(float(background_loss.detach().item()))
+        background_coverages.append(float(background_coverage))
+        case_consistency_losses.append(float(case_loss.detach().item()))
+        case_consistency_coverages.append(float(case_coverage))
+        case_consistency_pairs.append(int(case_pair_count))
+    if error_weight_batches:
+        model.last_error_aware_weight_stats = {
+            key: float(np.mean([item[key] for item in error_weight_batches]))
+            for key in ("mean", "min", "max")
+        }
+        model.last_error_aware_weight_batch_count = len(error_weight_batches)
+    else:
+        model.last_error_aware_weight_stats = None
+        model.last_error_aware_weight_batch_count = 0
     return (
         float(np.mean(losses)),
         float(np.mean(teacher_losses) if teacher_losses else 0.0),
         float(np.mean(teacher_coverages) if teacher_coverages else 0.0),
+        float(np.mean(classification_losses) if classification_losses else 0.0),
+        float(np.mean(background_losses) if background_losses else 0.0),
+        float(np.mean(background_coverages) if background_coverages else 0.0),
+        float(np.mean(case_consistency_losses) if case_consistency_losses else 0.0),
+        float(np.mean(case_consistency_coverages) if case_consistency_coverages else 0.0),
+        int(sum(case_consistency_pairs)),
     )
 
 
@@ -1328,15 +1689,29 @@ def _build_classifier_loaders(
 
     loader_kwargs["generator"] = generator
     loader_kwargs["worker_init_fn"] = _seed_loader_worker
-    train_loader = torch_utils_data.DataLoader(
-        train_dataset,
-        shuffle=True,
-        **loader_kwargs,
-    )
+    val_loader_kwargs = dict(loader_kwargs)
+    if bool(data_cfg.get("group_by_case", False)):
+        batch_size = int(loader_kwargs.pop("batch_size"))
+        loader_kwargs.pop("generator", None)
+        train_loader = torch_utils_data.DataLoader(
+            train_dataset,
+            batch_sampler=_CaseGroupedBatchSampler(
+                train_manifest,
+                batch_size=batch_size,
+                seed=int(seed),
+            ),
+            **loader_kwargs,
+        )
+    else:
+        train_loader = torch_utils_data.DataLoader(
+            train_dataset,
+            shuffle=True,
+            **loader_kwargs,
+        )
     val_loader = torch_utils_data.DataLoader(
         val_dataset,
         shuffle=False,
-        **loader_kwargs,
+        **val_loader_kwargs,
     )
     return train_loader, val_loader
 
@@ -1410,10 +1785,13 @@ def _write_classifier_training_outputs(
     sample_weight_path: Path | None,
     sample_weights: dict[str, float],
     sample_weight_hit_count: int,
+    bbox_quality_stats: dict[str, float] | None,
     min_specificity: float,
     epoch_reports: list[dict[str, Any]],
     early_stopping_cfg: dict[str, Any],
     stopped_epoch: int | None,
+    parameter_count: int,
+    inference_latency_ms_per_image: float | None,
     train_manifest: pd.DataFrame,
     val_manifest: pd.DataFrame,
 ) -> dict[str, Any]:
@@ -1469,10 +1847,13 @@ def _write_classifier_training_outputs(
         sample_weight_path=sample_weight_path,
         sample_weights=sample_weights,
         sample_weight_hit_count=sample_weight_hit_count,
+        bbox_quality_stats=bbox_quality_stats,
         min_specificity=min_specificity,
         epoch_reports=epoch_reports,
         early_stopping_cfg=early_stopping_cfg,
         stopped_epoch=stopped_epoch,
+        parameter_count=parameter_count,
+        inference_latency_ms_per_image=inference_latency_ms_per_image,
         train_manifest=train_manifest,
         val_manifest=val_manifest,
     )
@@ -1537,10 +1918,13 @@ def _classifier_training_report(
     sample_weight_path: Path | None,
     sample_weights: dict[str, float],
     sample_weight_hit_count: int,
+    bbox_quality_stats: dict[str, float] | None,
     min_specificity: float,
     epoch_reports: list[dict[str, Any]],
     early_stopping_cfg: dict[str, Any],
     stopped_epoch: int | None,
+    parameter_count: int,
+    inference_latency_ms_per_image: float | None,
     train_manifest: pd.DataFrame,
     val_manifest: pd.DataFrame,
 ) -> dict[str, Any]:
@@ -1580,10 +1964,13 @@ def _classifier_training_report(
         "sample_weight_path": str(sample_weight_path) if sample_weight_path is not None else None,
         "sample_weight_count": len(sample_weights),
         "sample_weight_hit_count": int(sample_weight_hit_count),
+        "bbox_quality_stats": bbox_quality_stats,
         "min_specificity": min_specificity,
         "epoch_reports": epoch_reports,
         "early_stopping": early_stopping_cfg,
         "stopped_epoch": stopped_epoch,
+        "parameter_count": int(parameter_count),
+        "inference_latency_ms_per_image": inference_latency_ms_per_image,
         "train_size": int(len(train_manifest)),
         "val_size": int(len(val_manifest)),
     }
@@ -1626,7 +2013,18 @@ class _TrainingLoopConfig:
     teacher_max_disagreement: float
     lesion_evidence_weight: float
     lesion_evidence_margin: float
+    lesion_evidence_context_weight: float
+    lesion_evidence_quality_weighting: bool
+    lesion_evidence_quality_stats: dict[str, float]
+    lesion_evidence_error_aware_weighting: bool
+    lesion_evidence_error_weight_scale: float
     local_evidence_classification_weight: float
+    malignant_margin_weight: float
+    malignant_margin: float
+    background_consistency_weight: float
+    background_consistency_probability: float
+    case_consistency_weight: float
+    case_consistency_temperature: float
 
 
 @dataclasses.dataclass(slots=True)
@@ -1655,6 +2053,7 @@ class _PreparedTrainingRun:
     sample_weight_path: Path | None
     sample_weights: dict[str, float]
     sample_weight_hit_count: int
+    bbox_quality_stats: dict[str, float] | None
     loop_config: _TrainingLoopConfig
     base_learning_rate: float
     optimizer: Any
@@ -1691,6 +2090,7 @@ def _build_training_loop_config(
     class_weights,
     class_priors,
     sample_weights: dict[str, float],
+    bbox_quality_stats: dict[str, float] | None = None,
 ) -> _TrainingLoopConfig:
     """Normalize training config values needed inside the epoch loop."""
     early_stopping_cfg = dict(training_cfg.get("early_stopping", {}) or {})
@@ -1730,8 +2130,43 @@ def _build_training_loop_config(
         teacher_max_disagreement=float(training_cfg.get("teacher_constraint", {}).get("max_disagreement", 1.0)),
         lesion_evidence_weight=float(training_cfg.get("lesion_evidence", {}).get("alignment_weight", 0.0)),
         lesion_evidence_margin=float(training_cfg.get("lesion_evidence", {}).get("bbox_margin", 0.08)),
+        lesion_evidence_context_weight=float(
+            training_cfg.get("lesion_evidence", {}).get("perilesional_context_weight", 0.0)
+        ),
+        lesion_evidence_quality_weighting=bool(
+            training_cfg.get("lesion_evidence", {}).get("quality_weighting", {}).get("enabled", False)
+        ),
+        lesion_evidence_quality_stats=dict(
+            bbox_quality_stats
+            or training_cfg.get("lesion_evidence", {}).get("quality_weighting", {}).get("stats", {})
+            or {}
+        ),
+        lesion_evidence_error_aware_weighting=bool(
+            training_cfg.get("lesion_evidence", {})
+            .get("error_aware_weighting", {})
+            .get("enabled", False)
+        ),
+        lesion_evidence_error_weight_scale=float(
+            training_cfg.get("lesion_evidence", {})
+            .get("error_aware_weighting", {})
+            .get("scale", 0.5)
+        ),
         local_evidence_classification_weight=float(
             training_cfg.get("lesion_evidence", {}).get("local_classification_weight", 0.0)
+        ),
+        malignant_margin_weight=float(training_cfg.get("malignant_margin", {}).get("weight", 0.0)),
+        malignant_margin=float(training_cfg.get("malignant_margin", {}).get("margin", 0.05)),
+        background_consistency_weight=float(
+            training_cfg.get("background_consistency", {}).get("weight", 0.0)
+        ),
+        background_consistency_probability=float(
+            training_cfg.get("background_consistency", {}).get("probability", 0.0)
+        ),
+        case_consistency_weight=float(
+            training_cfg.get("case_consistency", {}).get("weight", 0.0)
+        ),
+        case_consistency_temperature=float(
+            training_cfg.get("case_consistency", {}).get("temperature", 0.5)
         ),
     )
 
@@ -1819,12 +2254,19 @@ def _prepare_classifier_training_run(
         raise ValueError(
             f"Sample weight file {sample_weight_path} does not match any training samples for fold {fold}."
         )
+    quality_cfg = training_cfg.get("lesion_evidence", {}).get("quality_weighting", {}) or {}
+    bbox_quality_stats = (
+        _bbox_quality_statistics(train_manifest)
+        if bool(quality_cfg.get("enabled", False))
+        else None
+    )
     loop_config = _build_training_loop_config(
         training_cfg=training_cfg,
         epochs_override=epochs_override,
         class_weights=class_weights,
         class_priors=class_priors,
         sample_weights=sample_weights,
+        bbox_quality_stats=bbox_quality_stats,
     )
     model_ema = _ModelEma(model, decay=loop_config.ema_decay) if loop_config.use_ema else None
     return _PreparedTrainingRun(
@@ -1838,6 +2280,7 @@ def _prepare_classifier_training_run(
         sample_weight_path=sample_weight_path,
         sample_weights=sample_weights,
         sample_weight_hit_count=sample_weight_hit_count,
+        bbox_quality_stats=bbox_quality_stats,
         loop_config=loop_config,
         base_learning_rate=base_learning_rate,
         optimizer=optimizer,
@@ -1888,7 +2331,17 @@ def _run_training_loop(
             scheduler_cfg=cfg.scheduler_cfg,
         )
         _set_optimizer_lr(optimizer, current_lr)
-        mean_loss, teacher_loss, teacher_coverage = _train_classifier_epoch(
+        (
+            mean_loss,
+            teacher_loss,
+            teacher_coverage,
+            classification_loss,
+            background_loss,
+            background_coverage,
+            case_consistency_loss,
+            case_consistency_coverage,
+            case_consistency_pairs,
+        ) = _train_classifier_epoch(
             model,
             train_loader,
             optimizer,
@@ -1918,7 +2371,18 @@ def _run_training_loop(
             teacher_max_disagreement=cfg.teacher_max_disagreement,
             lesion_evidence_weight=cfg.lesion_evidence_weight,
             lesion_evidence_margin=cfg.lesion_evidence_margin,
+            lesion_evidence_context_weight=cfg.lesion_evidence_context_weight,
+            lesion_evidence_quality_weighting=cfg.lesion_evidence_quality_weighting,
+            lesion_evidence_quality_stats=cfg.lesion_evidence_quality_stats,
+            lesion_evidence_error_aware_weighting=cfg.lesion_evidence_error_aware_weighting,
+            lesion_evidence_error_weight_scale=cfg.lesion_evidence_error_weight_scale,
             local_evidence_classification_weight=cfg.local_evidence_classification_weight,
+            malignant_margin_weight=cfg.malignant_margin_weight,
+            malignant_margin=cfg.malignant_margin,
+            background_consistency_weight=cfg.background_consistency_weight,
+            background_consistency_probability=cfg.background_consistency_probability,
+            case_consistency_weight=cfg.case_consistency_weight,
+            case_consistency_temperature=cfg.case_consistency_temperature,
         )
         val_y_true, val_malignant_probabilities = _collect_validation_probabilities(
             model, val_loader, device,
@@ -1973,6 +2437,12 @@ def _run_training_loop(
             "epoch": epoch + 1,
             "learning_rate": current_lr,
             "loss": mean_loss,
+            "classification_loss": classification_loss,
+            "background_consistency_loss": background_loss,
+            "background_perturbation_coverage": background_coverage,
+            "case_consistency_loss": case_consistency_loss,
+            "case_consistency_coverage": case_consistency_coverage,
+            "case_consistency_pairs": case_consistency_pairs,
             "teacher_distill_loss": teacher_loss,
             "teacher_constraint_coverage": teacher_coverage,
             "metrics": epoch_metrics,
@@ -1983,6 +2453,12 @@ def _run_training_loop(
             "ema_selection_score": ema_score,
         })
         current_report = epoch_reports[-1]
+        current_report["error_aware_weight_stats"] = getattr(
+            model, "last_error_aware_weight_stats", None
+        )
+        current_report["error_aware_weight_batch_count"] = int(
+            getattr(model, "last_error_aware_weight_batch_count", 0)
+        )
         if early_monitor == "selection_score":
             monitor_value = float(score)
         elif early_monitor == "ema_selection_score" and ema_score is not None:
@@ -2048,6 +2524,33 @@ def _final_classifier_metrics(
     return _evaluate_model(model, val_loader, device)
 
 
+def _measure_single_batch_latency_ms(model, loader, device: str) -> float | None:
+    """Measure mean single-image forward latency on one validation batch."""
+    if torch is None:
+        return None
+    try:
+        batch = next(iter(loader))
+    except StopIteration:
+        return None
+    images, _labels, _weights = _prepare_classifier_batch(batch, {}, device=device)
+    model.eval()
+    sync = getattr(torch.cuda, "synchronize", None) if str(device).startswith("cuda") else None
+    with torch.inference_mode():
+        for _ in range(3):
+            _model_logits(model, images)
+        if sync is not None:
+            sync()
+        started = time.perf_counter()
+        iterations = 10
+        for _ in range(iterations):
+            _model_logits(model, images)
+        if sync is not None:
+            sync()
+        elapsed_ms = (time.perf_counter() - started) * 1000.0 / float(iterations)
+    batch_size = int(next(iter(images.values())).shape[0]) if isinstance(images, dict) else int(images.shape[0])
+    return float(elapsed_ms / max(1, batch_size))
+
+
 def _finish_classifier_training_run(
     *,
     config: dict[str, Any],
@@ -2068,6 +2571,8 @@ def _finish_classifier_training_run(
         checkpoint_strategy=prepared.loop_config.checkpoint_strategy,
         epoch_reports=loop_result.epoch_reports,
     )
+    parameter_count = int(sum(parameter.numel() for parameter in prepared.model.parameters()))
+    latency_ms = _measure_single_batch_latency_ms(prepared.model, prepared.val_loader, device)
     return _write_classifier_training_outputs(
         config=config,
         paths=paths,
@@ -2102,10 +2607,13 @@ def _finish_classifier_training_run(
         sample_weight_path=prepared.sample_weight_path,
         sample_weights=prepared.sample_weights,
         sample_weight_hit_count=prepared.sample_weight_hit_count,
+        bbox_quality_stats=prepared.bbox_quality_stats,
         min_specificity=prepared.loop_config.min_specificity,
         epoch_reports=loop_result.epoch_reports,
         early_stopping_cfg=prepared.loop_config.early_stopping_cfg,
         stopped_epoch=loop_result.stopped_epoch,
+        parameter_count=parameter_count,
+        inference_latency_ms_per_image=latency_ms,
         train_manifest=prepared.train_manifest,
         val_manifest=prepared.val_manifest,
     )

@@ -84,3 +84,22 @@ def test_lens_confidence_gate_exposes_per_image_diagnostics() -> None:
     assert torch.all((alpha > 0.0) & (alpha < 1.0))
     assert torch.all((concentration >= 0.0) & (concentration <= 1.0))
     assert torch.all((agreement >= 0.0) & (agreement <= 1.0))
+
+
+@pytest.mark.skipif(torch is None or timm is None, reason="torch and timm are required")
+def test_lens_multires_exposes_14_and_7_pixel_evidence_maps() -> None:
+    """Verify the auxiliary evidence head stays training-only and preserves classifier output."""
+    model = create_classifier(
+        "lesionext_lens_tiny",
+        pretrained=False,
+        evidence_gate_mode="disabled",
+        evidence_multires=True,
+        auxiliary_evidence_stage_index=2,
+    )
+    logits = model(torch.randn(1, 3, 224, 224))
+
+    assert logits.shape == (1, 2)
+    assert len(model.last_evidence_maps) == 2
+    assert tuple(model.last_evidence_maps[0].shape[-2:]) == (14, 14)
+    assert tuple(model.last_evidence_maps[1].shape[-2:]) == (7, 7)
+    assert model.last_evidence_map is model.last_evidence_maps[1]

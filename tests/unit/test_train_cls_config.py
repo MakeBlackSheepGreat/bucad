@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import pandas as pd
+import pytest
 
 from src.engine.train_cls import (
     _ModelEma,
@@ -17,6 +18,13 @@ from src.engine.train_cls import (
     _count_sample_weight_hits,
     _supervised_contrastive_loss,
     _build_training_loop_config,
+    _background_counterfactual_image,
+    _bbox_quality_weights,
+    _lesion_evidence_alignment_loss,
+    _malignant_margin_loss,
+    _error_aware_alignment_weights,
+    _case_consistency_loss,
+    _CaseGroupedBatchSampler,
     _score_checkpoint_candidate,
     run_classifier_training,
 )
@@ -206,6 +214,246 @@ def test_build_training_loop_config_reads_local_evidence_classification_weight()
     )
 
     assert loop_config.local_evidence_classification_weight == 0.1
+
+
+def test_build_training_loop_config_reads_quality_and_background_settings() -> None:
+    """Verify evidence-quality and counterfactual settings reach the epoch loop unchanged."""
+    loop_config = _build_training_loop_config(
+        training_cfg={
+            "epochs": 3,
+            "lesion_evidence": {
+                "alignment_weight": 0.25,
+                "quality_weighting": {"enabled": True},
+            },
+            "background_consistency": {"weight": 0.05, "probability": 0.5},
+        },
+        epochs_override=None,
+        class_weights=None,
+        class_priors=None,
+        sample_weights={},
+        bbox_quality_stats={"area_q05": 0.1, "area_q95": 0.6, "log_aspect_q95": 1.2},
+    )
+
+    assert loop_config.lesion_evidence_quality_weighting is True
+    assert loop_config.lesion_evidence_quality_stats["area_q05"] == 0.1
+    assert loop_config.background_consistency_weight == 0.05
+    assert loop_config.background_consistency_probability == 0.5
+
+
+def test_case_consistency_matches_same_case_predictions_and_reports_coverage() -> None:
+    """Verify paired-case KL is active only when the batch contains a pair."""
+    if train_cls.torch is None:
+        return
+    torch = train_cls.torch
+    logits = torch.tensor(
+        [[0.0, 2.0], [0.0, 2.0], [2.0, 0.0]],
+        dtype=torch.float32,
+        requires_grad=True,
+    )
+    loss, coverage, pairs = _case_consistency_loss(
+        logits,
+        ["case-1", "case-1", "case-2"],
+        temperature=0.5,
+    )
+    assert float(loss.item()) < 1e-6
+    assert coverage == pytest.approx(2.0 / 3.0)
+    assert pairs == 1
+
+
+def test_case_grouped_batch_sampler_keeps_case_views_together() -> None:
+    manifest = pd.DataFrame(
+        {
+            "sample_id": ["a", "b", "c", "d", "e"],
+            "case_id": ["1", "1", "2", "3", "3"],
+        }
+    )
+    sampler = _CaseGroupedBatchSampler(manifest, batch_size=4, seed=42)
+    batches = list(iter(sampler))
+    location = {}
+    for batch in batches:
+        case_ids = manifest.iloc[batch]["case_id"].astype(str).tolist()
+        for case_id in set(case_ids):
+            positions = [index for index, value in enumerate(case_ids) if value == case_id]
+            assert len(positions) == len(set(positions))
+            location.setdefault(case_id, set()).add(tuple(batch))
+    assert len(location["1"]) == 1
+    assert len(location["3"]) == 1
+    flattened = [index for batch in batches for index in batch]
+    assert sorted(flattened) == list(range(len(manifest)))
+
+
+def test_build_training_loop_config_reads_error_aware_alignment_settings() -> None:
+    """Verify hard-example alignment settings are normalized without changing inference."""
+    loop_config = _build_training_loop_config(
+        training_cfg={
+            "epochs": 3,
+            "lesion_evidence": {
+                "error_aware_weighting": {"enabled": True, "scale": 0.5},
+            },
+        },
+        epochs_override=None,
+        class_weights=None,
+        class_priors=None,
+        sample_weights={},
+    )
+
+    assert loop_config.lesion_evidence_error_aware_weighting is True
+    assert loop_config.lesion_evidence_error_weight_scale == 0.5
+
+
+def test_build_training_loop_config_reads_case_consistency_settings() -> None:
+    """Verify case-level consistency settings are normalized into the loop config."""
+    loop_config = _build_training_loop_config(
+        training_cfg={
+            "epochs": 3,
+            "case_consistency": {"weight": 0.02, "temperature": 0.5},
+        },
+        epochs_override=None,
+        class_weights=None,
+        class_priors=None,
+        sample_weights={},
+    )
+
+    assert loop_config.case_consistency_weight == 0.02
+    assert loop_config.case_consistency_temperature == 0.5
+
+
+def test_bbox_quality_weights_respect_bounds_and_missing_labels() -> None:
+    """Verify fixed quality weights remain bounded and ignore samples lacking BBOX metadata."""
+    if train_cls.torch is None:
+        return
+    torch = train_cls.torch
+    boxes = torch.tensor(
+        [[0.2, 0.2, 0.6, 0.6], [0.0, 0.0, 0.95, 0.05], [0.0, 0.0, 0.0, 0.0]],
+        dtype=torch.float32,
+    )
+    valid = torch.tensor([1.0, 1.0, 0.0])
+    weights = _bbox_quality_weights(
+        boxes,
+        valid,
+        {"area_q05": 0.1, "area_q95": 0.5, "log_aspect_q95": 1.5},
+    )
+
+    assert torch.all((weights[:2] >= 0.75) & (weights[:2] <= 1.25))
+    assert float(weights[-1]) == 0.0
+
+
+def test_error_aware_alignment_weights_are_bounded_and_focus_low_true_probability() -> None:
+    """Verify hard-example evidence weights are bounded and normalized on valid boxes."""
+    if train_cls.torch is None:
+        return
+    torch = train_cls.torch
+    logits = torch.tensor(
+        [[0.0, 4.0], [0.0, 0.0], [4.0, 0.0], [0.0, 0.0]],
+        dtype=torch.float32,
+    )
+    labels = torch.tensor([1, 1, 0, 0], dtype=torch.long)
+    valid = torch.tensor([1.0, 1.0, 1.0, 0.0], dtype=torch.float32)
+    weights = _error_aware_alignment_weights(
+        logits,
+        labels,
+        valid,
+        scale=0.5,
+    )
+
+    assert torch.all((weights[:3] >= 0.75) & (weights[:3] <= 1.25))
+    assert float(weights[-1]) == 0.0
+    assert float(weights[1]) > float(weights[0])
+    assert float(weights[:3].mean()) == pytest.approx(1.0, abs=1e-6)
+
+
+def test_alignment_error_aware_mode_requires_same_forward_labels() -> None:
+    """Verify the error-aware option fails closed when labels/logits are unavailable."""
+    if train_cls.torch is None:
+        return
+    torch = train_cls.torch
+
+    class _Model:
+        last_evidence_maps = [torch.zeros((1, 1, 7, 7), requires_grad=True)]
+        last_logits = None
+
+    images = {
+        "bbox": torch.tensor([[0.2, 0.2, 0.8, 0.8]], dtype=torch.float32),
+        "bbox_valid": torch.tensor([1.0]),
+    }
+    with pytest.raises(ValueError, match="error_aware_weighting"):
+        _lesion_evidence_alignment_loss(
+            _Model(),
+            images,
+            labels=torch.tensor([1]),
+            error_aware_weighting=True,
+        )
+
+
+def test_alignment_supports_multiple_evidence_maps_and_missing_bboxes() -> None:
+    """Verify multi-resolution alignment averages maps and skips invalid BBOX rows safely."""
+    if train_cls.torch is None:
+        return
+    torch = train_cls.torch
+
+    class _Model:
+        last_evidence_maps = [
+            torch.zeros((2, 1, 14, 14), requires_grad=True),
+            torch.zeros((2, 1, 7, 7), requires_grad=True),
+        ]
+
+    model = _Model()
+    images = {
+        "bbox": torch.tensor([[0.2, 0.2, 0.8, 0.8], [0.0, 0.0, 0.0, 0.0]]),
+        "bbox_valid": torch.tensor([1.0, 0.0]),
+    }
+    loss, coverage = _lesion_evidence_alignment_loss(model, images)
+
+    assert loss is not None
+    assert float(loss.detach()) > 0.0
+    assert coverage == 0.5
+    assert tuple(model.last_alignment_quality_weight.shape) == (2,)
+
+
+def test_perilesional_alignment_preserves_core_loss_at_zero_weight() -> None:
+    """Verify zero context weight preserves v1a alignment and positive weight adds ring mass."""
+    if train_cls.torch is None:
+        return
+    torch = train_cls.torch
+
+    class _Model:
+        last_evidence_maps = [torch.zeros((1, 1, 7, 7), requires_grad=True)]
+
+    images = {
+        "bbox": torch.tensor([[0.3, 0.3, 0.5, 0.5]], dtype=torch.float32),
+        "bbox_valid": torch.tensor([1.0]),
+    }
+    core_loss, _ = _lesion_evidence_alignment_loss(_Model(), images, margin=0.08)
+    zero_loss, _ = _lesion_evidence_alignment_loss(
+        _Model(), images, margin=0.08, perilesional_context_weight=0.0
+    )
+    soft_loss, _ = _lesion_evidence_alignment_loss(
+        _Model(), images, margin=0.08, perilesional_context_weight=0.15
+    )
+
+    assert torch.allclose(core_loss, zero_loss)
+    assert float(soft_loss.detach()) < float(core_loss.detach())
+
+
+def test_background_counterfactual_preserves_lesion_pixels() -> None:
+    """Verify background augmentation cannot alter the original or flipped lesion region."""
+    if train_cls.torch is None:
+        return
+    torch = train_cls.torch
+    torch.manual_seed(7)
+    image = torch.linspace(-1.0, 1.0, 3 * 16 * 16, dtype=torch.float32).reshape(1, 3, 16, 16)
+    images = {
+        "image": image.clone(),
+        "bbox": torch.tensor([[0.25, 0.25, 0.50, 0.50]], dtype=torch.float32),
+        "bbox_valid": torch.tensor([1.0]),
+    }
+    perturbed, coverage = _background_counterfactual_image(images, probability=1.0)
+
+    assert perturbed is not None
+    assert coverage > 0.0
+    assert torch.equal(perturbed[:, :, 4:8, 4:8], image[:, :, 4:8, 4:8])
+    assert torch.equal(perturbed[:, :, 4:8, 8:12], image[:, :, 4:8, 8:12])
+    assert not torch.equal(perturbed, image)
 
 
 def test_build_training_loop_config_reads_sam_settings() -> None:
@@ -407,6 +655,17 @@ def test_supervised_contrastive_loss_prefers_separable_embeddings() -> None:
     bad_loss = _supervised_contrastive_loss(bad_embeddings, labels, temperature=0.1)
 
     assert float(good_loss.item()) < float(bad_loss.item())
+
+
+def test_malignant_margin_only_penalizes_insufficient_positive_logit_gap() -> None:
+    """Verify the margin term has no loss once malignant logits exceed the target gap."""
+    if train_cls.torch is None:
+        return
+    torch = train_cls.torch
+    labels = torch.tensor([1, 0, 1], dtype=torch.long)
+    logits = torch.tensor([[0.0, 0.20], [0.0, 4.0], [0.0, 0.02]], dtype=torch.float32)
+    loss = _malignant_margin_loss(logits, labels, margin=0.10)
+    assert float(loss) == pytest.approx(0.04, abs=1e-6)
 
 
 def test_model_ema_updates_toward_latest_weights() -> None:

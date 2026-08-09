@@ -1,0 +1,49 @@
+paths_config: configs/paths.local.yml
+seed: 42
+device: auto
+runtime:
+  classifier_model: lesionext_lens_tiny
+  classifier_pretrained: false
+  classifier_model_kwargs:
+    backbone_name: convnext_tiny
+    evidence_alpha_init: 0.02
+    evidence_gate_mode: disabled
+    head_dropout: 0.2
+  classifier_image_size: 224
+  classifier_apply_clahe: true
+  classifier_mean: null
+  classifier_std: null
+  classifier_interpolation: area
+  classifier_crop_pct: 1.0
+  classifier_tta_horizontal_flip: false
+  default_threshold: 0.5
+  probability_calibration:
+    mode: bias
+    parameters: artifacts/reports/lesionext_lens_v1a_cal_bias.json
+  classifier_checkpoints:
+    - ./artifacts/checkpoints/lesionext_lens_v1a_evidence_only_fold1.pt
+    - ./artifacts/checkpoints/lesionext_lens_v1a_evidence_only_fold2.pt
+    - ./artifacts/checkpoints/lesionext_lens_v1a_evidence_only_fold3.pt
+    - ./artifacts/checkpoints/lesionext_lens_v1a_evidence_only_fold4.pt
+    - ./artifacts/checkpoints/lesionext_lens_v1a_evidence_only_fold5.pt
+  classifier_members:
+    - model: lesionext_lens_tiny
+      checkpoint: ./artifacts/checkpoints/lesionext_lens_v1a_evidence_only_fold1.pt
+      weight: 1.0
+    - model: lesionext_lens_tiny
+      checkpoint: ./artifacts/checkpoints/lesionext_lens_v1a_evidence_only_fold2.pt
+      weight: 1.0
+    - model: lesionext_lens_tiny
+      checkpoint: ./artifacts/checkpoints/lesionext_lens_v1a_evidence_only_fold3.pt
+      weight: 1.0
+    - model: lesionext_lens_tiny
+      checkpoint: ./artifacts/checkpoints/lesionext_lens_v1a_evidence_only_fold4.pt
+      weight: 1.0
+    - model: lesionext_lens_tiny
+      checkpoint: ./artifacts/checkpoints/lesionext_lens_v1a_evidence_only_fold5.pt
+      weight: 1.0
+  segmenter_checkpoint: null
+  segmenter_image_size: 256
+  gradcam_enabled: false
+  segmentation_enabled: false
+  allow_missing_visuals: true

@@ -26,6 +26,17 @@ the v1a five-fold evidence-only configuration.
 | MoE V4 / V4.1 / V4.2 / V4.3 | Teacher-constrained candidates without stable promotion evidence |
 | AttnRes V4.4 / V4.5 / V4.6 | Fold1 performance remained below the matched ConvNeXt-Tiny control |
 | Legacy unified LesioNeXt fold1 | Historical prototype checkpoint |
+| LENS v1a-multires | Fold1 AUC, Accuracy, Specificity, and F1 failed the v1a screening gate |
+| LENS v1a-quality-align | Fold1 AUC, Accuracy, Specificity, and F1 failed the v1a screening gate |
+| LENS v1a-bg-consistency | Fold1 Specificity failed the preregistered promotion gate; a later user-approved five-fold and external review is recorded in the main reports, while the candidate remains supplementary |
+| LENS v1a-cal-bias | BUSBRA-only nested OOF calibration raised Sensitivity but reduced AUC and Specificity; temperature+bias and external review stopped |
+| LENS v1a-soft-evidence | Fold1 AUC, Accuracy, Specificity, and F1 fell below the frozen v1a screening gate |
+| LENS v1a-malignant-margin | Fold1 AUC and Sensitivity increased, while Accuracy, Specificity, and F1 fell below the frozen v1a screening gate |
+| LENS v1a-error-aware-align | Fold1 AUC, Sensitivity, and F1 increased, while Accuracy and Specificity fell below the frozen v1a screening gate |
+| LENS v1a-case-consistency | Fold1 Sensitivity increased, while AUC, Accuracy, Specificity, and F1 fell below the frozen v1a screening gate |
+| LENS v1a-align-lite | Reducing the alignment weight increased Sensitivity but reduced AUC, Accuracy, Specificity, Precision, and F1 below the frozen v1a screening gate |
+| LENS v1a-align-020 | Sensitivity increased, while AUC, Accuracy, Specificity, Precision, and F1 fell below the frozen v1a screening gate |
+| LENS v1a-align-030 | Sensitivity increased sharply, while Accuracy, Specificity, Precision, and F1 fell below the frozen v1a screening gate |
 
 `archive_manifest.json` records the archived checkpoint, configuration, and
 report counts. The archive is for audit and comparison only. It must not be

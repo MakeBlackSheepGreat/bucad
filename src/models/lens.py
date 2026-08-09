@@ -30,6 +30,8 @@ if nn is not None:
             evidence_gate_mode: str = "static",
             evidence_gate_gain_init: float = 0.0,
             local_evidence_auxiliary: bool = False,
+            evidence_multires: bool = False,
+            auxiliary_evidence_stage_index: int = 2,
             head_dropout: float = 0.2,
         ) -> None:
             """Build a ConvNeXt backbone with one lightweight lesion evidence head."""
@@ -51,6 +53,30 @@ if nn is not None:
             self.evidence_head = nn.Conv2d(feature_dim, 1, kernel_size=1, bias=True)
             nn.init.zeros_(self.evidence_head.weight)
             nn.init.zeros_(self.evidence_head.bias)
+            self.evidence_multires = bool(evidence_multires)
+            self.auxiliary_evidence_stage_index = int(auxiliary_evidence_stage_index)
+            self.auxiliary_evidence_head = None
+            if self.evidence_multires:
+                feature_info = getattr(self.backbone, "feature_info", None)
+                if feature_info is None:
+                    channels = []
+                elif hasattr(feature_info, "channels"):
+                    channels = list(feature_info.channels())
+                else:
+                    channels = [int(item["num_chs"]) for item in feature_info]
+                if not 0 <= self.auxiliary_evidence_stage_index < len(channels):
+                    raise ValueError(
+                        "auxiliary_evidence_stage_index must reference a ConvNeXt feature stage."
+                    )
+                auxiliary_dim = int(channels[self.auxiliary_evidence_stage_index])
+                self.auxiliary_evidence_head = nn.Conv2d(
+                    auxiliary_dim,
+                    1,
+                    kernel_size=1,
+                    bias=True,
+                )
+                nn.init.zeros_(self.auxiliary_evidence_head.weight)
+                nn.init.zeros_(self.auxiliary_evidence_head.bias)
             normalized_gate_mode = str(evidence_gate_mode).strip().lower()
             if normalized_gate_mode not in {"disabled", "static", "confidence"}:
                 raise ValueError("evidence_gate_mode must be 'disabled', 'static', or 'confidence'.")
@@ -66,14 +92,30 @@ if nn is not None:
             self.classifier = nn.Linear(feature_dim, int(num_classes))
             self.gradcam_layer = self.backbone.stages[-1].blocks[-1]
             self.last_evidence_map: Any | None = None
+            self.last_evidence_maps: list[Any] = []
             self.last_evidence_alpha: Any | None = None
             self.last_evidence_concentration: Any | None = None
             self.last_evidence_agreement: Any | None = None
             self.last_local_evidence_logits: Any | None = None
+            self.last_alignment_error_weight: Any | None = None
+            self.last_logits: Any | None = None
 
         def _features(self, image):
-            """Return the final normalized ConvNeXt feature map."""
-            return self.backbone.forward_features(image)
+            """Return final ConvNeXt features and optional stage-level evidence features."""
+            if not self.evidence_multires:
+                return self.backbone.forward_features(image), None
+            features = self.backbone.stem(image)
+            auxiliary_features = None
+            for stage_index, stage in enumerate(self.backbone.stages):
+                features = stage(features)
+                if stage_index == self.auxiliary_evidence_stage_index:
+                    auxiliary_features = features
+            norm_pre = getattr(self.backbone, "norm_pre", None)
+            if norm_pre is not None:
+                features = norm_pre(features)
+            if auxiliary_features is None:
+                raise RuntimeError("Configured auxiliary evidence stage was not reached.")
+            return features, auxiliary_features
 
         def _evidence_alpha(self, evidence_weights, local_embedding, global_embedding):
             """Return one evidence interpolation weight per sample plus gate diagnostics."""
@@ -112,8 +154,11 @@ if nn is not None:
             tensor = image_full if image_full is not None else image
             if tensor is None:
                 raise ValueError("LesionEvidenceConvNeXtClassifier requires an image tensor.")
-            features = self._features(tensor)
+            features, auxiliary_features = self._features(tensor)
             evidence_logits = self.evidence_head(features)
+            evidence_maps = [evidence_logits]
+            if self.auxiliary_evidence_head is not None and auxiliary_features is not None:
+                evidence_maps.insert(0, self.auxiliary_evidence_head(auxiliary_features))
             evidence_weights = torch.softmax(evidence_logits.flatten(1), dim=1).reshape_as(evidence_logits)
             global_embedding = F.adaptive_avg_pool2d(features, 1).flatten(1)
             local_embedding = (features * evidence_weights).sum(dim=(2, 3))
@@ -131,6 +176,8 @@ if nn is not None:
             else:
                 self.last_local_evidence_logits = None
             self.last_evidence_map = evidence_logits
+            self.last_evidence_maps = evidence_maps
+            self.last_logits = logits
             self.last_evidence_alpha = alpha.detach()
             self.last_evidence_concentration = concentration.detach()
             self.last_evidence_agreement = agreement.detach()

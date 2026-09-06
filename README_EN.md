@@ -10,12 +10,14 @@ The project is intended for algorithm validation, reproducible experimentation, 
 
 ## Data and Validation Protocol
 
-- BUSBRA is used for model training, internal validation, and out-of-fold candidate screening; every headline classification metric in the fixed seven-model benchmark uses threshold `0.50`.
+- BUSBRA is used for model training, internal validation, and out-of-fold candidate screening; every headline classification metric in the fixed six-model benchmark uses threshold `0.50`.
 - Project experiment tables report AUC, Accuracy, Recall/Sensitivity, Precision, Specificity, and F1-Score.
 
 The project follows an "internal selection, external review" boundary. The BUSBRA internal split uses case-level grouping; the recorded split contains 1875 images, 1064 unique cases, 5 folds, and leakage detection result `false`. BUSI is used as an external dataset to record transfer behavior of the mainline and candidate configurations on an independent source.
 
 This boundary is important for breast ultrasound. Images differ in device characteristics, acquisition angle, lesion scale, background tissue, and annotation style. Internal OOF gains can overestimate transferability if they are not checked externally. The README therefore separates three categories: deployed mainline, frozen candidates reviewed externally but not merged, and internal-gain experiments that did not transfer to BUSI.
+
+The current manuscript and all future candidates use only BUSI, BUSI-WHU, and TCIA BrEaST as locked external cohorts. Existing BUS-UCLM evaluations, tables, and reports are retained only as historical archives and do not enter the current manuscript, current main table, or future candidate selection.
 
 ## Latest LesioNeXt Performance and Innovation
 
@@ -23,13 +25,13 @@ LesioNeXt-LENS v1a is frozen as the current paper model. Training uses BUSBRA BB
 
 The latest strict single-factor ablation compares v1a training-time BBOX evidence alignment with a no-alignment control. Backbone, evidence head, deployment alpha, split, augmentation, seed, and training rule are identical; the only change sets alignment weight from `0.25` to `0.00`. The no-alignment control reached BUSBRA fold-1 AUC `0.9358`, Sensitivity `0.7705`, and F1 `0.7966`, exceeding v1a values of `0.9298`, `0.7295`, and `0.7911`; v1a retained higher Accuracy `0.8747` and Specificity `0.9447`. v1a raised BBOX evidence mass to `0.9873`, compared with `0.2987` without alignment, confirming effective weak localization supervision. This single-fold control does not yet support a stable classification-gain claim for evidence alignment. The five-fold stage retains this ablation and all external cohorts remain frozen. See the [`Chinese report`](artifacts/reports/lesionext_lens_v1a_no_alignment_control_fold1_zh.md) and [`English report`](artifacts/reports/lesionext_lens_v1a_no_alignment_control_fold1_en.md).
 
-The preregistered v1a five-fold run is complete. Pooled BUSBRA OOF reached AUC `0.9150`, Accuracy `0.8709`, Sensitivity `0.7694`, Specificity `0.9196`, Precision `0.8207`, and F1 `0.7942`. Against ConvNeXt-Tiny identity OOF, AUC/Accuracy/Specificity/Precision/F1 increase by `0.0144`, `0.0208`, `0.0332`, `0.0552`, and `0.0243`; Sensitivity is lower by `0.0049`. The preregistered Sensitivity threshold is `0.7743`, so the current result cannot support a complete-superiority claim over ConvNeXt-Tiny. The four external datasets remain frozen. Full reports: [`Chinese`](artifacts/reports/lesionext_lens_v1a_5fold_oof_zh.md) and [`English`](artifacts/reports/lesionext_lens_v1a_5fold_oof_en.md).
+The preregistered v1a five-fold run is complete. Pooled BUSBRA OOF reached AUC `0.9150`, Accuracy `0.8709`, Sensitivity `0.7694`, Specificity `0.9196`, Precision `0.8207`, and F1 `0.7942`. Against ConvNeXt-Tiny identity OOF, AUC/Accuracy/Specificity/Precision/F1 increase by `0.0144`, `0.0208`, `0.0332`, `0.0552`, and `0.0243`; Sensitivity is lower by `0.0049`. The preregistered Sensitivity threshold is `0.7743`, so the current result cannot support a complete-superiority claim over ConvNeXt-Tiny. The three current external datasets remain frozen. Full reports: [`Chinese`](artifacts/reports/lesionext_lens_v1a_5fold_oof_zh.md) and [`English`](artifacts/reports/lesionext_lens_v1a_5fold_oof_en.md).
 
 This run also fixes checkpoint-path resolution in the OOF evaluator and adds a missing-checkpoint fail-fast guard. The reported OOF was rerun after the correction, preventing randomly initialized models from entering the aggregate metric.
 
-Five-fold v1a AUC is `0.9089` / `0.8847` / `0.8171` / `0.8617` on BUSI / BUS-UCLM / BUSI-WHU / TCIA BrEaST. The paper must retain its internal Sensitivity delta of `-0.0049` and the no-alignment ablation limitation. See the [`Chinese external report`](artifacts/reports/lesionext_lens_v1a_v3_external_review_zh.md) and [`English external report`](artifacts/reports/lesionext_lens_v1a_v3_external_review_en.md).
+Five-fold v1a AUC is `0.9089` / `0.8171` / `0.8617` on the three current external cohorts, BUSI / BUSI-WHU / TCIA BrEaST. The existing BUS-UCLM external review remains in the historical archive and does not enter the current manuscript or main table. The paper must retain its internal Sensitivity delta of `-0.0049` and the no-alignment ablation limitation. See the [`Chinese external report`](artifacts/reports/lesionext_lens_v1a_v3_external_review_zh.md) and [`English external report`](artifacts/reports/lesionext_lens_v1a_v3_external_review_en.md).
 
-The next candidate sequence is preregistered: complete the five-fold no-alignment control, evaluate 14x14+7x7 multi-resolution evidence supervision, evaluate BBOX quality-aware alignment, then evaluate BBOX-external background counterfactual consistency. Every candidate changes one training factor and must match or exceed all five v1a fold-1 metrics before five-fold expansion; BUSI, BUS-UCLM, BUSI-WHU, and TCIA BrEaST remain frozen. Calibration analysis reads internal OOF predictions only, while external reports retain the fixed `0.50` threshold.
+The next candidate sequence is preregistered: complete the five-fold no-alignment control, evaluate 14x14+7x7 multi-resolution evidence supervision, evaluate BBOX quality-aware alignment, then evaluate BBOX-external background counterfactual consistency. Every candidate changes one training factor and must match or exceed all five v1a fold-1 metrics before five-fold expansion; BUSI, BUSI-WHU, and TCIA BrEaST remain frozen. Calibration analysis reads internal OOF predictions only, while external reports retain the fixed `0.50` threshold.
 
 `v1a-multires` completed BUSBRA fold-1 screening with AUC `0.9266`, Accuracy `0.8373`, Sensitivity `0.9180`, Specificity `0.7984`, and F1 `0.7860`. AUC, Accuracy, Specificity, and F1 failed the v1a fold-1 gate, so the route is stopped and archived; no five-fold expansion or external testing was run. See the [`Chinese screening report`](artifacts/reports/lesionext_lens_v1a_multires_fold1_zh.md) and [`English screening report`](artifacts/reports/lesionext_lens_v1a_multires_fold1_en.md).
 
@@ -39,7 +41,7 @@ The next candidate sequence is preregistered: complete the five-fold no-alignmen
 
 Candidate fold-1 results are summarized in the [`candidate screening CSV`](artifacts/reports/lesionext_v1a_candidate_fold1_screening.csv). Frozen v1a BUSBRA OOF calibration analysis reports ECE `0.105586`, Brier `0.115689`, and a Youden-threshold comparison; external evaluation remains fixed at `0.50`. See the [`Chinese calibration report`](artifacts/reports/lesionext_lens_v1a_evidence_only_5fold_calibration_zh.md) and [`English calibration report`](artifacts/reports/lesionext_lens_v1a_evidence_only_5fold_calibration_en.md).
 
-The fixed seven-model, all-dataset metric table is available across BUSBRA pooled OOF, BUSI, BUS-UCLM, BUSI-WHU, and TCIA BrEaST. Every headline Accuracy, Sensitivity, Specificity, Precision, and F1 value uses the frozen `0.50` threshold; Youden thresholds are retained only for internal diagnostics and are excluded from the main table. LesioNeXt-LENS v1a is the current paper method. The table includes AUC, Accuracy, Sensitivity, Specificity, Precision, F1, and external AUC 95% CIs. See the [`Chinese full table`](artifacts/reports/fixed_classification_benchmark/all_model_comparison_v1a_zh.md), [`English full table`](artifacts/reports/fixed_classification_benchmark/all_model_comparison_v1a_en.md), and [`CSV`](artifacts/reports/fixed_classification_benchmark/all_model_comparison_v1a.csv).
+The historical fixed six-model, all-dataset metric table spans BUSBRA pooled OOF, BUSI, BUS-UCLM, BUSI-WHU, and TCIA BrEaST. The current manuscript's fixed comparison reports only BUSBRA pooled OOF, BUSI, BUSI-WHU, and TCIA BrEaST. Every headline Accuracy, Sensitivity, Specificity, Precision, and F1 value uses the frozen `0.50` threshold; Youden thresholds are retained only for internal diagnostics and are excluded from the main table. LesioNeXt-LENS v1a is the current paper method. The table includes AUC, Accuracy, Sensitivity, Specificity, Precision, F1, and external AUC 95% CIs. See the [`Chinese full table`](artifacts/reports/fixed_classification_benchmark/all_model_comparison_v1a_zh.md), [`English full table`](artifacts/reports/fixed_classification_benchmark/all_model_comparison_v1a_en.md), and [`CSV`](artifacts/reports/fixed_classification_benchmark/all_model_comparison_v1a.csv).
 
 `v1a-cal-bias` completed BUSBRA-only nested five-fold calibration screening. The candidate fitted one logit bias; external cohorts were not read and the evaluation threshold was not changed. At fixed threshold `0.50`, BUSBRA pooled OOF reached AUC `0.9122`, Accuracy `0.8720`, Sensitivity `0.8023`, Specificity `0.9054`, and F1 `0.8023`. Sensitivity improved, but AUC and Specificity fell below frozen v1a, so the route is stopped; temperature+bias and four-dataset external review are not run. See the [`Chinese report`](artifacts/reports/lesionext_lens_v1a_cal_bias_zh.md) and [`English report`](artifacts/reports/lesionext_lens_v1a_cal_bias_en.md).
 
@@ -49,7 +51,7 @@ The fixed seven-model, all-dataset metric table is available across BUSBRA poole
 
 ### Completed candidate: v1a-error-aware-align
 
-`v1a-error-aware-align` is registered as the next independent fold-1 screening candidate. It changes only the training-time BBOX evidence-alignment sample weight, using the true-label probability from the same forward pass: `w=0.75+0.50*(1-p_true)`, normalized over valid BBOX samples in each batch and bounded to `[0.75,1.25]`. The weighting covers high-confidence FN/FP examples; the classification loss, ConvNeXt-Tiny global deployment logits, `alpha=0`, identity-only preprocessing, and threshold `0.50` remain fixed. The experiment tests whether difficult-sample evidence supervision can improve v1a Sensitivity while reducing cross-domain false positives; external data are not read for selection. All five metrics must match or exceed v1a fold-1 before five-fold expansion or locked external review. See [`configuration`](configs/classifier/lesionext_lens_v1a_error_aware_align.yml).
+`v1a-error-aware-align` is registered as the next independent fold-1 screening candidate. It changes only the training-time BBOX evidence-alignment sample weight, using the true-label probability from the same forward pass: `w=0.75+0.50*(1-p_true)`, normalized over valid BBOX samples in each batch and bounded to `[0.75,1.25]`. The weighting covers high-confidence FN/FP examples; the classification loss, ConvNeXt-Tiny global deployment logits, `alpha=0`, identity-only preprocessing, and threshold `0.50` remain fixed. The experiment tests whether difficult-sample evidence supervision can improve v1a Sensitivity while reducing false positives on the current locked external cohorts; external data are not read for selection. All five metrics must match or exceed v1a fold-1 before five-fold expansion or locked external review. See [`configuration`](configs/classifier/lesionext_lens_v1a_error_aware_align.yml).
 
 The candidate completed BUSBRA fold-1 with AUC `0.9335`, Accuracy `0.8693`, Sensitivity `0.8607`, Specificity `0.8735`, Precision `0.7664`, and F1 `0.8108`. AUC, Sensitivity, and F1 increased, while Accuracy and Specificity missed the v1a fold-1 gate, confirming that hard-example weighting shifted errors from FN toward FP. The route is stopped with no five-fold or external evaluation. See the [`Chinese report`](artifacts/reports/lesionext_lens_v1a_error_aware_align_fold1_zh.md), [`English report`](artifacts/reports/lesionext_lens_v1a_error_aware_align_fold1_en.md), and the archived copy in [`lesionext_archive`](artifacts/reports/lesionext_archive/README.md).
 
@@ -82,7 +84,7 @@ LesioNeXt candidates that failed promotion or were superseded by v1a are archive
 | BUSI-WHU 5-fold external | **0.8050** | 0.7966 | +0.0084 | Higher LENS AUC |
 | TCIA BrEaST 5-fold external | **0.8495** | 0.8382 | +0.0113 | Higher LENS AUC |
 
-LENS defines its main contribution as **lesion evidence alignment**: BUSBRA BBOX annotations supervise a lesion evidence map during training, and the classifier uses evidence-weighted pooling. Deployment loads one ConvNeXt-Tiny-derived model, with no BBOX input, teacher, segmenter, or fusion model. The five-fold external review showed higher LENS AUC on three of four datasets and higher sensitivity on all four datasets, while Accuracy and Specificity receded consistently and all AUC 95% CIs overlapped. The result supports an exploratory high-sensitivity cross-domain candidate; the fixed seven-model paper protocol remains the criterion for the main table. See [`artifacts/reports/lesionext_lens_v1_5fold_external_comparison_en.md`](artifacts/reports/lesionext_lens_v1_5fold_external_comparison_en.md) and [`configs/classifier/lesionext_lens_v1.yml`](configs/classifier/lesionext_lens_v1.yml).
+LENS defines its main contribution as **lesion evidence alignment**: BUSBRA BBOX annotations supervise a lesion evidence map during training, and the classifier uses evidence-weighted pooling. Deployment loads one ConvNeXt-Tiny-derived model, with no BBOX input, teacher, segmenter, or fusion model. The five-fold external review showed higher LENS AUC on three of four datasets and higher sensitivity on all four datasets, while Accuracy and Specificity receded consistently and all AUC 95% CIs overlapped. The result supports an exploratory high-sensitivity cross-domain candidate; the fixed six-model paper protocol remains the criterion for the main table. See [`artifacts/reports/lesionext_lens_v1_5fold_external_comparison_en.md`](artifacts/reports/lesionext_lens_v1_5fold_external_comparison_en.md) and [`configs/classifier/lesionext_lens_v1.yml`](configs/classifier/lesionext_lens_v1.yml).
 
 LENS v2 changes only the global shared `evidence_alpha` into a per-image Evidence-Confidence Gate driven by evidence concentration and local/global embedding agreement. The implementation adds one parameter. Fold-1 AUC reached `0.9238`, above the `0.9191` AUC gate; Accuracy `0.8133` and Sensitivity `0.5082` missed the release criteria, while Specificity rose to `0.9605`. Diagnostics show alpha increased from `0.0206` in v1 to `0.1961 ± 0.0134`, confirming that the gate entered the decision path. This version became overly conservative with a high-specificity bias, so five-fold and external evaluation were stopped. See [`artifacts/reports/lesionext_lens_v2_confidence_fold1_screening_en.md`](artifacts/reports/lesionext_lens_v2_confidence_fold1_screening_en.md).
 
@@ -288,7 +290,6 @@ The five-fold strategy addresses two sources of instability. First, single-fold 
 |---|---:|---:|---:|---|
 | ConvNeXt-Tiny V1 | 0.9259 | 0.9212 | 0.0196 | - |
 | ConvNeXt-Tiny V2 | 0.9278 | 0.9176 | 0.0107 | More stable |
-| ConvNeXt-Small | 0.9118 | 0.9162 | 0.0163 | - |
 | EfficientNetV2-S | 0.9248 | 0.8946 | 0.0241 | - |
 
 **BUSI external ablation (5-fold vs single fold):**
@@ -408,7 +409,6 @@ Model selection is not decided by AUC alone. The project considers external AUC,
 | Model | Params | AUC | Sensitivity | Specificity | F1-Score |
 |---|---:|---:|---:|---:|---:|
 | ConvNeXt-Tiny | 28M | 0.8943 | 0.7762 | 0.8741 | 0.7617 |
-| ConvNeXt-Small | 50M | 0.8947 | 0.7667 | 0.8581 | 0.7436 |
 | Swin-Tiny | 28M | 0.8729 | 0.7048 | 0.8902 | 0.7291 |
 | DenseNet-121 | 8M | 0.8766 | 0.4571 | 0.9771 | 0.6076 |
 | EfficientNetV2-S | 21M | 0.8609 | 0.8333 | 0.7048 | 0.6809 |
@@ -434,31 +434,13 @@ This reflects the project merge rule: a tiny AUC gain is not sufficient if malig
 
 Raw ensemble-screening records are locally archived and are not distributed with the repository.
 
-### 7. ConvNeXt-Small Upgrade Evaluation
-
-ConvNeXt-Small (50M params) shows marginally higher single-fold external AUC than ConvNeXt-Tiny (28M params), but lower internal AUC and training loss near zero, indicating overfitting risk under the current training recipe.
-
-ConvNeXt-Small is a reasonable upgrade candidate, but it is not yet a default-configuration merge item. Its single-fold external AUC is higher by 0.0038, but internal fold1 AUC is lower by 0.0141 and Youden J is nearly identical. This combination of a small external single-point gain and weaker internal stability does not meet the mainline merge criterion. Further work on this direction should first complete stricter five-fold training, regularization, and OOF transfer validation.
-
-**Ablation results:**
-
-| Model | BUSBRA fold1 AUC | BUSI fold1 AUC | Youden J |
-|---|---:|---:|---:|
-| ConvNeXt-Tiny | 0.9259 | 0.8953 | 0.6671 |
-| ConvNeXt-Small | 0.9118 | 0.8991 | 0.6665 |
-| **Difference** | **-0.0141** | **+0.0038** | **-0.0006** |
-
-The contradiction between internal AUC decrease (-0.0141) and external AUC increase (+0.0038) indicates unstable generalization under the current training configuration. Youden J is essentially identical (0.6671 vs 0.6665), not meeting the mainline merge criterion.
-
-Raw upgrade-candidate records are locally archived and are not distributed with the repository.
-
-### 8. Threshold Selection and Metric Trade-Offs
+### 7. Threshold Selection and Metric Trade-Offs
 
 The project reports both AUC and fixed-threshold metrics. AUC reflects ranking ability and is independent of a specific threshold. Sensitivity, Specificity, Precision, and F1-Score describe the practical behavior at a decision point. The current mainline threshold `0.510` matches `configs/inference/demo.yml`, and the default demo interface follows this frozen configuration threshold.
 
 Threshold tuning was tested as an independent direction, but moving only the threshold changes the FP/FN distribution without improving probability ranking quality. The ROI area gate improves both AUC and fixed-threshold metrics, indicating that it changes branch selection and probability quality rather than only applying a post-hoc threshold shift.
 
-### 9. Explainability Output
+### 8. Explainability Output
 
 The system retains Grad-CAM and lesion-mask visualization to show the relationship between classifier attention and segmentation ROI. Explainability output is not used for training or parameter tuning. It mainly supports demo presentation, error-case review, and manual inspection. For misclassified samples, Grad-CAM helps determine whether the model attends to the lesion itself, surrounding tissue, black borders, or device annotations, supporting later error-type attribution.
 

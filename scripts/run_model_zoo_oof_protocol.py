@@ -37,7 +37,6 @@ FULL_VIEW_NAMES = (
     "eff_identity",
     "conv_crop_sweep",
     "densenet_identity",
-    "convsmall_crop_sweep",
     "swin_crop_sweep",
 )
 ROI_VIEW_NAMES = ("eff_identity", "conv_crop_sweep")
@@ -45,25 +44,6 @@ ROI_PAIR_WEIGHTS = {"eff_identity": 0.427, "conv_crop_sweep": 0.573}
 
 
 EXTRA_MODEL_VIEWS: dict[str, ModelView] = {
-    "convsmall_crop_sweep": ModelView(
-        name="convsmall_crop_sweep",
-        model_name="convnext_small",
-        checkpoint_template="./artifacts/checkpoints/convnext_small_timm_recipe_fold{fold}.pt",
-        image_size=224,
-        apply_clahe=True,
-        mean=(0.485, 0.456, 0.406),
-        std=(0.229, 0.224, 0.225),
-        interpolation="bicubic",
-        crop_pct=0.95,
-        tta_variants=(
-            {"name": "identity", "crop_pct": 0.90},
-            {"name": "hflip", "crop_pct": 0.90},
-            {"name": "identity", "crop_pct": 0.95},
-            {"name": "hflip", "crop_pct": 0.95},
-            {"name": "identity", "crop_pct": 1.00},
-            {"name": "hflip", "crop_pct": 1.00},
-        ),
-    ),
     "swin_crop_sweep": ModelView(
         name="swin_crop_sweep",
         model_name="swin_tiny_patch4_window7_224",
@@ -559,18 +539,6 @@ def _member_specs_for_config(weights: dict[str, float]) -> list[dict[str, Any]]:
             "crop_pct": 1.0,
             "tta_variants": [{"name": "identity"}],
         },
-        "convsmall_crop_sweep": {
-            "model": "convnext_small",
-            "checkpoint": "./artifacts/checkpoints/convnext_small_timm_recipe_fold{fold}.pt",
-            "weight": weights["convsmall_crop_sweep"],
-            "image_size": 224,
-            "apply_clahe": True,
-            "mean": [0.485, 0.456, 0.406],
-            "std": [0.229, 0.224, 0.225],
-            "interpolation": "bicubic",
-            "crop_pct": 0.95,
-            "tta_variants": crop_sweep_variants,
-        },
         "swin_crop_sweep": {
             "model": "swin_tiny_patch4_window7_224",
             "checkpoint": "./artifacts/checkpoints/swin_tiny_patch4_window7_224_timm_recipe_fold{fold}.pt",
@@ -625,7 +593,6 @@ def _write_candidate_config(
         "tf_efficientnetv2_s": ROI_PAIR_WEIGHTS["eff_identity"],
         "convnext_tiny": ROI_PAIR_WEIGHTS["conv_crop_sweep"],
         "densenet121": 0.0,
-        "convnext_small": 0.0,
         "swin_tiny_patch4_window7_224": 0.0,
     }
     Path(destination).write_text(

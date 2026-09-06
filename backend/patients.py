@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import os
 import sqlite3
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -221,7 +221,7 @@ class PatientCaseRepository:
     def create_case(self, payload: PatientCaseCreate) -> PatientCase:
         """Insert a new patient case."""
         values = _model_to_dict(payload)
-        now = datetime.now(UTC).isoformat()
+        now = datetime.now(timezone.utc).isoformat()
         values["created_at"] = now
         values["updated_at"] = now
         columns = ", ".join(values.keys())
@@ -251,7 +251,7 @@ class PatientCaseRepository:
                     continue
 
                 values = _model_to_dict(sample)
-                now = datetime.now(UTC).isoformat()
+                now = datetime.now(timezone.utc).isoformat()
                 values["created_at"] = now
                 values["updated_at"] = now
                 columns = ", ".join(values.keys())

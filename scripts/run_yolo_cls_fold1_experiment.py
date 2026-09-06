@@ -235,7 +235,6 @@ def _markdown_report(report: dict[str, Any]) -> list[str]:
         "",
         "| 模型 | AUC | Accuracy | Sensitivity | Specificity | Precision | F1-Score |",
         "|---|---:|---:|---:|---:|---:|---:|",
-        "| ConvNeXt-Small timm recipe fold1 | 0.8947 | 0.8284 | 0.7667 | 0.8581 | 0.7220 | 0.7436 |",
         "| ConvNeXt-Tiny timm recipe fold1 | 0.8943 | 0.8423 | 0.7762 | 0.8741 | 0.7477 | 0.7617 |",
         "| DenseNet121 fold1 | 0.8766 | 0.8083 | 0.4571 | 0.9771 | 0.9057 | 0.6076 |",
         "| Swin-Tiny timm recipe fold1 | 0.8729 | 0.8300 | 0.7048 | 0.8902 | 0.7551 | 0.7291 |",

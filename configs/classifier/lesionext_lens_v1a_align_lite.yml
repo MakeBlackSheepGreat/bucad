@@ -46,3 +46,4 @@ training:
 output:
   checkpoint_name: lesionext_lens_v1a_align_lite_fold{fold}.pt
   report_name: train_cls_lesionext_lens_v1a_align_lite_fold{fold}.json
+

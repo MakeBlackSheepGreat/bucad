@@ -1,8 +1,9 @@
-"""Run the fixed seven-model classification benchmark on all locked datasets."""
+"""Run the fixed six-model classification benchmark on all locked datasets."""
 
 from __future__ import annotations
 
 import argparse
+import csv
 import json
 from pathlib import Path
 import sys
@@ -36,17 +37,13 @@ FIXED_MODELS: dict[str, dict[str, str]] = {
         "display_name": "ConvNeXt-Tiny",
         "config": "configs/inference/convnext_tiny_timm_recipe_5fold_tta_identity.yml",
     },
-    "convnext_small": {
-        "display_name": "ConvNeXt-Small",
-        "config": "configs/inference/convnext_small_timm_recipe_5fold_identity.yml",
-    },
     "swin_tiny": {
         "display_name": "Swin-Tiny",
         "config": "configs/inference/swin_tiny_timm_recipe_5fold_tta_identity.yml",
     },
-    "lesionext_moe_v3": {
-        "display_name": "LesioNeXt-MoE V3",
-        "config": "configs/inference/lesionext_moe_v3_5fold_identity.yml",
+    "lesionext_lens_v1a": {
+        "display_name": "LesioNeXt-LENS v1a",
+        "config": "configs/inference/lesionext_lens_v1a_5fold_identity.yml",
     },
 }
 
@@ -71,6 +68,29 @@ FIXED_DATASETS: dict[str, dict[str, str]] = {
         "manifest": "data/external/tcia_breast_us/manifests/manifest.csv",
     },
 }
+
+
+def _write_prediction_csv(report: dict[str, Any], output_path: Path) -> Path:
+    """Write per-sample predictions beside a benchmark JSON report."""
+    rows = report.get("rows", [])
+    destination = output_path.with_name(f"{output_path.stem}_predictions.csv")
+    if not isinstance(rows, list):
+        raise ValueError(f"Expected a list of prediction rows in {output_path}")
+
+    fieldnames: list[str] = []
+    for row in rows:
+        if not isinstance(row, dict):
+            raise ValueError(f"Expected a mapping prediction row in {output_path}")
+        for key in row:
+            if key not in fieldnames:
+                fieldnames.append(key)
+
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    with destination.open("w", encoding="utf-8-sig", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=fieldnames, extrasaction="ignore")
+        writer.writeheader()
+        writer.writerows(rows)
+    return destination
 
 
 def _bootstrap_auc(report: dict[str, Any], replicates: int) -> dict[str, Any] | None:
@@ -102,6 +122,7 @@ def _run_one(model_id: str, dataset_id: str, bootstrap: int, rerun: bool) -> dic
     output_path = REPORT_ROOT / "raw" / f"{model_id}__{dataset_id}.json"
     if output_path.exists() and not rerun:
         report = json.loads(output_path.read_text(encoding="utf-8"))
+        _write_prediction_csv(report, output_path)
         return {
             "model_id": model_id,
             "model_name": model["display_name"],
@@ -118,6 +139,7 @@ def _run_one(model_id: str, dataset_id: str, bootstrap: int, rerun: bool) -> dic
         report = evaluate_busi_dataset(config_path, output_path=output_path)
         report["auc_bootstrap_ci"] = _bootstrap_auc(report, bootstrap)
         output_path.write_text(json.dumps(report, indent=2, ensure_ascii=False), encoding="utf-8")
+        _write_prediction_csv(report, output_path)
     else:
         report = evaluate_external_bus_dataset(
             dataset_id,
@@ -143,7 +165,23 @@ def _run_one(model_id: str, dataset_id: str, bootstrap: int, rerun: bool) -> dic
 def _load_completed(index_path: Path) -> list[dict[str, Any]]:
     if not index_path.exists():
         return []
-    return json.loads(index_path.read_text(encoding="utf-8"))
+    rows = json.loads(index_path.read_text(encoding="utf-8"))
+    if not isinstance(rows, list):
+        raise ValueError(f"Expected a list in benchmark index: {index_path}")
+    completed: list[dict[str, Any]] = []
+    for row in rows:
+        if (
+            not isinstance(row, dict)
+            or row.get("model_id") not in FIXED_MODELS
+            or row.get("dataset_id") not in FIXED_DATASETS
+        ):
+            continue
+        normalized = dict(row)
+        local_output = REPORT_ROOT / "raw" / f"{normalized['model_id']}__{normalized['dataset_id']}.json"
+        if local_output.exists():
+            normalized["output"] = str(local_output)
+        completed.append(normalized)
+    return completed
 
 
 def _write_index(rows: list[dict[str, Any]]) -> Path:
@@ -168,6 +206,8 @@ def _ci_value(row: dict[str, Any]) -> str:
 def _write_markdown(rows: list[dict[str, Any]]) -> tuple[Path, Path]:
     rows_by_dataset: dict[str, list[dict[str, Any]]] = {dataset_id: [] for dataset_id in FIXED_DATASETS}
     for row in rows:
+        if row.get("model_id") not in FIXED_MODELS or row.get("dataset_id") not in FIXED_DATASETS:
+            continue
         if row.get("status") in {"completed", "reused"}:
             source = row
             output = Path(row["output"])
@@ -178,7 +218,7 @@ def _write_markdown(rows: list[dict[str, Any]]) -> tuple[Path, Path]:
     zh: list[str] = [
         "# 固定分类模型全数据集外部推理报告",
         "",
-        "本报告严格遵循 AGENTS.md 中固定的七模型、固定数据划分和 identity-only TTA 协议。",
+        "本报告严格遵循 AGENTS.md 中固定的六模型、固定数据划分和 identity-only TTA 协议。",
         "主任务为 benign/malignant 二分类；外部集未参与模型、阈值、TTA或checkpoint选择。",
         "",
         "## 统一协议",
@@ -192,7 +232,7 @@ def _write_markdown(rows: list[dict[str, Any]]) -> tuple[Path, Path]:
     en: list[str] = [
         "# Fixed Classification Benchmark: All-Dataset Inference",
         "",
-        "This report follows the fixed seven-model, fixed split, and identity-only TTA protocol in AGENTS.md.",
+        "This report follows the fixed six-model, fixed split, and identity-only TTA protocol in AGENTS.md.",
         "The primary task is benign/malignant classification; external datasets were not used for model, threshold, TTA, or checkpoint selection.",
         "",
         "## Unified Protocol",

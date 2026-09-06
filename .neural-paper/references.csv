@@ -1,0 +1,12 @@
+id,title,authors,year,venue,doi,status,verified_date
+bray2024,Global cancer statistics 2022: GLOBOCAN estimates of incidence and mortality worldwide for 36 cancers in 185 countries,Bray et al.,2024,CA A Cancer Journal for Clinicians 74(3):229-263,10.3322/caac.21834,verified,2026-08-20
+gomez2024,BUS-BRA: A breast ultrasound dataset for assessing computer-aided diagnosis systems,Gomez-Flores et al.,2024,Medical Physics 51(4):3110-3123,10.1002/mp.16812,verified,2026-08-20
+liu2022convnext,A ConvNet for the 2020s,Liu et al.,2022,IEEE CVPR:11966-11976,10.1109/CVPR52688.2022.01167,verified,2026-08-20
+liu2021swin,Swin Transformer: Hierarchical Vision Transformer using Shifted Windows,Liu et al.,2021,IEEE ICCV:9992-10002,10.1109/ICCV48922.2021.00986,verified,2026-08-20
+shin2019,Joint Weakly and Semi-Supervised Deep Learning for Localization and Classification of Masses in Breast Ultrasound Images,Shin et al.,2019,IEEE Transactions on Medical Imaging 38(3):762-774,10.1109/TMI.2018.2872031,verified,2026-08-20
+kim2021,Weakly-supervised deep learning for ultrasound diagnosis of breast cancer,Kim et al.,2021,Scientific Reports 11:24382,10.1038/s41598-021-03806-7,verified,2026-08-20
+wang2024,Weakly Supervised Lesion Detection and Diagnosis for Breast Cancers With Partially Annotated Ultrasound Images,Wang et al.,2024,IEEE Transactions on Medical Imaging 43(7):2509-2521,10.1109/TMI.2024.3366940,verified,2026-08-20
+busi2020,Dataset of breast ultrasound images,Al-Dhabyani et al.,2020,Data in Brief 28:104863,10.1016/j.dib.2019.104863,verified,2026-08-20
+busiwhu2023,BUSI_WHU: Breast Cancer Ultrasound Image Dataset,Huang et al.,2023,Mendeley Data,10.17632/k6cpmwybk3.1,verified,2026-08-20
+tcia2024,A Curated Benchmark Dataset for Ultrasound Based Breast Lesion Analysis (Breast-Lesions-USG),Pawlowska et al.,2024,The Cancer Imaging Archive Version 2,10.7937/9WKK-Q141,verified,2026-08-20
+efron1994,An Introduction to the Bootstrap,Efron and Tibshirani,1994,Chapman and Hall/CRC,10.1201/9780429246593,verified,2026-08-20

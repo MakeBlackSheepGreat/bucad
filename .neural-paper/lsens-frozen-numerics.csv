@@ -1,0 +1,84 @@
+metric,value,source
+LEA pooled AUC,0.9150,artifacts/reports/lesionext_lens_v1a_evidence_only_5fold_oof.json
+LEA pooled accuracy,0.8709,artifacts/reports/lesionext_lens_v1a_evidence_only_5fold_oof.json
+LEA pooled sensitivity,0.7694,artifacts/reports/lesionext_lens_v1a_evidence_only_5fold_oof.json
+LEA pooled specificity,0.9196,artifacts/reports/lesionext_lens_v1a_evidence_only_5fold_oof.json
+LEA pooled precision,0.8207,artifacts/reports/lesionext_lens_v1a_evidence_only_5fold_oof.json
+LEA pooled F1,0.7942,artifacts/reports/lesionext_lens_v1a_evidence_only_5fold_oof.json
+ConvNeXt Tiny pooled AUC,0.9006,artifacts/reports/fixed_classification_benchmark/oof/convnext_tiny.json
+ConvNeXt Tiny pooled accuracy,0.8501,artifacts/reports/fixed_classification_benchmark/oof/convnext_tiny.json
+ConvNeXt Tiny pooled sensitivity,0.7743,artifacts/reports/fixed_classification_benchmark/oof/convnext_tiny.json
+ConvNeXt Tiny pooled specificity,0.8864,artifacts/reports/fixed_classification_benchmark/oof/convnext_tiny.json
+ConvNeXt Tiny pooled precision,0.7655,artifacts/reports/fixed_classification_benchmark/oof/convnext_tiny.json
+ConvNeXt Tiny pooled F1,0.7699,artifacts/reports/fixed_classification_benchmark/oof/convnext_tiny.json
+ResNet18 AUC,0.8425,artifacts/reports/fixed_classification_benchmark/all_model_comparison_v1a.csv
+ResNet18 accuracy,0.8048,artifacts/reports/fixed_classification_benchmark/all_model_comparison_v1a.csv
+ResNet18 sensitivity,0.6326,artifacts/reports/fixed_classification_benchmark/all_model_comparison_v1a.csv
+ResNet18 specificity,0.8872,artifacts/reports/fixed_classification_benchmark/all_model_comparison_v1a.csv
+ResNet18 precision,0.7287,artifacts/reports/fixed_classification_benchmark/all_model_comparison_v1a.csv
+ResNet18 F1,0.6772,artifacts/reports/fixed_classification_benchmark/all_model_comparison_v1a.csv
+DenseNet121 AUC,0.8697,artifacts/reports/fixed_classification_benchmark/all_model_comparison_v1a.csv
+DenseNet121 accuracy,0.8304,artifacts/reports/fixed_classification_benchmark/all_model_comparison_v1a.csv
+DenseNet121 sensitivity,0.6277,artifacts/reports/fixed_classification_benchmark/all_model_comparison_v1a.csv
+DenseNet121 specificity,0.9274,artifacts/reports/fixed_classification_benchmark/all_model_comparison_v1a.csv
+DenseNet121 precision,0.8055,artifacts/reports/fixed_classification_benchmark/all_model_comparison_v1a.csv
+DenseNet121 F1,0.7056,artifacts/reports/fixed_classification_benchmark/all_model_comparison_v1a.csv
+EfficientNetV2 S AUC,0.8911,artifacts/reports/fixed_classification_benchmark/all_model_comparison_v1a.csv
+EfficientNetV2 S accuracy,0.8224,artifacts/reports/fixed_classification_benchmark/all_model_comparison_v1a.csv
+EfficientNetV2 S sensitivity,0.6557,artifacts/reports/fixed_classification_benchmark/all_model_comparison_v1a.csv
+EfficientNetV2 S specificity,0.9022,artifacts/reports/fixed_classification_benchmark/all_model_comparison_v1a.csv
+EfficientNetV2 S precision,0.7625,artifacts/reports/fixed_classification_benchmark/all_model_comparison_v1a.csv
+EfficientNetV2 S F1,0.7050,artifacts/reports/fixed_classification_benchmark/all_model_comparison_v1a.csv
+Swin Tiny AUC,0.9109,artifacts/reports/fixed_classification_benchmark/all_model_comparison_v1a.csv
+Swin Tiny accuracy,0.8459,artifacts/reports/fixed_classification_benchmark/all_model_comparison_v1a.csv
+Swin Tiny sensitivity,0.7595,artifacts/reports/fixed_classification_benchmark/all_model_comparison_v1a.csv
+Swin Tiny specificity,0.8872,artifacts/reports/fixed_classification_benchmark/all_model_comparison_v1a.csv
+Swin Tiny precision,0.7632,artifacts/reports/fixed_classification_benchmark/all_model_comparison_v1a.csv
+Swin Tiny F1,0.7614,artifacts/reports/fixed_classification_benchmark/all_model_comparison_v1a.csv
+Evidence head only AUC,0.9072,artifacts/reports/lesionext_lens_v1a_no_alignment_control_5fold_oof.json
+Evidence head only sensitivity,0.7990,artifacts/reports/lesionext_lens_v1a_no_alignment_control_5fold_oof.json
+Evidence head only specificity,0.8746,artifacts/reports/lesionext_lens_v1a_no_alignment_control_5fold_oof.json
+Evidence head only precision,0.7531,artifacts/reports/lesionext_lens_v1a_no_alignment_control_5fold_oof.json
+Evidence head only F1,0.7754,artifacts/reports/lesionext_lens_v1a_no_alignment_control_5fold_oof.json
+LEA local AUC,0.8907,artifacts/reports/lesionext_lens_v1_5fold_oof.json
+LEA local accuracy,0.8384,artifacts/reports/lesionext_lens_v1_5fold_oof.json
+LEA local sensitivity,0.8171,artifacts/reports/lesionext_lens_v1_5fold_oof.json
+LEA local specificity,0.8486,artifacts/reports/lesionext_lens_v1_5fold_oof.json
+LEA local precision,0.7209,artifacts/reports/lesionext_lens_v1_5fold_oof.json
+LEA local F1,0.7660,artifacts/reports/lesionext_lens_v1_5fold_oof.json
+LEA AUC delta,0.0144,artifacts/reports/paper_evidence/lesionext_lea_component_ablation.json
+LEA AUC CI lower,-0.0030,artifacts/reports/paper_evidence/lesionext_lea_component_ablation.json
+LEA AUC CI upper,0.0320,artifacts/reports/paper_evidence/lesionext_lea_component_ablation.json
+LEA accuracy CI lower,0.0050,artifacts/reports/paper_evidence/lesionext_lea_component_ablation.json
+LEA accuracy CI upper,0.0370,artifacts/reports/paper_evidence/lesionext_lea_component_ablation.json
+LEA sensitivity CI lower,-0.0370,artifacts/reports/paper_evidence/lesionext_lea_component_ablation.json
+LEA sensitivity CI upper,0.0270,artifacts/reports/paper_evidence/lesionext_lea_component_ablation.json
+LEA evidence mass,0.9883,artifacts/reports/paper_evidence/lesionext_lea_component_ablation.json
+Unaligned evidence mass,0.2898,artifacts/reports/paper_evidence/lesionext_lea_component_ablation.json
+LEA evidence mass SD,0.0079,artifacts/reports/paper_evidence/lesionext_lea_component_ablation.json
+Unaligned evidence mass SD,0.0152,artifacts/reports/paper_evidence/lesionext_lea_component_ablation.json
+LEA fold 1 AUC,0.9298,artifacts/reports/paper_evidence/lesionext_lea_component_ablation.json
+LEA fold 2 AUC,0.9220,artifacts/reports/paper_evidence/lesionext_lea_component_ablation.json
+LEA fold 3 AUC,0.9563,artifacts/reports/paper_evidence/lesionext_lea_component_ablation.json
+LEA fold 4 AUC,0.9197,artifacts/reports/paper_evidence/lesionext_lea_component_ablation.json
+LEA fold 5 AUC,0.9187,artifacts/reports/paper_evidence/lesionext_lea_component_ablation.json
+ConvNeXt fold 1 AUC,0.9259,artifacts/reports/paper_evidence/lesionext_lea_component_ablation.json
+ConvNeXt fold 2 AUC,0.9301,artifacts/reports/paper_evidence/lesionext_lea_component_ablation.json
+ConvNeXt fold 3 AUC,0.9469,artifacts/reports/paper_evidence/lesionext_lea_component_ablation.json
+ConvNeXt fold 4 AUC,0.8875,artifacts/reports/paper_evidence/lesionext_lea_component_ablation.json
+ConvNeXt fold 5 AUC,0.9158,artifacts/reports/paper_evidence/lesionext_lea_component_ablation.json
+External BUSI AUC,0.9089,artifacts/reports/lesionext_lens_v1a_v3_external_review_en.md
+External BUSI WHU AUC,0.8171,artifacts/reports/lesionext_lens_v1a_v3_external_review_en.md
+External TCIA AUC,0.8617,artifacts/reports/lesionext_lens_v1a_v3_external_review_en.md
+High evidence logit drop,3.2911,artifacts/reports/paper_evidence/lesionext_lea_evidence_deletion.json
+Low evidence logit drop,0.1754,artifacts/reports/paper_evidence/lesionext_lea_evidence_deletion.json
+Random evidence logit drop,0.9975,artifacts/reports/paper_evidence/lesionext_lea_evidence_deletion.json
+High low deletion difference,3.1157,artifacts/reports/paper_evidence/lesionext_lea_evidence_deletion.json
+High low deletion CI lower,2.9149,artifacts/reports/paper_evidence/lesionext_lea_evidence_deletion.json
+High low deletion CI upper,3.3080,artifacts/reports/paper_evidence/lesionext_lea_evidence_deletion.json
+ConvNeXt Tiny parameter count,27821666,artifacts/reports/paper_evidence/lesionext_lea_latency_benchmark.json
+LEA parameter count,27823973,artifacts/reports/paper_evidence/lesionext_lea_latency_benchmark.json
+ConvNeXt Tiny latency mean,8.284,artifacts/reports/paper_evidence/lesionext_lea_latency_benchmark.json
+ConvNeXt Tiny latency P95,12.008,artifacts/reports/paper_evidence/lesionext_lea_latency_benchmark.json
+LEA latency mean,8.770,artifacts/reports/paper_evidence/lesionext_lea_latency_benchmark.json
+LEA latency P95,12.209,artifacts/reports/paper_evidence/lesionext_lea_latency_benchmark.json

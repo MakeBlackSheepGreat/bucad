@@ -18,7 +18,9 @@ def main() -> int:
     """Run environment reporting followed by the supported unit and smoke tests."""
     root = Path(__file__).resolve().parent
     env_code = run([sys.executable, str(root / "check_env.py")])
-    pytest_tmp = Path(tempfile.mkdtemp(prefix="pytest-bucad-", dir=root / "tmp"))
+    tmp_root = root / "tmp"
+    tmp_root.mkdir(parents=True, exist_ok=True)
+    pytest_tmp = Path(tempfile.mkdtemp(prefix="pytest-bucad-", dir=tmp_root))
     test_code = run(
         [
             sys.executable,

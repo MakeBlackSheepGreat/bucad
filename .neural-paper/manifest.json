@@ -1,0 +1,22 @@
+{
+  "project_type": "active",
+  "research_question": "Can training-time lesion evidence alignment improve breast ultrasound benign/malignant classification while retaining a BBOX-free inference path?",
+  "task_definition": "Binary classification benign vs malignant on BUSBRA 1064 cases, case-level 5-fold CV, locked external validation on BUSI/BUSI-WHU/TCIA BrEaST",
+  "data_version": "BUSBRA 1875 images 1064 cases + BUSI + BUSI-WHU + TCIA BrEaST, case-level splits busbra_5fold_splits.csv",
+  "training_entrypoint": "configs/classifier/lesionext_lens_v1a_evidence_only.yml",
+  "inference_entrypoint": "configs/inference/lesionext_lens_v1a_5fold_identity.yml",
+  "environment_file": "requirements.txt + conda env",
+  "seed_strategy": "fixed seed per fold, deterministic DataLoader",
+  "primary_metrics": "AUC, Accuracy, Sensitivity, Specificity, Precision, F1, bootstrap 95% CI",
+  "target_venue": "ieee_sensors_letters",
+  "current_stage": "polishing",
+  "innovation_class": "training-time regularization / evidence alignment",
+  "story_position": "Training-time lesion evidence alignment: lesion bounding boxes only during training, global image inference at deployment, and locked external-cohort evaluation",
+  "task_type": "image_classification",
+  "modality": "ultrasound_2d",
+  "model_family": "convnext_derived",
+  "framework": "pytorch_timm",
+  "cv_protocol": "case_level_5fold_oof",
+  "prediction_contract": "classification_prob",
+  "decision_protocol": "fixed_threshold_0.5 identity-only inference"
+}

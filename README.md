@@ -10,12 +10,14 @@ BUCAD（Breast Ultrasound Computer-Aided Diagnosis）是一个面向乳腺超声
 
 ## 数据与验证
 
-- BUSBRA 用于模型训练、内部验证与 out-of-fold 候选筛选；固定七模型基准的全部 headline 分类指标统一使用阈值 `0.50`。
+- BUSBRA 用于模型训练、内部验证与 out-of-fold 候选筛选；固定六模型基准的全部 headline 分类指标统一使用阈值 `0.50`。
 - 项目实验对比统一报告 AUC、Accuracy、Recall/Sensitivity、Precision、Specificity 和 F1-Score。
 
 项目采用“内部选择、外部复核”的实验边界。BUSBRA 内部划分采用病例级分组策略，记录中共有 1875 张图像、1064 个唯一病例、5 个 fold，泄漏检测结果为 false。BUSI 作为外部数据集，用于记录主线与候选配置在独立来源上的迁移表现。
 
 该边界对本项目较为关键。乳腺超声图像存在设备、采集角度、病灶大小、背景组织和标注风格差异，仅依赖内部 OOF 提升容易高估泛化能力。因此 README 中区分三类结果：已部署主线、冻结外部验证通过但未合入的候选、内部提升但 BUSI 迁移不足的失败实验。
+
+当前论文和后续候选只将 BUSI、BUSI-WHU 与 TCIA BrEaST 作为锁定外部队列。BUS-UCLM 的既有评估、表格和报告仅保留为历史归档，不进入当前论文、当前主表或未来候选筛选。
 
 ## 最新 LesioNeXt 性能与创新
 
@@ -23,13 +25,13 @@ LesioNeXt-LENS v1a 已冻结为当前论文主模型。训练期以 BUSBRA BBOX 
 
 最新的严格单因素消融比较 LENS v1a 的训练期 BBOX evidence alignment 与无对齐对照。两者的 backbone、evidence head、部署 alpha、数据划分、增强、随机种子和训练规则一致，仅将 alignment weight 从 `0.25` 设为 `0.00`。无对齐对照在 BUSBRA fold1 取得 AUC `0.9358`、Sensitivity `0.7705`、F1 `0.7966`，高于 v1a 的 `0.9298`、`0.7295`、`0.7911`；v1a 的 Accuracy `0.8747`、Specificity `0.9447` 较高。v1a 将 BBOX evidence mass 提升至 `0.9873`，无对齐为 `0.2987`，证明弱定位监督生效。该单折对照尚未支持“evidence alignment 已带来稳定分类增益”的论文表述；五折阶段会保留这组消融，外部集仍冻结。详见 [`中文报告`](artifacts/reports/lesionext_lens_v1a_no_alignment_control_fold1_zh.md) 与 [`English report`](artifacts/reports/lesionext_lens_v1a_no_alignment_control_fold1_en.md)。
 
-v1a 的预注册五折训练已完成，pooled BUSBRA OOF 为 AUC `0.9150`、Accuracy `0.8709`、Sensitivity `0.7694`、Specificity `0.9196`、Precision `0.8207`、F1 `0.7942`。相对 ConvNeXt-Tiny identity OOF，AUC/Accuracy/Specificity/Precision/F1 分别提高 `0.0144`、`0.0208`、`0.0332`、`0.0552`、`0.0243`，Sensitivity 低 `0.0049`。预注册的 Sensitivity 门槛为 `0.7743`，因此当前结果不能支撑“全面超过 ConvNeXt-Tiny”的论文结论，四个外部数据集继续冻结。完整中英文报告见 [`中文`](artifacts/reports/lesionext_lens_v1a_5fold_oof_zh.md) 与 [`English`](artifacts/reports/lesionext_lens_v1a_5fold_oof_en.md)。
+v1a 的预注册五折训练已完成，pooled BUSBRA OOF 为 AUC `0.9150`、Accuracy `0.8709`、Sensitivity `0.7694`、Specificity `0.9196`、Precision `0.8207`、F1 `0.7942`。相对 ConvNeXt-Tiny identity OOF，AUC/Accuracy/Specificity/Precision/F1 分别提高 `0.0144`、`0.0208`、`0.0332`、`0.0552`、`0.0243`，Sensitivity 低 `0.0049`。预注册的 Sensitivity 门槛为 `0.7743`，因此当前结果不能支撑“全面超过 ConvNeXt-Tiny”的论文结论，当前三个外部数据集继续冻结。完整中英文报告见 [`中文`](artifacts/reports/lesionext_lens_v1a_5fold_oof_zh.md) 与 [`English`](artifacts/reports/lesionext_lens_v1a_5fold_oof_en.md)。
 
 本轮还修复了 OOF 评估器的 checkpoint 路径解析，并加入缺失 checkpoint 直接报错的保护。修复后已重跑上述 OOF，避免未加载权重的随机模型进入汇总指标。
 
-五折 v1a 在 BUSI / BUS-UCLM / BUSI-WHU / TCIA BrEaST 的 AUC 分别为 `0.9089` / `0.8847` / `0.8171` / `0.8617`。论文需同时保留内部 Sensitivity 差 `-0.0049` 与无对齐消融的限制。详见 [`中文外部报告`](artifacts/reports/lesionext_lens_v1a_v3_external_review_zh.md) 与 [`English external report`](artifacts/reports/lesionext_lens_v1a_v3_external_review_en.md)。
+五折 v1a 在当前三个外部队列 BUSI / BUSI-WHU / TCIA BrEaST 的 AUC 分别为 `0.9089` / `0.8171` / `0.8617`。BUS-UCLM 的既有外部复核记录保留在历史归档中，不进入当前论文或主表。论文需同时保留内部 Sensitivity 差 `-0.0049` 与无对齐消融的限制。详见 [`中文外部报告`](artifacts/reports/lesionext_lens_v1a_v3_external_review_zh.md) 与 [`English external report`](artifacts/reports/lesionext_lens_v1a_v3_external_review_en.md)。
 
-下一轮候选实验已预注册，执行顺序为无对齐五折补齐、14x14+7x7 多分辨率证据监督、BBOX 质量感知 alignment 与 BBOX 外背景反事实一致性。每项实验只改变一个训练因素，在 BUSBRA fold1 的 AUC、Accuracy、Sensitivity、Specificity 与 F1 全部不低于 v1a fold1 后才补齐五折；BUSI、BUS-UCLM、BUSI-WHU 与 TCIA BrEaST 继续冻结。校准脚本仅分析内部 OOF，外部阈值固定为 `0.50`。
+下一轮候选实验已预注册，执行顺序为无对齐五折补齐、14x14+7x7 多分辨率证据监督、BBOX 质量感知 alignment 与 BBOX 外背景反事实一致性。每项实验只改变一个训练因素，在 BUSBRA fold1 的 AUC、Accuracy、Sensitivity、Specificity 与 F1 全部不低于 v1a fold1 后才补齐五折；BUSI、BUSI-WHU 与 TCIA BrEaST 继续冻结。校准脚本仅分析内部 OOF，外部阈值固定为 `0.50`。
 
 `v1a-multires` 已完成 BUSBRA fold1 筛选：AUC `0.9266`、Accuracy `0.8373`、Sensitivity `0.9180`、Specificity `0.7984`、F1 `0.7860`。AUC、Accuracy、Specificity 和 F1 未达到 v1a fold1 门槛，路线停止并归档；未执行五折或外部测试。详见 [`中文筛选报告`](artifacts/reports/lesionext_lens_v1a_multires_fold1_zh.md) 与 [`English screening report`](artifacts/reports/lesionext_lens_v1a_multires_fold1_en.md)。
 
@@ -39,7 +41,7 @@ v1a 的预注册五折训练已完成，pooled BUSBRA OOF 为 AUC `0.9150`、Acc
 
 候选 fold1 指标已汇总到 [`候选筛选 CSV`](artifacts/reports/lesionext_v1a_candidate_fold1_screening.csv)。冻结 v1a 的 BUSBRA OOF 校准分析已生成 ECE `0.105586`、Brier `0.115689`、Youden 阈值比较；外部阈值仍固定为 `0.50`，详见 [`中文校准报告`](artifacts/reports/lesionext_lens_v1a_evidence_only_5fold_calibration_zh.md) 与 [`English calibration report`](artifacts/reports/lesionext_lens_v1a_evidence_only_5fold_calibration_en.md)。
 
-固定七模型全数据集指标表已经生成，覆盖 BUSBRA pooled OOF、BUSI、BUS-UCLM、BUSI-WHU、TCIA BrEaST，并列出 AUC、Accuracy、Sensitivity、Specificity、Precision、F1 与外部 AUC 95% CI。所有 headline Accuracy、Sensitivity、Specificity、Precision 与 F1 都固定按阈值 `0.50` 计算；Youden 阈值仅用于内部诊断，不进入主表。当前论文方法为 LesioNeXt-LENS v1a。详见 [`中文全表`](artifacts/reports/fixed_classification_benchmark/all_model_comparison_v1a_zh.md)、[`English full table`](artifacts/reports/fixed_classification_benchmark/all_model_comparison_v1a_en.md) 和 [`CSV`](artifacts/reports/fixed_classification_benchmark/all_model_comparison_v1a.csv)。
+固定六模型的历史全数据集指标表覆盖 BUSBRA pooled OOF、BUSI、BUS-UCLM、BUSI-WHU、TCIA BrEaST，并列出 AUC、Accuracy、Sensitivity、Specificity、Precision、F1 与外部 AUC 95% CI。当前论文的固定比较只报告 BUSBRA pooled OOF、BUSI、BUSI-WHU 与 TCIA BrEaST。所有 headline Accuracy、Sensitivity、Specificity、Precision 与 F1 都固定按阈值 `0.50` 计算；Youden 阈值仅用于内部诊断，不进入主表。当前论文方法为 LesioNeXt-LENS v1a。详见 [`中文全表`](artifacts/reports/fixed_classification_benchmark/all_model_comparison_v1a_zh.md)、[`English full table`](artifacts/reports/fixed_classification_benchmark/all_model_comparison_v1a_en.md) 和 [`CSV`](artifacts/reports/fixed_classification_benchmark/all_model_comparison_v1a.csv)。
 
 `v1a-cal-bias` 已完成 BUSBRA-only 嵌套五折校准筛选。该候选只学习一个 logit bias，外部集和评估阈值均未读取或修改。固定阈值 `0.50` 下，BUSBRA pooled OOF 为 AUC `0.9122`、Accuracy `0.8720`、Sensitivity `0.8023`、Specificity `0.9054`、F1 `0.8023`；虽然 Sensitivity 上升，但 AUC 和 Specificity 低于冻结 v1a，因此路线停止，不执行 temperature+bias 或四个外部集复核。详见 [`中文报告`](artifacts/reports/lesionext_lens_v1a_cal_bias_zh.md) 与 [`English report`](artifacts/reports/lesionext_lens_v1a_cal_bias_en.md)。
 
@@ -49,7 +51,7 @@ v1a 的预注册五折训练已完成，pooled BUSBRA OOF 为 AUC `0.9150`、Acc
 
 ### 已完成候选：v1a-error-aware-align
 
-`v1a-error-aware-align` 已登记为下一项独立 fold1 筛选。它只在训练期按同一次前向的真实标签概率 `p_true` 对 BBOX evidence alignment 加有限 hard-example 权重：`w=0.75+0.50*(1-p_true)`，有效样本 batch 内归一化并限制在 `[0.75,1.25]`。该权重同时覆盖高置信 FN/FP，分类损失、ConvNeXt-Tiny 全局推理 logits、`alpha=0`、identity-only 预处理和阈值 `0.50` 均保持不变。该候选用于检验“困难样本证据定位”能否同时改善 v1a 的 Sensitivity 与 BUS-UCLM 假阳性问题；外部数据集不参与选择。fold1 放行要求五项指标全部不低于 v1a fold1，未通过则归档并停止；通过后才补齐五折和申请外部冻结复核。配置见 [`configs/classifier/lesionext_lens_v1a_error_aware_align.yml`](configs/classifier/lesionext_lens_v1a_error_aware_align.yml)。
+`v1a-error-aware-align` 已登记为下一项独立 fold1 筛选。它只在训练期按同一次前向的真实标签概率 `p_true` 对 BBOX evidence alignment 加有限 hard-example 权重：`w=0.75+0.50*(1-p_true)`，有效样本 batch 内归一化并限制在 `[0.75,1.25]`。该权重同时覆盖高置信 FN/FP，分类损失、ConvNeXt-Tiny 全局推理 logits、`alpha=0`、identity-only 预处理和阈值 `0.50` 均保持不变。该候选用于检验“困难样本证据定位”能否同时改善 v1a 的 Sensitivity 与当前锁定外部队列的假阳性表现；外部数据集不参与选择。fold1 放行要求五项指标全部不低于 v1a fold1，未通过则归档并停止；通过后才补齐五折和申请外部冻结复核。配置见 [`configs/classifier/lesionext_lens_v1a_error_aware_align.yml`](configs/classifier/lesionext_lens_v1a_error_aware_align.yml)。
 
 该候选已完成 BUSBRA fold1，AUC `0.9335`、Accuracy `0.8693`、Sensitivity `0.8607`、Specificity `0.8735`、Precision `0.7664`、F1 `0.8108`。AUC、Sensitivity 和 F1 提高，但 Accuracy 与 Specificity 未达到 v1a fold1 门槛，确认了困难样本加权会把错误从 FN 推向 FP；路线停止，不执行五折或外部测试。中英文报告见 [`中文`](artifacts/reports/lesionext_lens_v1a_error_aware_align_fold1_zh.md) 与 [`English`](artifacts/reports/lesionext_lens_v1a_error_aware_align_fold1_en.md)，归档副本位于 [`lesionext_archive`](artifacts/reports/lesionext_archive/README.md)。
 
@@ -82,7 +84,7 @@ v1a 的预注册五折训练已完成，pooled BUSBRA OOF 为 AUC `0.9150`、Acc
 | BUSI-WHU 5-fold external | **0.8050** | 0.7966 | +0.0084 | LENS AUC 更高 |
 | TCIA BrEaST 5-fold external | **0.8495** | 0.8382 | +0.0113 | LENS AUC 更高 |
 
-LENS 的主创新是 **lesion evidence alignment**：训练期用 BUSBRA BBOX 约束病灶证据图，分类头执行病灶证据加权池化；推理期只加载一个 ConvNeXt-Tiny 衍生模型，不读取 BBOX，不加载教师、分割器或融合器。五折外部复核显示 LENS 在 4 个数据集中的 3 个 AUC 更高，且在 4 个数据集上均提升 Sensitivity；Accuracy 与 Specificity 存在稳定回退，四组 AUC 95% CI 均有重叠。该结果支持保留为跨域高敏感性探索候选，论文主表仍以固定七模型协议为准。详细记录见 [`artifacts/reports/lesionext_lens_v1_5fold_external_comparison_zh.md`](artifacts/reports/lesionext_lens_v1_5fold_external_comparison_zh.md)，配置见 [`configs/classifier/lesionext_lens_v1.yml`](configs/classifier/lesionext_lens_v1.yml)。
+LENS 的主创新是 **lesion evidence alignment**：训练期用 BUSBRA BBOX 约束病灶证据图，分类头执行病灶证据加权池化；推理期只加载一个 ConvNeXt-Tiny 衍生模型，不读取 BBOX，不加载教师、分割器或融合器。五折外部复核显示 LENS 在 4 个数据集中的 3 个 AUC 更高，且在 4 个数据集上均提升 Sensitivity；Accuracy 与 Specificity 存在稳定回退，四组 AUC 95% CI 均有重叠。该结果支持保留为跨域高敏感性探索候选，论文主表仍以固定六模型协议为准。详细记录见 [`artifacts/reports/lesionext_lens_v1_5fold_external_comparison_zh.md`](artifacts/reports/lesionext_lens_v1_5fold_external_comparison_zh.md)，配置见 [`configs/classifier/lesionext_lens_v1.yml`](configs/classifier/lesionext_lens_v1.yml)。
 
 LENS v2 只将全局共享的 `evidence_alpha` 改为由证据集中度和局部/全局嵌入一致性决定的逐图 Evidence-Confidence Gate，新增参数仅 1 个。fold1 AUC 达到 `0.9238`，超过新设 AUC 门槛 `0.9191`；Accuracy `0.8133`、Sensitivity `0.5082` 未达到放行标准，Specificity 升至 `0.9605`。诊断显示 alpha 从 v1 的 `0.0206` 增至 `0.1961 ± 0.0134`，gate 已实际参与决策；该版本形成过度保守的高特异性偏置，停止五折与外部推理。详见 [`artifacts/reports/lesionext_lens_v2_confidence_fold1_screening_zh.md`](artifacts/reports/lesionext_lens_v2_confidence_fold1_screening_zh.md)。
 
@@ -293,7 +295,6 @@ timm-aware 预处理是 ConvNeXt 系列模型有效迁移预训练权重的前�
 | ---------------- | ---------: | ----------: | -----: | ------ |
 | ConvNeXt-Tiny V1 |     0.9259 |      0.9212 | 0.0196 | —     |
 | ConvNeXt-Tiny V2 |     0.9278 |      0.9176 | 0.0107 | 更稳定 |
-| ConvNeXt-Small   |     0.9118 |      0.9162 | 0.0163 | —     |
 | EfficientNetV2-S |     0.9248 |      0.8946 | 0.0241 | —     |
 
 **BUSI 外部消融（5-fold vs 单折）：**
@@ -420,7 +421,6 @@ OOF stacking 在内部验证中提供了更规范的融合器训练口径，但�
 | 模型              | 参数量 |    AUC | Sensitivity | Specificity | F1-Score |
 | ----------------- | -----: | -----: | ----------: | ----------: | -------: |
 | ConvNeXt-Tiny     |    28M | 0.8943 |      0.7762 |      0.8741 |   0.7617 |
-| ConvNeXt-Small    |    50M | 0.8947 |      0.7667 |      0.8581 |   0.7436 |
 | Swin-Tiny         |    28M | 0.8729 |      0.7048 |      0.8902 |   0.7291 |
 | DenseNet-121      |     8M | 0.8766 |      0.4571 |      0.9771 |   0.6076 |
 | EfficientNetV2-S  |    21M | 0.8609 |      0.8333 |      0.7048 |   0.6809 |
@@ -447,32 +447,13 @@ OOF stacking 在内部验证中提供了更规范的融合器训练口径，但�
 
 原始集成筛选记录已本地归档，不随项目仓库分发。
 
-### 7. ConvNeXt-Small 升级评估
-
-ConvNeXt-Small（50M 参数）在单折外部 AUC 上略高于 ConvNeXt-Tiny（28M 参数），但内部验证 AUC 反而更低，且训练损失接近 0，提示当前配置下存在过拟合风险。
-
-ConvNeXt-Small 是合理的升级候选，但还不是可以直接进入默认配置的合并项。它的外部单折 AUC 高 0.0038，但内部 fold1 AUC 低 0.0141，Youden J 几乎相同。这种“外部单点略高、内部稳定性不足”的组合不满足主线合并标准。若后续继续研究该方向，应先完成更严格的五折训练、正则化和 OOF 迁移验证，而不是仅凭单折 BUSI AUC 改动默认模型。
-
-**消融结果：**
-
-
-| 模型           | BUSBRA fold1 AUC | BUSI fold1 AUC |    Youden J |
-| -------------- | ---------------: | -------------: | ----------: |
-| ConvNeXt-Tiny  |           0.9259 |         0.8953 |      0.6671 |
-| ConvNeXt-Small |           0.9118 |         0.8991 |      0.6665 |
-| **差异**       |      **-0.0141** |    **+0.0038** | **-0.0006** |
-
-内部 AUC 下降 0.0141 与外部 AUC 提升 0.0038 的矛盾表明 ConvNeXt-Small 在当前训练配置下泛化不稳定。Youden J 几乎相同（0.6671 vs 0.6665），未达到主线合并标准。
-
-原始升级候选记录已本地归档，不随项目仓库分发。
-
-### 8. 阈值选择与指标权衡
+### 7. 阈值选择与指标权衡
 
 项目同时报告 AUC 和固定阈值指标。AUC 反映排序能力，不依赖某一个阈值；Sensitivity、Specificity、Precision 和 F1-Score 则反映实际判别点的临床含义。当前主线阈值 `0.510` 与 `configs/inference/demo.yml` 保持一致，默认演示界面采用该冻结配置阈值。
 
 阈值调优曾作为独立方向测试，但单纯移动阈值只能改变 FP/FN 的分布，不能改善概率排序质量。ROI 面积门控能够同时提升 AUC 和固定阈值指标，说明它改变的是输入分支选择和概率质量，而不是只做后验阈值偏移。
 
-### 9. 可解释性输出
+### 8. 可解释性输出
 
 系统保留 Grad-CAM 和病灶 mask 可视化，用于展示分类模型关注区域与分割 ROI 的关系。可解释性输出不参与训练或调参，主要服务于 demo 展示、错误样本复核和人工审阅。对于误判样本，Grad-CAM 可帮助区分模型是否关注病灶本体、周围组织、图像黑边或设备标注，从而辅助后续错误类型归因。
 
@@ -732,7 +713,6 @@ python scripts\eval_busi.py --config configs\inference\demo.yml --output artifac
 | `08_segmenter_recalibrated_roi/segmenter_recalibrated_roi_all_methods_summary.md` | 分割器替换与 ROI 重新标定对比        |
 | `03_ensemble_oof_stacking/oof_two_model_stacking.md`                              | OOF Stacking vs 静态权重             |
 | `03_ensemble_oof_stacking/formal_best_ensemble_external_eval.md`                  | 双模型 vs 三模型正式评估             |
-| `01_baseline_model_screening/convnext_small_upgrade_experiment.md`                | ConvNeXt-Small vs Tiny 对比          |
 | `01_baseline_model_screening/yolo_cls_yolo26x-cls_fold1.md`                       | YOLO26x-cls fold1 旁路分类对比       |
 | `01_baseline_model_screening/six_model_comparison_report.md`                      | 六模型全面对比（BUSBRA + BUSI）      |
 

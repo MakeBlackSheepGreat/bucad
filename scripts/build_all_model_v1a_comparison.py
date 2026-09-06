@@ -16,7 +16,6 @@ MODEL_NAMES = {
     "densenet121": "DenseNet121",
     "efficientnetv2_s": "EfficientNetV2-S",
     "convnext_tiny": "ConvNeXt-Tiny",
-    "convnext_small": "ConvNeXt-Small",
     "swin_tiny": "Swin-Tiny",
     "lesionext_lens_v1a": "LesioNeXt-LENS v1a",
 }
@@ -47,22 +46,37 @@ def _v1a_path(dataset_id: str) -> Path:
     return REPORT_ROOT.parent / names[dataset_id]
 
 
+def _benchmark_report_path(match: dict, model_id: str, dataset_id: str) -> Path:
+    """Prefer a valid indexed output and fall back to the portable raw location."""
+    indexed = Path(str(match.get("output", "")))
+    if indexed.exists():
+        return indexed
+    local = REPORT_ROOT / "raw" / f"{model_id}__{dataset_id}.json"
+    if local.exists():
+        return local
+    raise FileNotFoundError(
+        f"Missing benchmark report for {model_id}/{dataset_id}: {indexed} or {local}"
+    )
+
+
 def _collect() -> list[dict]:
     index = _load(INDEX_PATH)
     rows: list[dict] = []
     for model_id in MODEL_ORDER:
         for dataset_id in DATASET_NAMES:
-            if model_id == "lesionext_lens_v1a":
-                path = _v1a_path(dataset_id)
-            elif dataset_id == "busbra":
-                path = REPORT_ROOT / "oof" / f"{model_id}.json"
+            if dataset_id == "busbra":
+                path = (
+                    _v1a_path(dataset_id)
+                    if model_id == "lesionext_lens_v1a"
+                    else REPORT_ROOT / "oof" / f"{model_id}.json"
+                )
             else:
                 match = next(
                     row
                     for row in index
                     if row.get("model_id") == model_id and row.get("dataset_id") == dataset_id
                 )
-                path = Path(match["output"])
+                path = _benchmark_report_path(match, model_id, dataset_id)
             report = _load(path)
             metrics = report.get("metrics", {})
             report_threshold = metrics.get("threshold")
@@ -113,7 +127,7 @@ def _write_markdown(rows: list[dict], *, english: bool) -> Path:
         lines = [
             "# All-Model, All-Dataset Classification Comparison",
             "",
-            "The table reports the fixed seven-model benchmark, including LesioNeXt-LENS v1a. BUSBRA uses pooled five-fold OOF; the four independent cohorts use frozen identity-only inference and fixed threshold 0.50. External AUC intervals are bootstrap 95% CIs.",
+            "The table reports the fixed six-model benchmark, including LesioNeXt-LENS v1a. BUSBRA uses pooled five-fold OOF; the four independent cohorts use frozen identity-only inference and fixed threshold 0.50. External AUC intervals are bootstrap 95% CIs.",
             "",
         ]
         header = "| Model | n | Threshold | AUC | AUC 95% CI | Accuracy | Sensitivity | Specificity | Precision | F1 |"
@@ -122,7 +136,7 @@ def _write_markdown(rows: list[dict], *, english: bool) -> Path:
         lines = [
             "# 全模型全数据集分类性能对比",
             "",
-            "本表报告包含 LesioNeXt-LENS v1a 在内的固定七模型基准。BUSBRA 使用 pooled 五折 OOF；四个独立队列使用冻结的 identity-only 推理和固定阈值 0.50。外部 AUC 区间为 bootstrap 95% CI。",
+            "本表报告包含 LesioNeXt-LENS v1a 在内的固定六模型基准。BUSBRA 使用 pooled 五折 OOF；四个独立队列使用冻结的 identity-only 推理和固定阈值 0.50。外部 AUC 区间为 bootstrap 95% CI。",
             "",
         ]
         header = "| 模型 | n | 阈值 | AUC | AUC 95% CI | Accuracy | Sensitivity | Specificity | Precision | F1 |"

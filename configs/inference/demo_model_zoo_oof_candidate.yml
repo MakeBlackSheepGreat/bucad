@@ -208,62 +208,6 @@ runtime:
     interpolation: area
     crop_pct: 1.0
     tta_variants: *id005
-  - model: convnext_small
-    checkpoint: ./artifacts/checkpoints/convnext_small_timm_recipe_fold1.pt
-    weight: 0.039953064781496406
-    image_size: 224
-    apply_clahe: true
-    mean: &id006
-    - 0.485
-    - 0.456
-    - 0.406
-    std: &id007
-    - 0.229
-    - 0.224
-    - 0.225
-    interpolation: bicubic
-    crop_pct: 0.95
-    tta_variants: *id004
-  - model: convnext_small
-    checkpoint: ./artifacts/checkpoints/convnext_small_timm_recipe_fold2.pt
-    weight: 0.039953064781496406
-    image_size: 224
-    apply_clahe: true
-    mean: *id006
-    std: *id007
-    interpolation: bicubic
-    crop_pct: 0.95
-    tta_variants: *id004
-  - model: convnext_small
-    checkpoint: ./artifacts/checkpoints/convnext_small_timm_recipe_fold3.pt
-    weight: 0.039953064781496406
-    image_size: 224
-    apply_clahe: true
-    mean: *id006
-    std: *id007
-    interpolation: bicubic
-    crop_pct: 0.95
-    tta_variants: *id004
-  - model: convnext_small
-    checkpoint: ./artifacts/checkpoints/convnext_small_timm_recipe_fold4.pt
-    weight: 0.039953064781496406
-    image_size: 224
-    apply_clahe: true
-    mean: *id006
-    std: *id007
-    interpolation: bicubic
-    crop_pct: 0.95
-    tta_variants: *id004
-  - model: convnext_small
-    checkpoint: ./artifacts/checkpoints/convnext_small_timm_recipe_fold5.pt
-    weight: 0.039953064781496406
-    image_size: 224
-    apply_clahe: true
-    mean: *id006
-    std: *id007
-    interpolation: bicubic
-    crop_pct: 0.95
-    tta_variants: *id004
   - model: swin_tiny_patch4_window7_224
     checkpoint: ./artifacts/checkpoints/swin_tiny_patch4_window7_224_timm_recipe_fold1.pt
     weight: 0.39069926202822264
@@ -353,5 +297,4 @@ runtime:
       tf_efficientnetv2_s: 0.427
       convnext_tiny: 0.573
       densenet121: 0.0
-      convnext_small: 0.0
       swin_tiny_patch4_window7_224: 0.0
